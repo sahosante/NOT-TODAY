@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Not Today</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;
+    -webkit-user-select:none; user-select:none; }
+
+html, body {
+  width:100%; height:100%;
+  overflow:hidden;
+  background:#000;
+  touch-action:none;
+  font-family:'Courier New',monospace;
+}
+
+/* YÜKLEME */
+#loading-screen {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:#0a0010;
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  z-index:9998; gap:20px;
+}
+#loading-screen.hidden { display:none; }
+.load-logo { font-size:24px; color:#ff4400; letter-spacing:5px; text-shadow:0 0 20px #ff440088; }
+.load-bar-bg { width:200px; height:6px; background:#220011; border-radius:3px; overflow:hidden; }
+.load-bar-fill { height:100%; width:0%; background:#ff4400; border-radius:3px; transition:width 0.3s ease; }
+.load-txt { font-size:10px; color:#664422; letter-spacing:3px; }
+
+/* OYUN KAPSAYICI — Phaser canvas'ı ortalamak için */
+#game-container {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#000;
+  visibility:hidden;
+}
+#game-container.active { visibility:visible; }
+
+/* Phaser'ın oluşturduğu iç div */
+#game-container > div {
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+
+/* Canvas — en-boy oranını koru, ekrana sığdır */
+#game-container canvas {
+  display:block !important;
+  margin:0 auto !important;
+  touch-action:none;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="load-logo">NOT TODAY</div>
+  <div class="load-bar-bg"><div class="load-bar-fill" id="load-bar"></div></div>
+  <div class="load-txt">YÜKLENİYOR...</div>
+</div>
+
+<div id="game-container"></div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  if (window.Telegram && window.Telegram.WebApp) {
+    try { Telegram.WebApp.ready(); } catch(e) {}
+    try { Telegram.WebApp.expand(); } catch(e) {}
+    try { Telegram.WebApp.requestFullscreen(); } catch(e) {}
+  }
+
+  document.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
+  document.addEventListener('touchstart',function(e){if(e.touches.length>1)e.preventDefault();},{passive:false});
+  document.addEventListener('contextmenu',function(e){e.preventDefault();});
+
+  var bar=document.getElementById('load-bar');
+  bar.style.width='30%';
+
+  var ph=document.createElement('script');
+  ph.src='https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js';
+  ph.onload=function(){
+    bar.style.width='70%';
+    var g=document.createElement('script');
+    g.src='main.js?'+Date.now();
+    g.onload=function(){
+      bar.style.width='100%';
+      setTimeout(function(){
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('game-container').classList.add('active');
+      },300);
+    };
+    document.body.appendChild(g);
+  };
+  document.body.appendChild(ph);
+</script>
+</body>
+</html>
