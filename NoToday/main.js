@@ -47,7 +47,7 @@ function showIAPStore(scene){
     const convBg=addO(scene.add.graphics().setDepth(12));
     const drawConv=(hov)=>{convBg.clear();convBg.fillStyle(hov?0x334400:0x1a2200,1);convBg.fillRoundedRect(W/2-60,58,120,22,5);convBg.lineStyle(1.5,hov?0xaaff44:0x558822,0.8);convBg.strokeRoundedRect(W/2-60,58,120,22,5);};
     drawConv(false);
-    const convLbl=addO(scene.add.text(W/2,69,CURRENT_LANG==="ru"?"💎→💰 КОНВЕРТИРОВАТЬ":CURRENT_LANG==="ru"?"💎→💰 КОНВЕРТИРОВАТЬ":CURRENT_LANG==="en"?"💎→💰 CONVERT":"💎→💰 ÇEVIR",{font:"bold 8px 'Courier New'",color:"#aaff44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(13));
+    const convLbl=addO(scene.add.text(W/2,69,CURRENT_LANG==="ru"?"💎→💰 КОНВЕРТИРОВАТЬ":CURRENT_LANG==="en"?"💎→💰 CONVERT":"💎→💰 ÇEVIR",{font:"bold 8px 'Courier New'",color:"#aaff44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(13));
     const convHit=addO(scene.add.rectangle(W/2,69,120,22,0xffffff,0.001).setInteractive({useHandCursor:true}).setDepth(14));
     convHit.on("pointerover",()=>drawConv(true)).on("pointerout",()=>drawConv(false));
     convHit.on("pointerdown",()=>{
@@ -96,7 +96,7 @@ function showIAPStore(scene){
         const totalGems=pack.gems+pack.bonus;
         const gemAmtStr=totalGems.toString();
         addO(scene.add.text(CX+74,cy+12,gemAmtStr,{font:"bold 24px 'Courier New'",color:"#cc44ff",stroke:"#000",strokeThickness:4}).setDepth(14));
-        const gemWordStr=CURRENT_LANG==="ru"?"ГЕМОВ":CURRENT_LANG==="ru"?"ГЕМЫ":CURRENT_LANG==="en"?"GEMS":"ELMAS";
+        const gemWordStr=CURRENT_LANG==="ru"?"ГЕМОВ":CURRENT_LANG==="en"?"GEMS":"ELMAS";
         addO(scene.add.text(CX+74+gemAmtStr.length*14+4,cy+18,gemWordStr,{font:"bold 11px 'Courier New'",color:"#aa66cc",stroke:"#000",strokeThickness:2}).setDepth(14));
 
         // Altın karşılığı
@@ -962,13 +962,13 @@ function applyTimedAbsoluteBuff(gs, key, newVal, duration, S){
 // Her gün giriş yapınca artan ödül
 // ═══════════════════════════════════════════════════════════════
 const LOGIN_REWARDS = [
-    {day:1,  gold:50,  labelTR:"1. GÜN",  labelEN:"DAY 1",  labelRU:"ДЕНЬ 1",  icon:"⬡"},
-    {day:2,  gold:80,  labelTR:"2. GÜN",  labelEN:"DAY 2",  labelRU:"ДЕНЬ 2",  icon:"⬡"},
-    {day:3,  gold:120, labelTR:"3. GÜN",  labelEN:"DAY 3",  labelRU:"ДЕНЬ 3",  icon:"⬡⬡"},
-    {day:4,  gold:160, labelTR:"4. GÜN",  labelEN:"DAY 4",  labelRU:"ДЕНЬ 4",  icon:"⬡⬡"},
-    {day:5,  gold:250, labelTR:"5. GÜN",  labelEN:"DAY 5",  labelRU:"ДЕНЬ 5",  icon:"⬡⬡⬡"},
-    {day:6,  gold:350, labelTR:"6. GÜN",  labelEN:"DAY 6",  labelRU:"ДЕНЬ 6",  icon:"⬡⬡⬡"},
-    {day:7,  gold:500, labelTR:"7. GÜN ✦",labelEN:"DAY 7 ✦",labelRU:"ДЕНЬ 7 ✦",icon:"👑"},
+    {day:1,  gold:50,  label:"1. GÜN",  icon:"⬡"},
+    {day:2,  gold:80,  label:"2. GÜN",  icon:"⬡"},
+    {day:3,  gold:120, label:"3. GÜN",  icon:"⬡⬡"},
+    {day:4,  gold:160, label:"4. GÜN",  icon:"⬡⬡"},
+    {day:5,  gold:250, label:"5. GÜN",  icon:"⬡⬡⬡"},
+    {day:6,  gold:350, label:"6. GÜN",  icon:"⬡⬡⬡"},
+    {day:7,  gold:500, label:"7. GÜN ✦",icon:"👑"},
 ];
 
 function checkLoginReward(){
@@ -3110,7 +3110,7 @@ class SceneMenu extends Phaser.Scene {
             const drawBuy=hov=>{buyBg.clear();buyBg.fillStyle(hov?tagCol:0x0d0020,1);buyBg.fillRoundedRect(BX,BY,BW,BH,6);buyBg.lineStyle(2,tagCol,hov?1:0.7);buyBg.strokeRoundedRect(BX,BY,BW,BH,6);};
             drawBuy(false);
             addO(this.add.text(BX+BW/2,BY+14,pack.price,{font:"bold 11px 'Courier New'",color:"#ffffff",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(14));
-            addO(this.add.text(BX+BW/2,BY+30,CURRENT_LANG==="ru"?"КУПИТЬ":CURRENT_LANG==="en"?"BUY":"AL",{font:"bold 9px 'Courier New'",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(14));
+            addO(this.add.text(BX+BW/2,BY+30,CURRENT_LANG==="en"?"BUY":"AL",{font:"bold 9px 'Courier New'",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(14));
 
             const hitArea=addO(this.add.rectangle(CX+CW/2,cy+CARD_H/2,CW,CARD_H,0xffffff,0.001).setInteractive({useHandCursor:true}).setDepth(16));
             hitArea.on("pointerover",()=>{drawCard(true);drawBuy(true);});
@@ -3749,14 +3749,11 @@ class SceneMenu extends Phaser.Scene {
                     try{ if(o.destroy) o.destroy(); }catch(e){}
                 });
                 this._openPanel=null;
-                // 4. Rebuild the entire menu in the new language.
-                //    The main menu buttons (START, SHOP, COLLECTION etc.) are built once
-                //    in create() — they do NOT update in-place. We must stop+start the
-                //    scene so create() reruns and all text renders in the new language.
-                //    The double-destroy bug that broke input after stop+start is now fixed
-                //    (addS no longer double-pushes children into objs), so this is safe.
-                this.scene.stop("SceneMenu");
-                this.scene.start("SceneMenu");
+                // 4. Re-open settings with the new language — NO scene restart needed.
+                //    Restarting the scene leaves Phaser's input plugin in a dirty state
+                //    (ghost interactive objects, duplicate listeners) which breaks all clicks.
+                //    Simply rebuilding the panel in-place is safe and instant.
+                this._openSettings();
             });
 
         // ═ SES ════════════════════════════════════════════════
@@ -4397,8 +4394,8 @@ class SceneMenu extends Phaser.Scene {
         pg.lineStyle(2,0xffcc00,0.9); pg.strokeRoundedRect(50,160,260,280,12);
         pg.fillStyle(0xffcc00,0.12); pg.fillRoundedRect(50,160,260,44,{tl:12,tr:12,bl:0,br:0});
 
-        addO(this.add.text(W/2,182,CURRENT_LANG==="ru"?"🎁 ЕЖЕДНЕВНАЯ НАГРАДА":CURRENT_LANG==="en"?"🎁 DAILY REWARD":"🎁 GÜNLÜK ÖDÜL",{font:"bold 13px 'Courier New'",color:"#ffcc00",stroke:"#000",strokeThickness:4,letterSpacing:2}).setOrigin(0.5).setDepth(802));
-        addO(this.add.text(W/2,206,streak+" "+(CURRENT_LANG==="ru"?"ДЕНЬ ПОДРЯД!":CURRENT_LANG==="en"?"DAY STREAK!":"GÜN STREAK!"),{font:"bold 10px 'Courier New'",color:"#ffaa44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(802));
+        addO(this.add.text(W/2,182,"🎁 GÜNLÜK ÖDÜL",{font:"bold 13px 'Courier New'",color:"#ffcc00",stroke:"#000",strokeThickness:4,letterSpacing:2}).setOrigin(0.5).setDepth(802));
+        addO(this.add.text(W/2,206,streak+" GÜN STREAK!",{font:"bold 10px 'Courier New'",color:"#ffaa44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(802));
 
         // Reward display — 7 gün göster
         LOGIN_REWARDS.forEach((r,i)=>{
@@ -4412,7 +4409,7 @@ class SceneMenu extends Phaser.Scene {
             dg.lineStyle(1.5,isPast?0x44aa44:isToday?0xffcc00:0x333355,0.9);
             dg.strokeRoundedRect(bx,by,120,32,5);
             const lCol=isPast?"#44aa44":isToday?"#ffcc00":"#555577";
-            addO(this.add.text(bx+60,by+16,`${r.icon} ${CURRENT_LANG==="ru"?r.labelRU:CURRENT_LANG==="en"?r.labelEN:r.labelTR: +${r.gold}⬡`,
+            addO(this.add.text(bx+60,by+16,`${r.icon} ${r.label}: +${r.gold}⬡`,
                 {font:`bold ${isToday?"9":"8"}px 'Courier New'`,color:lCol,stroke:"#000",strokeThickness:2})
                 .setOrigin(0.5).setDepth(803));
         });
@@ -4428,7 +4425,7 @@ class SceneMenu extends Phaser.Scene {
         const clG=addO(this.add.graphics().setDepth(802));
         const drawCl=(hov)=>{clG.clear();clG.fillStyle(hov?0xffaa00:0xcc8800,1);clG.fillRoundedRect(W/2-70,404,140,34,7);clG.lineStyle(2,0xffdd44,0.9);clG.strokeRoundedRect(W/2-70,404,140,34,7);};
         drawCl(false);
-        addO(this.add.text(W/2,421,CURRENT_LANG==="ru"?"ПОЛУЧИТЬ НАГРАДУ!":CURRENT_LANG==="en"?"CLAIM REWARD!":"ÖDÜLÜ AL!",{font:"bold 12px 'Courier New'",color:"#fff",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(803));
+        addO(this.add.text(W/2,421,"ÖDÜLÜ AL!",{font:"bold 12px 'Courier New'",color:"#fff",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(803));
         addO(this.add.rectangle(W/2,421,140,34,0xffffff,0.001).setInteractive().setDepth(804))
             .on("pointerover",()=>drawCl(true)).on("pointerout",()=>drawCl(false))
             .on("pointerdown",()=>{
@@ -4539,7 +4536,7 @@ class SceneMenu extends Phaser.Scene {
                 };
                 drawC(false);
                 cont.add(cg);
-                const ct=this.add.text(293,iy+27,(CURRENT_LANG==="ru"?"ВЗЯТЬ ":CURRENT_LANG==="en"?"GET ":"AL ")+"+"+ach.gold+"⬡",{
+                const ct=this.add.text(293,iy+27,(CURRENT_LANG==="en"?"GET ":CURRENT_LANG==="ru"?"ВЗЯТЬ ":"AL ")+"+"+ach.gold+"⬡",{
                     font:"bold 9px 'Courier New'",color:"#ffffff",stroke:"#000000",strokeThickness:3
                 }).setOrigin(0.5).setDepth(14);
                 cont.add(ct);
@@ -13067,56 +13064,6 @@ function addButtonJuice(S,btn,cb){
 // PHASER CONFIG + BOOT
 // ════════════════════════════════════════════════════════════════
 function _startPhaserGame(){
-    // ── GLOBAL CSS DÜZELTME ──────────────────────────────────────
-    // Telegram WebView ve mobil tarayıcılarda touch-action "auto" olduğunda
-    // tarayıcı scroll/swipe hareketleri Phaser'ın pointer event'lerinden önce
-    // ele geçirir. Aşağıdaki CSS bunu tamamen engeller.
-    const styleTag = document.createElement("style");
-    styleTag.textContent = `
-        #game-container, #game-container canvas {
-            touch-action: none !important;
-            user-select: none !important;
-            -webkit-user-select: none !important;
-            -webkit-tap-highlight-color: transparent !important;
-            overscroll-behavior: none !important;
-        }
-        body, html {
-            overscroll-behavior: none !important;
-            overflow: hidden !important;
-            touch-action: none !important;
-        }
-    `;
-    document.head.appendChild(styleTag);
-    // Bu adımlar OLMADAN Telegram'da dokunma koordinatları kayar,
-    // Telegram'ın kendi swipe/scroll handler'ı Phaser pointer event'lerini yutar.
-    const tgApp = window.Telegram && window.Telegram.WebApp;
-    if(tgApp){
-        try{ tgApp.ready(); }catch(e){}           // Telegram'a hazır olduğumuzu bildir
-        try{ tgApp.expand(); }catch(e){}           // Tam ekrana aç — koordinat kaymasını önler
-        try{ tgApp.disableVerticalSwipes(); }catch(e){} // Telegram'ın dikey swipe'ını kapat
-        // Arka plan rengini siyah yap — beyaz flash olmasın
-        try{ tgApp.setBackgroundColor("#000000"); }catch(e){}
-        try{ tgApp.setHeaderColor("#000000"); }catch(e){}
-    }
-
-    // ── CANVAS TOUCH-ACTION DÜZELTME ────────────────────────────
-    // Phaser canvas'ı oluşturduktan sonra touch-action'ı "none" yap.
-    // Tarayıcı/Telegram varsayılan scroll davranışı pointer event'leri
-    // kesiyor; "none" tüm dokunmaları Phaser'a iletir.
-    const fixCanvasTouchAction = () => {
-        const canvas = document.querySelector("#game-container canvas");
-        if(canvas){
-            canvas.style.touchAction = "none";
-            canvas.style.userSelect = "none";
-            canvas.style.webkitUserSelect = "none";
-            canvas.style.msTouchAction = "none";
-        } else {
-            // Canvas henüz yoksa kısa süre sonra tekrar dene
-            setTimeout(fixCanvasTouchAction, 100);
-        }
-    };
-    setTimeout(fixCanvasTouchAction, 200);
-
     // Epilepsi uyarısı HER ZAMAN ilk gösterilir
     const config={
         type:Phaser.AUTO, width:360, height:640,
@@ -13133,23 +13080,8 @@ function _startPhaserGame(){
             expandParent:false,
         },
         render:{antialias:false,antialiasGL:false,pixelArt:true,roundPixels:true},
-        input:{
-            // Telegram'ın passive event listener'ları ile çakışmayı önle
-            activePointers:1,
-        },
     };
-    const game = new Phaser.Game(config);
-
-    // Phaser canvas oluşturulunca touch-action'ı tekrar garantile
-    game.events.once("ready", ()=>{
-        fixCanvasTouchAction();
-        // Viewport yüksekliği değişirse (Telegram klavye açılması vb.) resize et
-        if(tgApp){
-            tgApp.onEvent("viewportChanged", ()=>{
-                try{ game.scale.refresh(); }catch(e){}
-            });
-        }
-    });
+    new Phaser.Game(config);
     // SceneEpilepsy otomatik başlar (sahne listesinin ilki)
 }
 // DOMContentLoaded çoktan geçmişse direkt başlat, geçmemişse bekle
