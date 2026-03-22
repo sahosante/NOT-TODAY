@@ -639,8 +639,12 @@ const LANG_DATA = {
         leaderboard:"🏆 ТАБЛИЦА РЕКОРДОВ",lbTitle:"МИРОВОЙ РЕЙТИНГ",lbRank:"МЕСТО",lbPlayer:"ИГРОК",lbScore:"СЧЁТ",lbLoading:"Загрузка...",lbEmpty:"Очков пока нет!",lbYou:"(Вы)",lbSubmit:"Отправить счёт",lbError:"Ошибка соединения",lbGlobal:"ГЛОБАЛЬНЫЙ",lbLocal:"ЛИЧНЫЙ",
     }
 };
-let CURRENT_LANG = localStorage.getItem("nt_lang")||"tr";
-function L(k){ return (LANG_DATA[CURRENT_LANG]&&LANG_DATA[CURRENT_LANG][k]!==undefined)?LANG_DATA[CURRENT_LANG][k]:((LANG_DATA["tr"]&&LANG_DATA["tr"][k]!==undefined)?LANG_DATA["tr"][k]:k); }
+// DEFAULT LANGUAGE IS ALWAYS ENGLISH — localStorage must NOT override startup language.
+// The player may change language manually during a session; that choice is saved to
+// localStorage so the settings UI reflects the last-used value, but the game ALWAYS
+// boots in English regardless of what is stored.
+let CURRENT_LANG = "en";
+function L(k){ return (LANG_DATA[CURRENT_LANG]&&LANG_DATA[CURRENT_LANG][k]!==undefined)?LANG_DATA[CURRENT_LANG][k]:((LANG_DATA["en"]&&LANG_DATA["en"][k]!==undefined)?LANG_DATA["en"][k]:k); }
 function setLang(l){ CURRENT_LANG=l; localStorage.setItem("nt_lang",l); }
 // Helper for objects with name/nameEN/nameRU fields
 function LLang(obj,trKey,enKey,ruKey){ if(!obj) return ""; return CURRENT_LANG==="ru"?(obj[ruKey]||obj[trKey]):CURRENT_LANG==="en"?(obj[enKey]||obj[trKey]):obj[trKey]; }
@@ -3720,7 +3724,32 @@ class SceneMenu extends Phaser.Scene {
         addSection(CURRENT_LANG==="ru"?"── ЯЗЫК ──":CURRENT_LANG==="en"?"── LANGUAGE ──":"── DİL ──",0x4488ff);
         addSelect(CURRENT_LANG==="ru"?"Язык":CURRENT_LANG==="en"?"Language":"Dil","nt_lang",
             [{val:"tr",label:"Türkçe"},{val:"en",label:"English"},{val:"ru",label:"Русский"}],CURRENT_LANG,
-            (v)=>{setLang(v);S.input.off("wheel");objs.forEach(o=>{try{o.destroy();}catch(e){}});this._openPanel=null;this.scene.restart();});
+            (v)=>{
+                // 1. Persist the chosen language
+                setLang(v);
+                // 2. Remove ALL scene-level input listeners the settings panel registered
+                //    (scroll wheel + touch drag handlers). This prevents ghost listeners
+                //    surviving into the restarted scene and eating pointer events.
+                S.input.off("wheel");
+                S.input.off("pointerdown");
+                S.input.off("pointermove");
+                S.input.off("pointerup");
+                // 3. Destroy every object tracked by the panel — including the full-screen
+                //    input-blocker rectangle (depth 10) and all interactive hit-areas.
+                //    Without this step those objects linger and block all clicks.
+                objs.forEach(o=>{
+                    try{ if(o.removeAllListeners) o.removeAllListeners(); }catch(e){}
+                    try{ if(o.destroy) o.destroy(); }catch(e){}
+                });
+                this._openPanel=null;
+                // 4. Use stop→start instead of restart(). restart() can leave Phaser's
+                //    input plugin in a dirty state when interactive objects were not fully
+                //    flushed before the call, producing invisible click-blockers in the
+                //    new scene. stop→start triggers the full shutdown/destroy/init/create
+                //    lifecycle and gives a clean slate.
+                this.scene.stop("SceneMenu");
+                this.scene.start("SceneMenu");
+            });
 
         // ═ SES ════════════════════════════════════════════════
         addSection(CURRENT_LANG==="ru"?"── ЗВУК ──":CURRENT_LANG==="en"?"── AUDIO ──":"── SES ──",0x44aaff);
