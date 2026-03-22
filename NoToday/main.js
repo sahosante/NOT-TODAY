@@ -3749,11 +3749,14 @@ class SceneMenu extends Phaser.Scene {
                     try{ if(o.destroy) o.destroy(); }catch(e){}
                 });
                 this._openPanel=null;
-                // 4. Re-open settings with the new language — NO scene restart needed.
-                //    Restarting the scene leaves Phaser's input plugin in a dirty state
-                //    (ghost interactive objects, duplicate listeners) which breaks all clicks.
-                //    Simply rebuilding the panel in-place is safe and instant.
-                this._openSettings();
+                // 4. Rebuild the entire menu in the new language.
+                //    The main menu buttons (START, SHOP, COLLECTION etc.) are built once
+                //    in create() — they do NOT update in-place. We must stop+start the
+                //    scene so create() reruns and all text renders in the new language.
+                //    The double-destroy bug that broke input after stop+start is now fixed
+                //    (addS no longer double-pushes children into objs), so this is safe.
+                this.scene.stop("SceneMenu");
+                this.scene.start("SceneMenu");
             });
 
         // ═ SES ════════════════════════════════════════════════
