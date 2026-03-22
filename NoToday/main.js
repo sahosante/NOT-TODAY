@@ -13064,6 +13064,56 @@ function addButtonJuice(S,btn,cb){
 // PHASER CONFIG + BOOT
 // ════════════════════════════════════════════════════════════════
 function _startPhaserGame(){
+    // ── GLOBAL CSS DÜZELTME ──────────────────────────────────────
+    // Telegram WebView ve mobil tarayıcılarda touch-action "auto" olduğunda
+    // tarayıcı scroll/swipe hareketleri Phaser'ın pointer event'lerinden önce
+    // ele geçirir. Aşağıdaki CSS bunu tamamen engeller.
+    const styleTag = document.createElement("style");
+    styleTag.textContent = `
+        #game-container, #game-container canvas {
+            touch-action: none !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -webkit-tap-highlight-color: transparent !important;
+            overscroll-behavior: none !important;
+        }
+        body, html {
+            overscroll-behavior: none !important;
+            overflow: hidden !important;
+            touch-action: none !important;
+        }
+    `;
+    document.head.appendChild(styleTag);
+    // Bu adımlar OLMADAN Telegram'da dokunma koordinatları kayar,
+    // Telegram'ın kendi swipe/scroll handler'ı Phaser pointer event'lerini yutar.
+    const tgApp = window.Telegram && window.Telegram.WebApp;
+    if(tgApp){
+        try{ tgApp.ready(); }catch(e){}           // Telegram'a hazır olduğumuzu bildir
+        try{ tgApp.expand(); }catch(e){}           // Tam ekrana aç — koordinat kaymasını önler
+        try{ tgApp.disableVerticalSwipes(); }catch(e){} // Telegram'ın dikey swipe'ını kapat
+        // Arka plan rengini siyah yap — beyaz flash olmasın
+        try{ tgApp.setBackgroundColor("#000000"); }catch(e){}
+        try{ tgApp.setHeaderColor("#000000"); }catch(e){}
+    }
+
+    // ── CANVAS TOUCH-ACTION DÜZELTME ────────────────────────────
+    // Phaser canvas'ı oluşturduktan sonra touch-action'ı "none" yap.
+    // Tarayıcı/Telegram varsayılan scroll davranışı pointer event'leri
+    // kesiyor; "none" tüm dokunmaları Phaser'a iletir.
+    const fixCanvasTouchAction = () => {
+        const canvas = document.querySelector("#game-container canvas");
+        if(canvas){
+            canvas.style.touchAction = "none";
+            canvas.style.userSelect = "none";
+            canvas.style.webkitUserSelect = "none";
+            canvas.style.msTouchAction = "none";
+        } else {
+            // Canvas henüz yoksa kısa süre sonra tekrar dene
+            setTimeout(fixCanvasTouchAction, 100);
+        }
+    };
+    setTimeout(fixCanvasTouchAction, 200);
+
     // Epilepsi uyarısı HER ZAMAN ilk gösterilir
     const config={
         type:Phaser.AUTO, width:360, height:640,
@@ -13080,8 +13130,23 @@ function _startPhaserGame(){
             expandParent:false,
         },
         render:{antialias:false,antialiasGL:false,pixelArt:true,roundPixels:true},
+        input:{
+            // Telegram'ın passive event listener'ları ile çakışmayı önle
+            activePointers:1,
+        },
     };
-    new Phaser.Game(config);
+    const game = new Phaser.Game(config);
+
+    // Phaser canvas oluşturulunca touch-action'ı tekrar garantile
+    game.events.once("ready", ()=>{
+        fixCanvasTouchAction();
+        // Viewport yüksekliği değişirse (Telegram klavye açılması vb.) resize et
+        if(tgApp){
+            tgApp.onEvent("viewportChanged", ()=>{
+                try{ game.scale.refresh(); }catch(e){}
+            });
+        }
+    });
     // SceneEpilepsy otomatik başlar (sahne listesinin ilki)
 }
 // DOMContentLoaded çoktan geçmişse direkt başlat, geçmemişse bekle
