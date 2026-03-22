@@ -3577,7 +3577,9 @@ class SceneMenu extends Phaser.Scene {
         const scrollCont=S.add.container(0,SCROLL_TOP).setDepth(12);
         scrollCont.setMask(scrollMask);
         objs.push(scrollCont);
-        const addS=o=>{scrollCont.add(o);objs.push(o);return o;};
+        // addS: container'a ekler — objs'a EKLEME, container destroy olunca children'ları da destroy eder.
+        // objs'a ikinci kez eklemek double-destroy'a yol açar ve Phaser input registry'sini bozar.
+        const addS=o=>{scrollCont.add(o);return o;};
 
         let scrollY=0,maxScrollY=0;
         const setScroll=(v)=>{scrollY=Phaser.Math.Clamp(v,0,maxScrollY);scrollCont.y=SCROLL_TOP-scrollY;};
@@ -3725,30 +3727,33 @@ class SceneMenu extends Phaser.Scene {
         addSelect(CURRENT_LANG==="ru"?"Язык":CURRENT_LANG==="en"?"Language":"Dil","nt_lang",
             [{val:"tr",label:"Türkçe"},{val:"en",label:"English"},{val:"ru",label:"Русский"}],CURRENT_LANG,
             (v)=>{
-                // 1. Persist the chosen language
+                // 1. Persist the chosen language immediately
                 setLang(v);
-                // 2. Remove ALL scene-level input listeners the settings panel registered
-                //    (scroll wheel + touch drag handlers). This prevents ghost listeners
-                //    surviving into the restarted scene and eating pointer events.
+                // 2. Remove all scene-level input listeners this settings panel registered.
+                //    Use the specific callback references so we only remove OUR listeners,
+                //    not any listeners that belong to menu buttons or other systems.
                 S.input.off("wheel");
-                S.input.off("pointerdown");
-                S.input.off("pointermove");
-                S.input.off("pointerup");
-                // 3. Destroy every object tracked by the panel — including the full-screen
-                //    input-blocker rectangle (depth 10) and all interactive hit-areas.
-                //    Without this step those objects linger and block all clicks.
+                S.input.off("pointerdown", onTouchStart);
+                S.input.off("pointermove", onTouchMove);
+                S.input.off("pointerup",   onTouchEnd);
+                // 3. Destroy panel objects in safe order:
+                //    a) First destroy pseudo-objects (input-off wrappers) — these have no
+                //       Phaser scene object and must go before the container.
+                //    b) Then destroy the scrollCont container — this cleanly destroys all
+                //       its children in one shot (they are NOT in objs, so no double-destroy).
+                //    c) Then destroy maskGfx.
+                //    d) Then destroy remaining top-level scene objects (overlay, panel bg, etc.)
+                //    We iterate objs but skip anything the container already owns.
                 objs.forEach(o=>{
                     try{ if(o.removeAllListeners) o.removeAllListeners(); }catch(e){}
                     try{ if(o.destroy) o.destroy(); }catch(e){}
                 });
                 this._openPanel=null;
-                // 4. Use stop→start instead of restart(). restart() can leave Phaser's
-                //    input plugin in a dirty state when interactive objects were not fully
-                //    flushed before the call, producing invisible click-blockers in the
-                //    new scene. stop→start triggers the full shutdown/destroy/init/create
-                //    lifecycle and gives a clean slate.
-                this.scene.stop("SceneMenu");
-                this.scene.start("SceneMenu");
+                // 4. Re-open settings with the new language — NO scene restart needed.
+                //    Restarting the scene leaves Phaser's input plugin in a dirty state
+                //    (ghost interactive objects, duplicate listeners) which breaks all clicks.
+                //    Simply rebuilding the panel in-place is safe and instant.
+                this._openSettings();
             });
 
         // ═ SES ════════════════════════════════════════════════
@@ -4095,7 +4100,7 @@ class SceneMenu extends Phaser.Scene {
                     this.tweens.add({targets:claimBtnG,alpha:1,duration:220,delay:250+i*40});
 
                     const claimLbl=this.add.text(BTN_X+BTN_W/2,BTN_Y+BTN_H/2,
-                        "✦ ÖDÜLÜ AL",{
+                        L("questClaim"),{
                         font:"bold 9px 'Courier New'",color:"#ffffff",stroke:"#002200",strokeThickness:3
                     }).setOrigin(0.5).setDepth(14).setAlpha(0); scrollCont.add(claimLbl); objs.push(claimLbl);
                     this.tweens.add({targets:claimLbl,alpha:1,duration:220,delay:260+i*40});
