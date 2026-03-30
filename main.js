@@ -5719,7 +5719,7 @@ function showHitTxt(S, x, y, msg, color, large){
 const NT_STYLE = {
     FONT: "LilitaOne, Arial, sans-serif",
     title:  (sz=22,col="#ffffff",stroke="#5a0000")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col,stroke:stroke,strokeThickness:Math.max(3,Math.round(sz*0.12)) }),
-    label:  (sz=22,col="#3d1a00")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col }),
+    label:  (sz=22,col="#3d1a00")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col,backgroundColor:"rgba(0,0,0,0)",padding:{x:4,y:2} }),
     body:   (sz=15,col="#ffffff")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col }),
     stat:   (sz=14,col="#88aacc")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col }),
     accent: (sz=14,col="#ffdd44")=>({ fontFamily:"LilitaOne, Arial, sans-serif",fontSize:sz+"px",color:col }),
@@ -5919,15 +5919,20 @@ class SceneMainMenu extends Phaser.Scene {
         // Phaser'ın internal canvas'ı glyphleri cache'e alır → gerçek butonlar siyah çıkmaz
         const _warmLabels = ["PLAY","SETTINGS","HOW TO PLAY","LEADERBOARD",
                              "RESUME","MAIN MENU","PAUSED","STATS","NOT TODAY"];
-        const _warmObjs = _warmLabels.map(lbl=>
-            this.add.text(-9999,-9999,lbl,NT_STYLE.label(24)).setAlpha(0.001).setDepth(0)
-        );
-        // 2 Phaser frame sonra warm-up text'lerini temizle ve gerçek butonları göster
-        this.time.delayedCall(100,()=>{ _warmObjs.forEach(o=>{try{o.destroy();}catch(_){}}) });
+        const _warmObjs = _warmLabels.map(lbl=>{
+            const t = this.add.text(CX, H/2, lbl, NT_STYLE.label(24));
+            t.setVisible(false).setDepth(0);
+            return t;
+        });
+        // 3 frame sonra warm-up text'lerini temizle
+        this.time.delayedCall(150,()=>{ _warmObjs.forEach(o=>{try{o.destroy();}catch(_){}}) });
 
         const btns=DEFS.map((d,i)=>NT_MenuBtn(this,CX,aTop+slot*i+slot/2,d.icon,d.label,d.cb));
         // Hit zone'ları sakla — popup açılınca devre dışı bırakmak için
         this._menuHitZones = btns.map(b=>b.hit);
+        // Buton label text'lerini başta gizle — warm-up bittikten sonra göster (PC siyah kutu fix)
+        btns.forEach(b=>{ if(b.tx) b.tx.setVisible(false); });
+        this.time.delayedCall(160, ()=>{ btns.forEach(b=>{ try{ if(b.tx&&!b.tx.destroyed) b.tx.setVisible(true); }catch(_){} }); });
 
         // Smooth texture filter
         this.time.delayedCall(80,  ()=>this._smooth());
@@ -12691,14 +12696,15 @@ function _startPhaserGame(){
             width:360,
             height:640,
             parent:"game-container",
-            expandParent:false
+            expandParent:false,
+            // [FIX] Mobil zoom bug — devicePixelRatio kullanma, Phaser kendi yönetsin
         },
         render:{
-            antialias:      false,        // NEAREST everywhere — characters pixel-crisp
+            antialias:      false,
             antialiasGL:    false,
-            pixelArt:       true,         // Phaser sets NEAREST on all WebGL textures by default
-            roundPixels:    true,         // no sub-pixel jitter
-            resolution:     window.devicePixelRatio || 1,
+            pixelArt:       true,
+            roundPixels:    true,
+            resolution:     1,           // [FIX] Her zaman 1 — dpr burada kullanılmaz
             powerPreference:"high-performance"
         },
         callbacks:{
