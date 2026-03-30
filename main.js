@@ -4483,15 +4483,9 @@ function buildUI(S){
         strokeThickness:2
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
-    S.killText=S.add.text(W-8,26,"[K] 0",{
-        fontFamily:"LilitaOne",
-        fontSize:"14px",
-        color:"#ff9977",
-        stroke:"#000000",
-        strokeThickness:2
-    }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
+    S.killText=null; // [REMOVED] kill counter display removed
 
-    S.goldText=S.add.text(W-8,42,"G 0",{
+    S.goldText=S.add.text(W-8,26,"G 0",{
         fontFamily:"LilitaOne",
         fontSize:"14px",
         color:"#FFD700",
@@ -4569,7 +4563,7 @@ function renderUI(S){
     S.xpBarFill.setFillStyle(xpColor);
 
     S.levelText.setText("Lv "+gs.level);
-    S.killText.setText("[K] "+gs.kills);
+    // kill text removed
     if(S.scoreText) S.scoreText.setText(gs.score.toLocaleString());
 
     // Altın — yavaş sayaç
@@ -6035,6 +6029,10 @@ class SceneMainMenu extends Phaser.Scene {
     _showLeaderboard(){
         const {A,close,contentTop,contentBot,TX,VX,CX,PW,depth}
             = NT_OpenPopup(this,"mm_panel",330,"🏆  LEADERBOARD",320,20);
+        let _lbClosed = false;
+        const _origClose = close;
+        // Track closure so async texts don't appear after panel is gone
+        const _closeWrapped = () => { _lbClosed = true; _origClose(); };
         const hY=contentTop+4;
         A(this.add.text(TX,    hY,"#",     NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
         A(this.add.text(TX+28, hY,"PLAYER",NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
@@ -6045,6 +6043,7 @@ class SceneMainMenu extends Phaser.Scene {
         const loadTxt=A(this.add.text(CX,hY+55,"⏳  Loading...",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3));
         lbFetchScores().then(()=>{
             try{if(loadTxt&&!loadTxt.destroyed)loadTxt.destroy();}catch(_){}
+            if(_lbClosed) return; // panel already closed — don't render orphan texts
             const myId=(_TG_USER&&_TG_USER.id)||null;
             const scores=lbGetMergedScores().slice(0,12);
             const newTexts=[];
@@ -6065,6 +6064,7 @@ class SceneMainMenu extends Phaser.Scene {
             }
             // 2 frame bekle → font glyphleri rasterize edilsin, sonra göster
             requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                if(_lbClosed){ newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.destroy();}catch(_){} }); return; }
                 newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
             }));
         }).catch(()=>{ try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){} });
@@ -6215,11 +6215,22 @@ class SceneGame extends Phaser.Scene {
                                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
                                     try{ if(src.smoothed !== undefined) src.smoothed = false; }catch(_){}
                                 } else if(isUpicon){
-                                    // 128x128 POT upgrade ikonlar — trilinear mipmap
-                                    // 128→64px (level-up), 128→18px (slot): daima küçültme, mipmap kritik.
+                                    // 128x128 POT upgrade ikonlar — trilinear mipmap + anisotropic
                                     gl.generateMipmap(gl.TEXTURE_2D);
                                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
                                     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                                    // Anisotropic filtering — keskinlik için
+                                    try{
+                                        const aniso = gl.getExtension('EXT_texture_filter_anisotropic') ||
+                                                      gl.getExtension('MOZ_EXT_texture_filter_anisotropic') ||
+                                                      gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+                                        if(aniso){
+                                            const maxAniso = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+                                            gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, maxAniso));
+                                        }
+                                    }catch(_){}
                                     try{ if(src.smoothed !== undefined) src.smoothed = true; }catch(_){}
                                 } else {
                                     // Diğer PNG'ler — LINEAR
@@ -6435,69 +6446,176 @@ class SceneGame extends Phaser.Scene {
         // [BUG FIX] Sahne her başladığında tüm key state'lerini temizle
         this.input.keyboard.resetKeys();
 
-        // ── MOBİL KONTROL BUTONLARI ──────────────────────────────
+        // ── MOBİL KONTROL: ATEŞ BUTONU + DİNAMİK JOYSTICK ──────────
         this._mobileLeft = false;
         this._mobileRight = false;
         this._mobileFire = false;
 
-        // Sadece dokunmatik cihazlarda göster
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
             const BTN_Y = H_MB - 52;
-            const BTN_R = 36;
-            const BTN_ALPHA_IDLE = 0.55;
-
-            const _makeMobileBtn = (x, y, label, color, onDown, onUp) => {
-                const g = this.add.graphics().setDepth(800).setScrollFactor(0);
-                const lbl = this.add.text(x, y, label, {
-                    font: "bold 20px LilitaOne, Arial, sans-serif", color: "#ffffff",
-                    stroke: "#000000", strokeThickness: 3
-                }).setOrigin(0.5).setDepth(801).setScrollFactor(0).setAlpha(BTN_ALPHA_IDLE);
-
-                let _activePtr = null;
-
-                const drawBtn = (pressed) => {
-                    g.clear();
-                    g.fillStyle(0x333333, pressed ? 0.65 : 0.22);
-                    g.fillCircle(x, y, BTN_R);
-                    g.lineStyle(2, 0xaaaaaa, pressed ? 0.9 : 0.45);
-                    g.strokeCircle(x, y, BTN_R);
-                    lbl.setAlpha(pressed ? 1.0 : BTN_ALPHA_IDLE);
-                };
-                drawBtn(false);
-
-                const hit = this.add.circle(x, y, BTN_R, 0xffffff, 0.001)
-                    .setDepth(802).setScrollFactor(0).setInteractive();
-
-                hit.on("pointerdown", (ptr) => { _activePtr = ptr.id; drawBtn(true); onDown(); });
-                hit.on("pointerup",   (ptr) => { if(ptr.id===_activePtr){_activePtr=null; drawBtn(false); onUp();} });
-                hit.on("pointerout",  (ptr) => { if(ptr.id===_activePtr){_activePtr=null; drawBtn(false); onUp();} });
-                return { g, lbl, hit };
-            };
-
             this.input.addPointer(3);
 
-            // ATEŞ BUTONU — sol alt
-            this._btnFire = _makeMobileBtn(
-                54, BTN_Y, "●", 0x888888,
-                () => { this._mobileFire = true; },
-                () => { this._mobileFire = false; }
-            );
-            // SOL BUTON
-            this._btnLeft = _makeMobileBtn(
-                216, BTN_Y, "◀", 0x888888,
-                () => { this._mobileLeft = true; },
-                () => { this._mobileLeft = false; }
-            );
-            // SAĞ BUTON — en az 2*BTN_R boşluk
-            this._btnRight = _makeMobileBtn(
-                294, BTN_Y, "▶", 0x888888,
-                () => { this._mobileRight = true; },
-                () => { this._mobileRight = false; }
-            );
+            // ── ATEŞ BUTONU — sol alt, minimal, boş içerik ──────────
+            const FIRE_X = 54, FIRE_W = 88, FIRE_H = 56, FIRE_R = 10;
+            const FIRE_Y = BTN_Y;
+            const fireG = this.add.graphics().setDepth(800).setScrollFactor(0);
+            let _firePressing = false;
+
+            const drawFireBtn = (pressed) => {
+                fireG.clear();
+                // Gölge
+                fireG.fillStyle(0x000000, pressed ? 0.0 : 0.25);
+                fireG.fillRoundedRect(FIRE_X - FIRE_W/2 + 2, FIRE_Y - FIRE_H/2 + 4, FIRE_W, FIRE_H, FIRE_R);
+                // Ana body
+                fireG.fillStyle(0x1a1a2e, pressed ? 0.90 : 0.55);
+                fireG.fillRoundedRect(FIRE_X - FIRE_W/2, FIRE_Y - FIRE_H/2, FIRE_W, FIRE_H, FIRE_R);
+                // Üst shine
+                fireG.fillStyle(0xffffff, pressed ? 0.04 : 0.10);
+                fireG.fillRoundedRect(FIRE_X - FIRE_W/2 + 4, FIRE_Y - FIRE_H/2 + 3, FIRE_W - 8, FIRE_H * 0.38, FIRE_R * 0.7);
+                // Border — glow efekti
+                const borderCol = pressed ? 0xff6644 : 0xff8866;
+                const borderAlpha = pressed ? 0.95 : 0.50;
+                fireG.lineStyle(pressed ? 2 : 1.5, borderCol, borderAlpha);
+                fireG.strokeRoundedRect(FIRE_X - FIRE_W/2, FIRE_Y - FIRE_H/2, FIRE_W, FIRE_H, FIRE_R);
+                // İnner glow
+                if(pressed){
+                    fireG.lineStyle(4, 0xff4422, 0.18);
+                    fireG.strokeRoundedRect(FIRE_X - FIRE_W/2 + 3, FIRE_Y - FIRE_H/2 + 3, FIRE_W - 6, FIRE_H - 6, FIRE_R - 2);
+                }
+            };
+            drawFireBtn(false);
+
+            let _fireActivePtr = null;
+            const fireHit = this.add.rectangle(FIRE_X, FIRE_Y, FIRE_W, FIRE_H, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive();
+            fireHit.on("pointerdown", (ptr) => {
+                _fireActivePtr = ptr.id; _firePressing = true;
+                drawFireBtn(true); this._mobileFire = true;
+            });
+            fireHit.on("pointerup",  (ptr) => {
+                if(ptr.id === _fireActivePtr){ _fireActivePtr = null; _firePressing = false;
+                    drawFireBtn(false); this._mobileFire = false; }
+            });
+            fireHit.on("pointerout", (ptr) => {
+                if(ptr.id === _fireActivePtr){ _fireActivePtr = null; _firePressing = false;
+                    drawFireBtn(false); this._mobileFire = false; }
+            });
+
+            this._btnFire = { g: fireG, lbl: null, hit: fireHit };
+
+            // ── DİNAMİK JOYSTICK — ekranın sağ yarısında, parmak bastığında çıkar ──
+            const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4; // ateş butonunun sağından itibaren
+            const JS_ZONE_Y = H_MB - 120;             // alt 120px zone
+            const JS_ZONE_W = W_MB - JS_ZONE_X;
+            const JS_ZONE_H = 120;
+            const JS_R_OUTER = 32;  // dış halka yarıçapı
+            const JS_R_INNER = 16;  // iç top yarıçapı
+            const JS_DEAD = 6;      // dead zone px
+            const JS_MAX  = JS_R_OUTER - JS_R_INNER; // max sürükleme
+
+            // Joystick grafik objeleri
+            const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0).setAlpha(0);
+            const jsInnerG = this.add.graphics().setDepth(801).setScrollFactor(0).setAlpha(0);
+
+            let _jsActive = false;
+            let _jsPtr = null;
+            let _jsOriginX = 0, _jsOriginY = 0;
+            let _jsKnobX = 0, _jsKnobY = 0;
+            let _jsTargetLeft = false, _jsTargetRight = false;
+            // Smooth interpolation için
+            let _jsSmooth = 0; // -1 sol, 0 nötr, +1 sağ
+
+            const drawJoystick = (ox, oy, kx, ky, alpha) => {
+                jsOuterG.clear();
+                jsInnerG.clear();
+                if(alpha <= 0) return;
+                jsOuterG.setAlpha(alpha);
+                jsInnerG.setAlpha(alpha);
+                // Dış halka
+                jsOuterG.lineStyle(2, 0x88aaff, 0.65);
+                jsOuterG.strokeCircle(ox, oy, JS_R_OUTER);
+                jsOuterG.fillStyle(0x1122aa, 0.18);
+                jsOuterG.fillCircle(ox, oy, JS_R_OUTER);
+                // İç glow halkası
+                jsOuterG.lineStyle(1, 0xaaccff, 0.25);
+                jsOuterG.strokeCircle(ox, oy, JS_R_OUTER - 4);
+                // Knob
+                jsInnerG.fillStyle(0x4488ff, 0.92);
+                jsInnerG.fillCircle(kx, ky, JS_R_INNER);
+                jsInnerG.fillStyle(0xffffff, 0.22);
+                jsInnerG.fillCircle(kx - 4, ky - 4, JS_R_INNER * 0.45);
+                jsInnerG.lineStyle(1.5, 0x88bbff, 0.80);
+                jsInnerG.strokeCircle(kx, ky, JS_R_INNER);
+            };
+
+            // Joystick zone — tüm sağ-alt alan
+            const jsZone = this.add.rectangle(
+                JS_ZONE_X + JS_ZONE_W/2, JS_ZONE_Y + JS_ZONE_H/2,
+                JS_ZONE_W, JS_ZONE_H, 0xffffff, 0.001
+            ).setDepth(799).setScrollFactor(0).setInteractive();
+
+            jsZone.on("pointerdown", (ptr) => {
+                if(_jsActive) return;
+                _jsActive = true;
+                _jsPtr = ptr.id;
+                _jsOriginX = ptr.x / (this.scale.displayScale ? this.scale.displayScale.x : 1);
+                _jsOriginY = ptr.y / (this.scale.displayScale ? this.scale.displayScale.y : 1);
+                // Koordinatları oyun alanına dönüştür
+                const cam = this.cameras.main;
+                _jsOriginX = (_jsOriginX - cam.x) / cam.zoom;
+                _jsOriginY = (_jsOriginY - cam.y) / cam.zoom;
+                _jsKnobX = _jsOriginX;
+                _jsKnobY = _jsOriginY;
+                drawJoystick(_jsOriginX, _jsOriginY, _jsKnobX, _jsKnobY, 0.85);
+            });
+
+            jsZone.on("pointermove", (ptr) => {
+                if(!_jsActive || ptr.id !== _jsPtr) return;
+                const cam = this.cameras.main;
+                const scale = this.scale.displayScale || {x:1,y:1};
+                const rx = (ptr.x / scale.x - cam.x) / cam.zoom;
+                // Sadece yatay eksen
+                const dx = Phaser.Math.Clamp(rx - _jsOriginX, -JS_MAX, JS_MAX);
+                _jsKnobX = _jsOriginX + dx;
+                _jsKnobY = _jsOriginY;
+                _jsTargetLeft  = dx < -JS_DEAD;
+                _jsTargetRight = dx >  JS_DEAD;
+                drawJoystick(_jsOriginX, _jsOriginY, _jsKnobX, _jsKnobY, 0.85);
+            });
+
+            const _jsRelease = (ptr) => {
+                if(!_jsActive || ptr.id !== _jsPtr) return;
+                _jsActive = false; _jsPtr = null;
+                _jsTargetLeft = false; _jsTargetRight = false;
+                this._mobileLeft = false; this._mobileRight = false;
+                _jsSmooth = 0;
+                jsOuterG.clear(); jsInnerG.clear();
+                jsOuterG.setAlpha(0); jsInnerG.setAlpha(0);
+            };
+            jsZone.on("pointerup",  _jsRelease);
+            jsZone.on("pointerout", _jsRelease);
+
+            // Joystick smooth update — her frame çalışır
+            this._jsUpdateEvent = this.time.addEvent({ delay: 16, loop: true, callback: () => {
+                if(!_jsActive){ this._mobileLeft = false; this._mobileRight = false; return; }
+                // Smooth interpolation: target state'e doğru yumuşak geçiş
+                const target = _jsTargetRight ? 1 : _jsTargetLeft ? -1 : 0;
+                _jsSmooth += (target - _jsSmooth) * 0.55;
+                this._mobileLeft  = _jsSmooth < -0.18;
+                this._mobileRight = _jsSmooth >  0.18;
+            }});
+
+            this._btnLeft  = { g: jsOuterG, lbl: null, hit: jsZone };
+            this._btnRight = { g: jsInnerG, lbl: null, hit: null };
+
+            // Joystick shutdown cleanup
+            this.events.once("shutdown", () => {
+                try{ if(this._jsUpdateEvent) this._jsUpdateEvent.remove(); }catch(_){}
+            });
         }
-        // ── MOBİL KONTROL BUTONLARI SONU ─────────────────────────
+        // ── MOBİL KONTROL SONU ───────────────────────────────────────
 
         // ── ATEŞ — düz, otomatik, garantili ──
         this._shootTimer=0;
@@ -8499,6 +8617,17 @@ function showLevelUpUI(S) {
                         gl.generateMipmap(gl.TEXTURE_2D);
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                        try{
+                            const aniso = gl.getExtension('EXT_texture_filter_anisotropic') ||
+                                          gl.getExtension('MOZ_EXT_texture_filter_anisotropic') ||
+                                          gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+                            if(aniso){
+                                const maxAniso = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+                                gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, maxAniso));
+                            }
+                        }catch(_){}
                         gl.bindTexture(gl.TEXTURE_2D, null);
                     }
                 }
