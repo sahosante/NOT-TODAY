@@ -5,22 +5,16 @@
 
 
 // ═══════════════════════════════════════════════════════════════
-// PRESENCE TRACKER  |  JOIN · LEAVE · PING · ONLINE  [v2]
+// PRESENCE TRACKER  |  Telegram Bot Logger  [v3]
+// Sunucu yok — doğrudan Telegram Bot API'ye gönderir
 // ═══════════════════════════════════════════════════════════════
 (function () {
     "use strict";
 
     // ── YAPILANDIRMA ─────────────────────────────────────────
-    const PRESENCE_CONFIG = {
-        BASE_URL:      "https://SENIN-BACKEND-URL.com", // ← kendi sunucu adresini yaz
-        PING_INTERVAL: 15_000,  // 15 saniye
-        MAX_RETRIES:   2,
-    };
-
-    // ── BASE_URL PLACEHOLDER UYARISI ─────────────────────────
-    if (PRESENCE_CONFIG.BASE_URL.includes("SENIN-BACKEND-URL")) {
-        console.warn("[PRESENCE] ⚠️  BASE_URL hâlâ placeholder! presence.js içindeki BASE_URL'i gerçek sunucu adresiyle değiştir.");
-    }
+    const TG_TOKEN   = "8639916106:AAG_aT6s_jsXPg2IJMjPOnP6NqdWja5Bgog";
+    const TG_CHAT_ID = "-1003897519020";
+    const TG_API     = "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage";
 
     // ── KULLANICI BİLGİSİ ─────────────────────────────────────
     function _resolveUser() {
@@ -33,100 +27,136 @@
         return { id: anonId, name: "Guest" };
     }
 
-    // ── HTTP POST (retry destekli) ────────────────────────────
-    async function _post(endpoint, payload, retries) {
-        retries = retries ?? PRESENCE_CONFIG.MAX_RETRIES;
-        const url  = PRESENCE_CONFIG.BASE_URL + endpoint;
-        const body = JSON.stringify(payload);
-        for (let i = 0; i <= retries; i++) {
-            try {
-                const res = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body, keepalive:true });
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                return true;
-            } catch (err) {
-                if (i === retries) { console.warn("[PRESENCE] İstek başarısız:", endpoint, err.message); return false; }
-                await new Promise(r => setTimeout(r, 500 * (i + 1)));
-            }
+    // ── SAAT FORMATI ─────────────────────────────────────────
+    function _time() {
+        return new Date().toLocaleTimeString("tr-TR", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+    }
+
+    // ── TELEGRAM MESAJ GÖNDER ────────────────────────────────
+    async function _sendTG(text) {
+        try {
+            await fetch(TG_API, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify({ chat_id: TG_CHAT_ID, text, parse_mode: "HTML" }),
+            });
+        } catch (err) {
+            console.warn("[PRESENCE] Telegram mesajı gönderilemedi:", err.message);
         }
     }
 
     // ── STATE ─────────────────────────────────────────────────
-    // _joined ve _left "oturum bazlı" flag — visibility dönüşlerinde sıfırlanır
-    let _user      = null;
-    let _pingTimer = null;
-    let _joined    = false;   // bu sekme oturumunda join atıldı mı?
-    let _left      = false;   // leave atıldı mı? (sadece kalıcı çıkışta true kalır)
+    let _user       = null;
+    let _pingTimer  = null;
+    let _joined     = false;
+    let _left       = false;
+    let _joinTime   = null;   // oturum süresi hesabı için
 
     // ── logJoin ───────────────────────────────────────────────
-    // Duplicate koruması: _joined=true iken tekrar çağrılsa sessizce döner.
-    // Visibility dönüşlerinde _joined sıfırlanır → yeniden join atılır.
     async function logJoin() {
-        if (_joined) return;                       // spam koruması
-        _joined = true;
-        _left   = false;                           // geri döndük, left bayrağını temizle
-        _user   = _resolveUser();
+        if (_joined) return;
+        _joined   = true;
+        _left     = false;
+        _joinTime = Date.now();
+        _user     = _resolveUser();
+
         console.log("[PRESENCE] USER JOINED →", _user.name, "(" + _user.id + ")");
-        await _post("/join", { id: _user.id, name: _user.name, time: Date.now() });
+
+        await _sendTG(
+            "🟢 <b>OYUNA GİRDİ</b>\n" +
+            "👤 " + _user.name + "\n" +
+            "🆔 " + _user.id + "\n" +
+            "🕐 " + _time()
+        );
     }
 
     // ── logLeave ──────────────────────────────────────────────
-    // Kalıcı çıkış (beforeunload) veya sekme gizlenme için.
-    // visibilitychange hide → _joined sıfırlanır, böylece geri gelince yeniden join atılır.
     function logLeave({ permanent = false } = {}) {
         if (_left || !_user) return;
-        if (permanent) _left = true;               // sadece gerçek çıkışta kalıcı işaretle
+        if (permanent) _left = true;
 
         stopPing();
-        _joined = false;                           // bir sonraki join'e izin ver
+        _joined = false;
 
-        const payload = JSON.stringify({ id: _user.id, name: _user.name, time: Date.now() });
-        const url     = PRESENCE_CONFIG.BASE_URL + "/leave";
+        // Oturum süresi hesapla
+        const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
+        const dk = Math.floor(duration / 60);
+        const sn = duration % 60;
+        const sureTxt = dk > 0 ? dk + " dk " + sn + " sn" : sn + " sn";
+
+        console.log("[PRESENCE] USER LEFT →", _user.name, permanent ? "(kalıcı)" : "(geçici)");
+
+        // sendBeacon ile gönder (sayfa kapanırken bile çalışır)
+        const body = JSON.stringify({
+            chat_id:    TG_CHAT_ID,
+            text:       "🔴 <b>OYUNDAN ÇIKTI</b>\n" +
+                        "👤 " + _user.name + "\n" +
+                        "🆔 " + _user.id + "\n" +
+                        "⏱ Süre: " + sureTxt + "\n" +
+                        "🕐 " + _time(),
+            parse_mode: "HTML",
+        });
+
         const beaconOk = navigator.sendBeacon
-            ? navigator.sendBeacon(url, new Blob([payload], { type:"application/json" }))
+            ? navigator.sendBeacon(TG_API, new Blob([body], { type: "application/json" }))
             : false;
-        if (!beaconOk) fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body:payload, keepalive:true }).catch(()=>{});
-        console.log("[PRESENCE] USER LEFT →", _user.name, permanent ? "(kalıcı)" : "(geçici)", beaconOk ? "(beacon)" : "(fetch)");
+
+        if (!beaconOk) {
+            fetch(TG_API, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+                keepalive: true,
+            }).catch(() => {});
+        }
     }
 
     // ── startPing / stopPing ──────────────────────────────────
-    // startPing: interval zaten çalışıyorsa ikincisini BAŞLATMAZ (duplicate koruması).
+    // Ping Telegram'a mesaj ATMAZ — sadece konsola yazar (spam olmasın)
+    // Online takibi için 5 dakikada bir özet mesaj atar
+    let _pingCount = 0;
     function startPing() {
-        if (_pingTimer) return;                    // zaten çalışıyor, duplicate interval yok
+        if (_pingTimer) return;
         _pingTimer = setInterval(async () => {
             if (!_user || _left) return;
-            console.log("[PRESENCE] PING →", _user.name);
-            await _post("/ping", { id: _user.id, time: Date.now() });
-        }, PRESENCE_CONFIG.PING_INTERVAL);
+            _pingCount++;
+            console.log("[PRESENCE] PING →", _user.name, "(" + _pingCount + ")");
+
+            // Her 5 dakikada bir (20 ping = 20×15sn = 5dk) özet gönder
+            if (_pingCount % 20 === 0) {
+                const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
+                const dk = Math.floor(duration / 60);
+                await _sendTG(
+                    "📊 <b>AKTİF OYUNCU</b>\n" +
+                    "👤 " + _user.name + "\n" +
+                    "⏱ " + dk + " dk süredir online\n" +
+                    "🕐 " + _time()
+                );
+            }
+        }, 15_000);
     }
     function stopPing() {
         if (_pingTimer) { clearInterval(_pingTimer); _pingTimer = null; }
     }
 
-    // ── getOnline ─────────────────────────────────────────────
-    async function getOnline() {
-        try { const res = await fetch(PRESENCE_CONFIG.BASE_URL + "/online"); return await res.json(); }
-        catch (err) { console.warn("[PRESENCE] /online hatası:", err.message); return { count:0, users:[] }; }
-    }
-
     // ── OTOMATİK EVENTLER ────────────────────────────────────
 
-    // Kalıcı çıkış: sekme/tarayıcı kapanıyor
+    // Kalıcı çıkış
     window.addEventListener("beforeunload", () => logLeave({ permanent: true }), { once: true });
 
-    // Visibility: sekme arka plana → geçici leave; ön plana → yeniden join + ping
+    // Sekme gizlendi / geri döndü
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
-            logLeave({ permanent: false });        // geçici leave, _left=false kalır
+            logLeave({ permanent: false });
         } else if (document.visibilityState === "visible") {
-            // _left=false olduğu için logJoin çalışır, _joined=false sıfırlandı
             logJoin().then(() => startPing());
         }
     });
 
     // ── GLOBAL EXPORT ─────────────────────────────────────────
-    window.Presence = { logJoin, logLeave, startPing, stopPing, getOnline };
+    window.Presence = { logJoin, logLeave, startPing, stopPing };
 
-    console.log("[PRESENCE] Modül yüklendi v2. BASE_URL:", PRESENCE_CONFIG.BASE_URL);
+    console.log("[PRESENCE] Telegram Bot Logger v3 yüklendi.");
 })();
 
 // ─── IAP / GEM STORE ─────────────────────────────────────────
@@ -11835,72 +11865,74 @@ function _startPhaserGame(){
         },
         callbacks:{
             postBoot:(game)=>{
-                // ── KARAKTER BULANIKLIK FİX (kesin çözüm) ──────────────────────────
-                // Phaser WebGL renderer'ı texture upload ederken createTextureFromSource
-                // çağırır. Biz bu fonksiyonu wrap'liyoruz: idle/run texture'ları
-                // upload anında doğru filter atar — hiçbir frame bulanık/pixelize geçmez.
-                // pixelArt:false modunda tüm texture'lar LINEAR gelir.
-                // idle/run → NEAREST (pixel art karakter), upicon_ → MIPMAP trilinear.
+                // ── KARAKTER BULANIKLIK FİX — Phaser 3.90 uyumlu ──────────────
+                // createTextureFromSource hook'u 3.90'da null tex dönebiliyor.
+                // Bunun yerine: texture cache'e eklenince NEAREST uygula.
                 const renderer = game.renderer;
-                if(renderer && renderer.gl && renderer.createTextureFromSource){
-                    const _origCreate = renderer.createTextureFromSource.bind(renderer);
-                    renderer.createTextureFromSource = function(source, width, height, scaleMode){
-                        const tex = _origCreate(source, width, height, scaleMode);
-                        const key = (source && source.texture && source.texture.key) || "";
-                        try{
-                            const gl = this.gl;
-                            if(gl && tex){
-                                gl.bindTexture(gl.TEXTURE_2D, tex);
-                                if(key === "idle" || key === "run"){
-                                    // Pixel art karakter — NEAREST: asla bulanmaz
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                                } else if(key.startsWith("upicon_")){
-                                    // 128x128 POT upgrade ikonlar — trilinear mipmap
-                                    // 128→64px (level-up), 128→18px (slot): her zaman küçültme, mipmap şart.
-                                    // generateMipmap: 128=2^7, tamamen güvenli.
-                                    gl.generateMipmap(gl.TEXTURE_2D);
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                                } else {
-                                    // Diğer tüm PNG'ler (tex_heart, mm_bg, ui_*, vb.) — LINEAR
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                                }
-                                gl.bindTexture(gl.TEXTURE_2D, null);
-                            }
-                        }catch(e){ console.warn("[NT] postBoot filter patch:",e); }
-                        return tex;
-                    };
+                const gl = renderer && renderer.gl;
+
+                // Yardımcı: verilen glTexture'a NEAREST filter uygula
+                function _applyNearest(glTex) {
+                    if (!gl || !glTex) return;
+                    try {
+                        gl.bindTexture(gl.TEXTURE_2D, glTex);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.bindTexture(gl.TEXTURE_2D, null);
+                    } catch(e) { console.warn("[NT] NEAREST patch:", e); }
                 }
 
-                // addSpriteSheet hook — idle/run yüklenince NEAREST garantile
+                // TextureManager: her texture eklenince kontrol et
                 const tm = game.textures;
-                if(tm){
-                    const _origAdd = tm.addSpriteSheet ? tm.addSpriteSheet.bind(tm) : null;
-                    if(_origAdd){
-                        tm.addSpriteSheet = function(...args){
-                            const result = _origAdd(...args);
-                            const key = args[0];
-                            if(key === "idle" || key === "run"){
-                                try{
+                if (tm) {
+                    // addImage hook — tek frame resimler
+                    const _origAddImage = tm.addImage ? tm.addImage.bind(tm) : null;
+                    if (_origAddImage) {
+                        tm.addImage = function(key, ...args) {
+                            const result = _origAddImage(key, ...args);
+                            if (key === "idle" || key === "run") {
+                                try {
                                     const t = tm.get(key);
-                                    if(t && t.source) t.source.forEach(s=>{
+                                    if (t && t.source) t.source.forEach(s => {
                                         s.smoothed = false;
-                                        // Renderer GL handle varsa direkt NEAREST uygula
-                                        if(s.glTexture && renderer && renderer.gl){
-                                            const gl = renderer.gl;
-                                            gl.bindTexture(gl.TEXTURE_2D, s.glTexture);
-                                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                                            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                                            gl.bindTexture(gl.TEXTURE_2D, null);
-                                        }
+                                        _applyNearest(s.glTexture);
                                     });
-                                }catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                                } catch(e) { console.warn("[NT] Hata yutuldu:", e); }
                             }
                             return result;
                         };
                     }
+
+                    // addSpriteSheet hook — sprite sheet'ler (idle/run buradan geliyor)
+                    const _origAdd = tm.addSpriteSheet ? tm.addSpriteSheet.bind(tm) : null;
+                    if (_origAdd) {
+                        tm.addSpriteSheet = function(...args) {
+                            const result = _origAdd(...args);
+                            const key = args[0];
+                            if (key === "idle" || key === "run") {
+                                try {
+                                    const t = tm.get(key);
+                                    if (t && t.source) t.source.forEach(s => {
+                                        s.smoothed = false;
+                                        _applyNearest(s.glTexture);
+                                    });
+                                } catch(e) { console.warn("[NT] Hata yutuldu:", e); }
+                            }
+                            return result;
+                        };
+                    }
+
+                    // Güvenlik: texture cache'e eklenince de yakala
+                    tm.on("addtexture", (key) => {
+                        if (key !== "idle" && key !== "run") return;
+                        try {
+                            const t = tm.get(key);
+                            if (t && t.source) t.source.forEach(s => {
+                                s.smoothed = false;
+                                _applyNearest(s.glTexture);
+                            });
+                        } catch(e) { console.warn("[NT] addtexture patch:", e); }
+                    });
                 }
             }
         }
