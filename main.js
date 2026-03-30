@@ -3087,7 +3087,7 @@ function spawnEnemy(S){
         case"rusher":    p.hp=hpFor(6,gs.level,0.35);  p.rusher=true;p.rushTimer=0;p.rushing=false;p.setDisplaySize(59,48).setVelocityY(spd*0.5); break;
         case"splitter":  p.hp=hpFor(10,gs.level,0.55); p.splitter=true;p.setDisplaySize(78,64).setVelocityY(spd*0.9); break;
         case"toxic":     p.hp=hpFor(7,gs.level,0.4);   p.toxic=true;p.toxTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.85); break;
-        case"colossus":  p.hp=hpFor(70,gs.level,1.6);  p.armor=3;p.colossus=true;p.setDisplaySize(196,160).setVelocityY(spd*0.25); break;
+        case"colossus":  p.hp=hpFor(30,gs.level,0.9);  p.armor=1;p.colossus=true;p.setDisplaySize(196,160).setVelocityY(spd*0.25); break;
 // ── YENİ PİRAMİT TİPLERİ — pyramid_1/2/3/4 asset, pyramid.png ile aynı boyut ──
         // Scale 0.82–0.95 arası: normal pyramid ile aynı görsel büyüklük
         // ── ÖZEL PİRAMİT TİPLERİ ──
@@ -3195,7 +3195,7 @@ function spawnBoss(S){
                      : 1.25 * Math.pow(1.05, _bMin-10);
     const _bBase = 55 + gs.level*3;
     const _rawHP = Math.ceil(Math.max(_bBase, _bBase * _bTimeMult * 0.60));
-    const _hpReduction = _bMin < 5 ? 0.60 : _bMin < 12 ? 0.70 : 0.80; // early 40% off, mid 30% off, late 20% off
+    const _hpReduction = _bMin < 5 ? 0.35 : _bMin < 12 ? 0.42 : 0.52; // much lower HP for all phases
     boss.hp = boss.maxHP = Math.ceil(_rawHP * _hpReduction);
     boss.type="boss"; boss.isBoss=true;
     boss.setScale(2.4).setTint(0xff0044).setVelocityY(50).setAlpha(0.7);
@@ -4650,7 +4650,7 @@ function showPause(S){
 
     // Panel measurements — runtime pixel sampling
     const pm = NT_Measure(S,"ui_pause_win",300);
-    const panelCY = CY;
+    const panelCY = CY + 28;
     const sprite  = A(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc).setDepth(501));
     const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
     const stripCY    = pTop + pm.stripH/2;
@@ -6902,7 +6902,7 @@ class SceneGame extends Phaser.Scene {
 
         // SKOR — Subway Surfers tarzı hızlı artış
         const prevScore=gs.score;
-        gs.score+=Math.floor((3+gs.level*0.8+gs.combo*0.3)*(delta/16));
+        gs.score+=Math.floor((1.2+gs.level*0.32+gs.combo*0.12)*(delta/16));
         // Her 1000 skor animasyonu
         const prevK=Math.floor(prevScore/1000);
         const newK=Math.floor(gs.score/1000);
@@ -8298,7 +8298,7 @@ function showLevelUpUI(S) {
 
     // 5-D  Title text (large, with canvas text-shadow glow)
     const titleTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + 30, "✦  LEVEL UP!  ✦", {
-        font:            "bold 28px LilitaOne, Arial, sans-serif",
+        font:            "28px LilitaOne, Arial, sans-serif",
         color:           "#ffffff",
         stroke:          "#001255",
         strokeThickness: 6,
@@ -8313,7 +8313,7 @@ function showLevelUpUI(S) {
     // 5-E  Subtitle text
     const subTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + HDR_H - 12,
         `LEVEL ${gs.level}  ·  CHOOSE AN UPGRADE`, {
-            font:    "bold 10px LilitaOne, Arial, sans-serif",
+            font:    "10px LilitaOne, Arial, sans-serif",
             color:   "#3f608c",
             padding: { x: 2, y: 1 }
         }).setOrigin(0.5).setDepth(306).setAlpha(0));
@@ -8508,7 +8508,7 @@ function showLevelUpUI(S) {
 
         // ── Name Text ────────────────────────────────────────────────────────
         const nameTxt = ui.add(S.add.text(ccx, TZ_Y_BASE, nameStr, {
-            font:            `bold ${fSzN}px LilitaOne, Arial, sans-serif`,
+            font:            `${fSzN}px LilitaOne, Arial, sans-serif`,
             color:           "#ffffff",
             stroke:          "#00001a",
             strokeThickness: 2,
@@ -8530,7 +8530,7 @@ function showLevelUpUI(S) {
             lvBgGfx.strokeRoundedRect(ccx - bw / 2, _lvY, bw, fSzS + 7, 3);
         }
         const lvBadgeTxt = ui.add(S.add.text(ccx, _lvY + 2, lvStr, {
-            font:    `bold ${fSzS}px LilitaOne, Arial, sans-serif`,
+            font:    `${fSzS}px LilitaOne, Arial, sans-serif`,
             color:   isEvo ? "#44ff88" : "#99bbee",
             padding: { x: 2, y: 1 }
         }).setOrigin(0.5, 0).setDepth(311).setAlpha(0));
@@ -10130,7 +10130,7 @@ function spawnMiniBoss(S){
     resetEF(p);
 
     // ── Temel stats ──────────────────────────────────────────────
-    p.hp=p.maxHP=Math.round(def.hp+gs.level*1); // [BALANCE] level scaling minimal
+    p.hp=p.maxHP=Math.round((def.hp*0.55)+gs.level*0.5); // [BALANCE] significantly reduced HP
     p.armor=def.armor;
     p.type="miniboss";
     p._isMiniBoss=true;
@@ -10258,9 +10258,9 @@ function showMiniBossBanner(S, def){
     S.cameras.main.zoomTo(1.04, 160, "Quad.easeOut");
     S.time.delayedCall(160, ()=> S.cameras.main.zoomTo(1.0, 300, "Quad.easeIn"));
 
-    // 2. Kısa slow-motion — daha hızlı dönüş
-    S.time.timeScale = 0.4;
-    S.time.delayedCall(400, ()=>{ S.time.timeScale = 1.0; });
+    // 2. Kısa slow-motion — daha yavaş giriş
+    S.time.timeScale = 0.15;
+    S.time.delayedCall(800, ()=>{ S.time.timeScale = 1.0; });
 
     // 4. Halka patlaması — ekran ortasından
     for(let i=0;i<4;i++){
@@ -10285,11 +10285,11 @@ function showMiniBossBanner(S, def){
     bg.fillStyle(def.color, 0.6); bg.fillRect(W-5, 264, 5, 64);
 
     const warnTxt = S.add.text(W/2, 272, L("miniBossAlert"), {
-        font:"bold 14px LilitaOne, Arial, sans-serif", color:"#ff6655"
+        font:"14px LilitaOne, Arial, sans-serif", color:"#ff6655"
     }).setOrigin(0.5, 0).setDepth(601).setAlpha(0);
 
     const nameTxt = S.add.text(W/2, 290, name.toUpperCase(), {
-        font:"bold 20px LilitaOne, Arial, sans-serif",
+        font:"20px LilitaOne, Arial, sans-serif",
         color: Phaser.Display.Color.IntegerToColor(def.color).rgba,
         stroke:"#000000", strokeThickness:3
     }).setOrigin(0.5, 0).setDepth(601).setAlpha(0);
@@ -10318,7 +10318,7 @@ function showMiniBossBanner(S, def){
         });
     }
 
-    S.time.delayedCall(3200, ()=>{
+    S.time.delayedCall(5000, ()=>{
         S.tweens.add({ targets:[bg, warnTxt, nameTxt], alpha:0, y:"+=12", duration:280,
             onComplete:()=>{
                 try{ bg.destroy(); warnTxt.destroy(); nameTxt.destroy(); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
@@ -10440,7 +10440,7 @@ function showRunEventUI(S, ev){
     // Başlık
     const title=LLang(ev,"title","titleEN","titleRU");
     const titleTxt=ui.add(S.add.text(W/2,PANEL_Y+74,title,{
-        font:"bold 15px LilitaOne, Arial, sans-serif",
+        font:"15px LilitaOne, Arial, sans-serif",
         color:Phaser.Display.Color.IntegerToColor(ev.color).rgba
     }).setOrigin(0.5,0).setDepth(803).setAlpha(0));
 
@@ -10451,7 +10451,7 @@ function showRunEventUI(S, ev){
     // Açıklama
     const desc=LLang(ev,"desc","descEN","descRU");
     const descTxt=ui.add(S.add.text(W/2,PANEL_Y+104,desc,{
-        font:"bold 14px LilitaOne, Arial, sans-serif",color:"#ccccdd",
+        font:"14px LilitaOne, Arial, sans-serif",color:"#ccccdd",
         wordWrap:{width:PANEL_W-40},align:"center",lineSpacing:5
     }).setOrigin(0.5,0).setDepth(803).setAlpha(0));
 
@@ -10491,7 +10491,7 @@ function showRunEventUI(S, ev){
 
         const lbl=LLang(ch,"label","labelEN","labelRU");
         const btnTxt=ui.add(S.add.text(BTN_X+BTN_W/2,BTN_Y+BTN_H/2,lbl,{
-            font:"bold 15px LilitaOne, Arial, sans-serif",
+            font:"15px LilitaOne, Arial, sans-serif",
             color:isAccept?"#ffffff":"#888888"
         }).setOrigin(0.5).setDepth(804).setAlpha(0));
 
