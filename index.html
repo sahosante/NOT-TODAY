@@ -7,22 +7,42 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Not Today</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<style>
-* { margin:0; padding:0; box-sizing:border-box;
-    -webkit-tap-highlight-color:transparent;
-    -webkit-touch-callout:none;
-    -webkit-user-select:none; user-select:none; }
 
-html, body {
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+
+<style>
+* {
+  margin:0; padding:0; box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+}
+
+html {
   width:100%; height:100%;
+  height:-webkit-fill-available;
+}
+
+body {
+  width:100%; height:100%;
+  height:100dvh;
   overflow:hidden;
   background:#000;
   touch-action:none;
-  font-family:'Courier New',monospace;
+  font-family:'Lilita One','Courier New',monospace;
+  -ms-touch-action:none;
 }
 
-/* YÜKLEME */
+#font-warmup {
+  position:fixed; top:-9999px; left:-9999px;
+  width:1px; height:1px; overflow:hidden;
+  font-family:'Lilita One',Arial,sans-serif;
+  font-size:16px; color:transparent;
+  pointer-events:none; white-space:nowrap;
+}
+
 #loading-screen {
   position:fixed; top:0; left:0; right:0; bottom:0;
   background:#0a0010;
@@ -31,18 +51,40 @@ html, body {
   z-index:9998; gap:20px;
 }
 #loading-screen.hidden { display:none; }
-.load-logo { font-size:24px; color:#ff4400; letter-spacing:5px; text-shadow:0 0 20px #ff440088; }
-.load-bar-bg { width:200px; height:6px; background:#220011; border-radius:3px; overflow:hidden; }
-.load-bar-fill { height:100%; width:0%; background:#ff4400; border-radius:3px; transition:width 0.3s ease; }
-.load-txt { font-size:10px; color:#664422; letter-spacing:3px; }
 
-/* OYUN KAPSAYICI — Phaser canvas'ı ortalamak için */
+.load-logo {
+  font-family:'Lilita One',Arial,sans-serif;
+  font-size:28px; color:#ff4400;
+  letter-spacing:5px; text-shadow:0 0 20px #ff440088;
+}
+.load-bar-bg {
+  width:220px; height:7px;
+  background:#220011; border-radius:4px; overflow:hidden;
+}
+.load-bar-fill {
+  height:100%; width:0%;
+  background:linear-gradient(90deg,#ff4400,#ff8800);
+  border-radius:4px; transition:width 0.3s ease;
+}
+.load-txt {
+  font-family:'Lilita One',Arial,sans-serif;
+  font-size:12px; color:#aa5533; letter-spacing:3px;
+}
+
+/* ── GAME CONTAINER ─────────────────────────────────────────────
+   Phaser Scale.FIT ile çalışır: canvas en-boy oranını koruyarak
+   container'a sığar. overflow:hidden taşmayı keser.            */
 #game-container {
-  position:fixed; top:0; left:0; right:0; bottom:0;
+  position:fixed;
+  top:0; left:0;
+  width:100%;
+  height:100%;
+  height:100dvh;
   display:flex;
   justify-content:center;
   align-items:center;
   background:#000;
+  overflow:hidden;
   visibility:hidden;
 }
 #game-container.active { visibility:visible; }
@@ -52,24 +94,38 @@ html, body {
   display:flex !important;
   justify-content:center !important;
   align-items:center !important;
+  width:100% !important;
+  height:100% !important;
+  overflow:hidden !important;
 }
 
-/* Canvas — en-boy oranını koru, ekrana sığdır */
+/* Canvas — Phaser boyutunu yönetsin, CSS zorla boyutlandırmasın */
 #game-container canvas {
   display:block !important;
-  margin:0 auto !important;
+  max-width:100vw !important;
+  max-height:100vh !important;
+  max-height:100dvh !important;
+  margin:0 !important;
   touch-action:none;
   image-rendering:pixelated;
   image-rendering:crisp-edges;
+  /* width/height:auto — Phaser Scale.FIT'in kendi hesabına müdahale etme */
+  width:auto !important;
+  height:auto !important;
 }
 </style>
 </head>
 <body>
 
+<div id="font-warmup" aria-hidden="true">
+  PLAY SETTINGS HOW TO PLAY LEADERBOARD NOT TODAY LEVEL UP PAUSED RESUME MAIN MENU
+  ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.,:/-+
+</div>
+
 <div id="loading-screen">
   <div class="load-logo">NOT TODAY</div>
   <div class="load-bar-bg"><div class="load-bar-fill" id="load-bar"></div></div>
-  <div class="load-txt">YÜKLENİYOR...</div>
+  <div class="load-txt" id="load-txt">YÜKLENİYOR...</div>
 </div>
 
 <div id="game-container"></div>
@@ -77,34 +133,72 @@ html, body {
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
   if (window.Telegram && window.Telegram.WebApp) {
-    try { Telegram.WebApp.ready(); } catch(e) {}
-    try { Telegram.WebApp.expand(); } catch(e) {}
-    try { Telegram.WebApp.requestFullscreen(); } catch(e) {}
+    try { Telegram.WebApp.ready(); }    catch(e){}
+    try { Telegram.WebApp.expand(); }   catch(e){}
+    try { Telegram.WebApp.requestFullscreen(); } catch(e){}
+    try { Telegram.WebApp.disableVerticalSwipes(); } catch(e){}
   }
 
-  document.addEventListener('touchmove',function(e){e.preventDefault();},{passive:false});
-  document.addEventListener('touchstart',function(e){if(e.touches.length>1)e.preventDefault();},{passive:false});
-  document.addEventListener('contextmenu',function(e){e.preventDefault();});
+  document.addEventListener('touchmove',   function(e){ e.preventDefault(); }, { passive:false });
+  document.addEventListener('touchstart',  function(e){ if(e.touches.length>1) e.preventDefault(); }, { passive:false });
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 
-  var bar=document.getElementById('load-bar');
-  bar.style.width='30%';
+  // iOS çift tık zoom engelle
+  var _lt = 0;
+  document.addEventListener('touchend', function(e){
+    var n = Date.now();
+    if(n - _lt < 300) e.preventDefault();
+    _lt = n;
+  }, { passive:false });
 
-  var ph=document.createElement('script');
-  ph.src='https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js';
-  ph.onload=function(){
-    bar.style.width='70%';
-    var g=document.createElement('script');
-    g.src='main.js?'+Date.now();
-    g.onload=function(){
-      bar.style.width='100%';
-      setTimeout(function(){
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('game-container').classList.add('active');
-      },300);
+  var bar  = document.getElementById('load-bar');
+  var ltxt = document.getElementById('load-txt');
+  var _fontDone = false;
+
+  function _waitFont(cb) {
+    if (document.fonts && document.fonts.load) {
+      Promise.all([
+        document.fonts.load('16px "Lilita One"'),
+        document.fonts.load('24px "Lilita One"'),
+        document.fonts.load('28px "Lilita One"')
+      ]).then(function(){ cb(); }).catch(function(){ cb(); });
+      setTimeout(cb, 1500); // güvenlik timeout
+    } else {
+      setTimeout(cb, 500);
+    }
+  }
+
+  bar.style.width  = '15%';
+  ltxt.textContent = 'FONT YÜKLENİYOR...';
+
+  _waitFont(function(){
+    if(_fontDone) return; _fontDone = true;
+    bar.style.width  = '30%';
+    ltxt.textContent = 'YÜKLENİYOR...';
+
+    var ph = document.createElement('script');
+    ph.src = 'https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js';
+    ph.onload = function(){
+      bar.style.width = '70%';
+
+      var g = document.createElement('script');
+      g.src = 'main.js?' + Date.now();
+      g.onload = function(){
+        bar.style.width  = '100%';
+        ltxt.textContent = 'HAZIR!';
+        setTimeout(function(){
+          var wu = document.getElementById('font-warmup');
+          if(wu) wu.remove();
+          document.getElementById('loading-screen').classList.add('hidden');
+          document.getElementById('game-container').classList.add('active');
+        }, 300);
+      };
+      g.onerror = function(){ ltxt.textContent='HATA: main.js'; ltxt.style.color='#f44'; };
+      document.body.appendChild(g);
     };
-    document.body.appendChild(g);
-  };
-  document.body.appendChild(ph);
+    ph.onerror = function(){ ltxt.textContent='HATA: Phaser'; ltxt.style.color='#f44'; };
+    document.body.appendChild(ph);
+  });
 </script>
 </body>
 </html>
