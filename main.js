@@ -4467,28 +4467,42 @@ function buildUI(S){
 
     // ── SKOR — üst orta ──────────────────────────────────────
     S.scoreText=S.add.text(W/2,18,"0",{
-        font:"bold 18px LilitaOne, Arial, sans-serif",color:"#ffffff",
-        stroke:"#000000",strokeThickness:3
+        fontFamily:"LilitaOne",
+        fontSize:"18px",
+        color:"#ffffff",
+        stroke:"#000000",
+        strokeThickness:3
     }).setOrigin(0.5).setScrollFactor(0).setDepth(D+6);
 
-    // ── SAĞ ÜST: Level, Kills, Gold, Crystal — alt alta hizalı ──
+    // ── SAĞ ÜST: Level, Kills, Gold — alt alta hizalı ──
     S.levelText=S.add.text(W-8,10,"Lv 1",{
-        font:"bold 14px LilitaOne, Arial, sans-serif",color:"#ffdd44"
+        fontFamily:"LilitaOne",
+        fontSize:"14px",
+        color:"#ffdd44",
+        stroke:"#000000",
+        strokeThickness:2
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
     S.killText=S.add.text(W-8,26,"[K] 0",{
-        font:"bold 14px LilitaOne, Arial, sans-serif",color:"#ff9977"
+        fontFamily:"LilitaOne",
+        fontSize:"14px",
+        color:"#ff9977",
+        stroke:"#000000",
+        strokeThickness:2
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
     S.goldText=S.add.text(W-8,42,"G 0",{
-        font:"bold 14px LilitaOne, Arial, sans-serif",color:"#ffdd44"
+        fontFamily:"LilitaOne",
+        fontSize:"14px",
+        color:"#FFD700",
+        stroke:"#000000",
+        strokeThickness:2
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
     S._crystalHudText=null; // HUD crystal display removed
 
     // ── PAUSE butonu — pause_button asset, LINEAR filter (piksel yok)
-    // PAUSE butonu — Gold text: y=42, origin(1,0), yükseklik ~14px → alt kenar y≈56
-    // Buton merkezi: y=56+16=72, sağ hizalı W-18
+    // Buton merkezi: y=72, sağ hizalı W-18
     const pH = S.add.image(W-18, 72, "pause_button")
         .setDisplaySize(30, 30)
         .setScrollFactor(0)
@@ -4515,10 +4529,12 @@ function buildUI(S){
         window.setTimeout(()=>{ pH.setAlpha(0.80); showPause(S); }, 60);
     });
 
-    // ── COMBO ─────────────────────────────────────────────────
+    // ── COMBO — invisible placeholder (combo gösterimi spawnComboText ile yapılır)
     S.comboText=S.add.text(W/2,310,"",{
-        font:"bold 16px LilitaOne, Arial, sans-serif",color:"#ffdd00"
-    }).setOrigin(0.5).setDepth(D+5);
+        fontFamily:"LilitaOne",
+        fontSize:"1px",
+        color:"#000000"
+    }).setOrigin(0.5).setDepth(D+5).setAlpha(0);
 }
 
 function renderUI(S){
@@ -4563,13 +4579,20 @@ function renderUI(S){
     // Kristal — statik (değişmez sık sık)
     if(S._crystalHudText) S._crystalHudText.setText("GEM "+PLAYER_CRYSTAL);
 
-    // Combo — güçlü görsel
+    // Combo — milestone floating text only (static HUD combo yazısı kaldırıldı)
     if(gs.combo>1){
-        S.comboText.setText("× "+gs.combo+" COMBO");
-        S.comboText.setAlpha(0.85+Math.sin(gs.t*0.025)*0.15);
-        S.comboText.setScale(Math.min(1.25,1+gs.combo*0.018));
-        S.comboText.setColor(gs.combo>=15?"#ff2244":gs.combo>=10?"#ff6600":gs.combo>=5?"#ffaa00":"#ffdd00");
-    } else { S.comboText.setText("").setScale(1); }
+        // Milestone text pop via spawnComboText — HUD text invisible
+        if(!S._lastComboMilestone) S._lastComboMilestone=0;
+        const bScale=1.0+Math.sin(gs.t*0.055)*(0.04+gs.combo*0.004);
+        const mile=gs.combo>=20?20:gs.combo>=15?15:gs.combo>=10?10:gs.combo>=5?5:0;
+        if(mile>0&&mile!==S._lastComboMilestone){
+            S._lastComboMilestone=mile;
+            // ── Juicy floating combo milestone text
+            spawnComboText(S, 180, 285, gs.combo);
+        }
+    } else {
+        S._lastComboMilestone=0;
+    }
 
     // [UPGRADE VİZÜEL] Slot'ları 500ms'de bir güncelle — level bazlı pulse için
     if(!S._slotRefreshTimer) S._slotRefreshTimer=0;
@@ -4859,178 +4882,523 @@ function refreshSlots(S){
 }
 
 // ── HASAR / COMBAT YARDIMCILARI ───────────────────────────────
-// [VFX POLISH P1] showDmgNum — küçük ama okunaklı hasar sayıları
-// Crit: yıldız kaldırıldı, font küçültüldü (15→11px)
-// Normal: üç kademe küçültüldü (14/12/9 → 10/9/7px)
-// [PERF] Aktif hasar sayısı limiti — çok fazla text nesnesi oluşmasını önler
-let _dmgNumCount = 0;
-const MAX_DMG_NUMS = 12;
+// ═══════════════════════════════════════════════════════════════════════
+// ★ JUICY TEXT VFX SYSTEM v3 — Professional combat text with full VFX
+//   LilitaOne font · glow layers · particle bursts · smooth easing
+//   Functions: spawnDamageText · spawnComboText · spawnGoldText
+//              spawnKillText · spawnLevelUpText
+//   + upgraded showDmgNum (drop-in compatible)
+// ═══════════════════════════════════════════════════════════════════════
 
-function showDmgNum(S,x,y,val,isCrit){
+// ── Internal helpers ────────────────────────────────────────────────
+
+// Soft glow: duplicate text drawn behind the main text for bloom effect
+function _jtGlow(S, x, y, str, fontSize, hexCol, glowCol, depth, alpha){
+    try{
+        const g = S.add.text(x, y, str, {
+            fontFamily:"LilitaOne",
+            fontSize: fontSize+"px",
+            color: glowCol || hexCol,
+            stroke: glowCol || hexCol,
+            strokeThickness: Math.round(fontSize * 0.7),
+            padding:{x:4,y:4}
+        }).setOrigin(0.5).setDepth(depth-1).setAlpha((alpha||0.22)).setScale(1.08);
+        return g;
+    }catch(e){ return null; }
+}
+
+// Spawn small particle burst around text spawn point
+function _jtBurst(S, x, y, col, count, depth){
+    if(!S||!_POOL) return;
+    const n = Math.min(count||5, 8);
+    for(let i=0;i<n;i++){
+        const p = _POOL.get(depth||44); if(!p) continue;
+        const ang = Phaser.Math.DegToRad((i/n)*360 + Phaser.Math.Between(-20,20));
+        const spd = Phaser.Math.Between(12, 32);
+        const len = Phaser.Math.Between(2, 5);
+        p.lineStyle(1.5, col, 0.85);
+        p.lineBetween(0, 0, Math.cos(ang)*len, Math.sin(ang)*len);
+        p.setPosition(x, y);
+        _pt(S, p, {
+            x: x + Math.cos(ang)*spd,
+            y: y + Math.sin(ang)*spd*0.65,
+            alpha:0, scaleY:0.1,
+            duration: Phaser.Math.Between(120, 260),
+            ease:"Quad.easeOut"
+        });
+    }
+}
+
+// Ghost trail: faint copies that fade right after spawn
+function _jtTrail(S, x, y, str, fontSize, hexCol, depth){
+    if(_perfMode==="low") return;
+    try{
+        for(let i=0;i<2;i++){
+            const ghost = S.add.text(
+                x + Phaser.Math.Between(-3,3),
+                y + Phaser.Math.Between(-2,2),
+                str, {
+                    fontFamily:"LilitaOne",
+                    fontSize: (fontSize*(0.9-i*0.1))+"px",
+                    color: hexCol,
+                    padding:{x:2,y:2}
+                }
+            ).setOrigin(0.5).setDepth(depth-2).setAlpha(0.25-i*0.08);
+            S.tweens.add({targets:ghost, alpha:0, y:ghost.y-10,
+                duration:180+i*60, ease:"Quad.easeOut",
+                onComplete:()=>{ try{ghost.destroy();}catch(e){} }
+            });
+        }
+    }catch(e){}
+}
+
+// Safe destroy helper
+function _jtDestroy(objs){
+    objs.forEach(o=>{ try{ if(o&&o.destroy) o.destroy(); }catch(e){} });
+}
+
+// ── DAMAGE NUMBER POOL ──────────────────────────────────────────────
+let _dmgNumCount=0;
+const MAX_DMG_NUMS=12;
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  spawnDamageText(x, y, value, isCrit)                   ║
+// ║  Replaces showDmgNum — drop-in compatible               ║
+// ╚══════════════════════════════════════════════════════════╝
+function spawnDamageText(S, x, y, value, isCrit){
     if(!S||!S.add) return;
     if(window._nt_dmg_nums===false) return;
     if(_dmgNumCount>=MAX_DMG_NUMS) return;
     _dmgNumCount++;
-    const ox=Phaser.Math.Between(-10,10);
-    const oy=Phaser.Math.Between(-4,2);
+
+    const ox = Phaser.Math.Between(-10,10);
+    const oy = Phaser.Math.Between(-4,2);
+    const tx = x + ox, ty = y + oy;
+
+    const str = ""+Math.round(value);
+
     if(isCrit){
-        // CRIT: large, golden-red, punch-in bounce then float up
-        const _col = val >= 8 ? "#ff3300" : "#ffcc00";   // high crit = red, normal crit = gold
-        const t=S.add.text(x+ox,y+oy,""+Math.round(val),{
-            font:"bold 20px LilitaOne, Arial, sans-serif",   // BEFORE: 15px
-            color:_col, stroke:"#000000", strokeThickness:3,
+        // ── CRIT: bright red/orange, large, glow, burst
+        const isBig = value >= 8;
+        const col   = isBig ? "#ff2200" : "#ff7700";
+        const gcol  = isBig ? "#ff4400" : "#ff9900";
+        const fs    = isBig ? 22 : 18;
+        const depth = 43;
+
+        // Glow layer
+        const glow = _jtGlow(S, tx, ty, str, fs, col, gcol, depth, 0.28);
+
+        // Main text
+        const t = S.add.text(tx, ty, str, {
+            fontFamily:"LilitaOne",
+            fontSize: fs+"px",
+            color: col,
+            stroke:"#1a0000",
+            strokeThickness: 4,
             padding:{x:2,y:1}
-        }).setOrigin(0.5).setDepth(43).setScale(0.2);
-        // Phase 1: punch in (scale 0.2 → 1.3, 70ms Back ease)
-        S.tweens.add({targets:t, scaleX:1.3, scaleY:1.3, duration:70, ease:"Back.easeOut",
+        }).setOrigin(0.5).setDepth(depth).setScale(0.1);
+
+        // Particle burst
+        _jtBurst(S, tx, ty, isBig?0xff2200:0xff8800, 6, 44);
+
+        // Ghost trails
+        _jtTrail(S, tx, ty, str, fs, col, depth);
+
+        // Animation: 0.1 → 1.35 → 1.0 → float+fade
+        S.tweens.add({targets:[t, glow].filter(Boolean),
+            scaleX:1.35, scaleY:1.35, duration:90, ease:"Back.easeOut",
             onComplete:()=>{
-                // Phase 2: settle to 1.0 quickly
-                S.tweens.add({targets:t, scaleX:1.0, scaleY:1.0, duration:50, ease:"Quad.easeOut",
+                S.tweens.add({targets:[t, glow].filter(Boolean),
+                    scaleX:1.0, scaleY:1.0, duration:55, ease:"Quad.easeOut",
                     onComplete:()=>{
-                        // Phase 3: float up and fade (600ms)
-                        S.tweens.add({targets:t, y:y+oy-55, alpha:0,
-                            duration:600, ease:"Quad.easeOut",
-                            onComplete:()=>{try{_dmgNumCount=Math.max(0,_dmgNumCount-1);t.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+                        S.tweens.add({targets:[t, glow].filter(Boolean),
+                            y: ty-60, alpha:0, duration:680, ease:"Quad.easeOut",
+                            onComplete:()=>{
+                                _dmgNumCount=Math.max(0,_dmgNumCount-1);
+                                _jtDestroy([t, glow]);
+                            }
+                        });
                     }
                 });
             }
         });
-        // Crit ring — faster expand, longer linger
-        const cr=S.add.graphics().setDepth(42);
-        cr.x=x+ox; cr.y=y+oy;
-        cr.lineStyle(2,0xffcc00,1.0); cr.strokeCircle(0,0,10);
-        cr.lineStyle(1,0xff4400,0.7); cr.strokeCircle(0,0,5);
-        S.tweens.add({targets:cr,scaleX:3.0,scaleY:3.0,alpha:0,duration:280,ease:"Quad.easeOut",onComplete:()=>cr.destroy()});
-    } else {
-        // NORMAL: larger than before, color-coded, smooth float
-        const big=val>=10;
-        const med=val>=4;
-        const tiny=val<2;
-        const color=big?"#ff8833":med?"#ffcc44":tiny?"#888888":"#ccaa66";
-        const fs=big?"bold 13px":med?"bold 11px":"bold 9px";   // BEFORE: 10/9/7px
-        const t=S.add.text(x+ox,y+oy,""+Math.round(val*10)/10,{
-            font:fs+" LilitaOne, Arial, sans-serif",color,
-            stroke:"#000",strokeThickness:2, padding:{x:1,y:0}
-        }).setOrigin(0.5).setDepth(40).setAlpha(big?1.0:tiny?0.55:0.88);
-        const rise=big?38:med?28:18;         // BEFORE: 28/20/14
-        const dur =big?380:med?300:220;       // BEFORE: 280/220/170 — 35% longer
-        S.tweens.add({
-            targets:t, y:y+oy-rise, alpha:0,
-            duration:dur, ease:"Quad.easeOut",
-            onComplete:()=>{try{_dmgNumCount=Math.max(0,_dmgNumCount-1);t.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}
+
+        // Crit ring
+        const cr = S.add.graphics().setDepth(42);
+        cr.x=tx; cr.y=ty;
+        cr.lineStyle(2.5, isBig?0xff2200:0xff7700, 1.0); cr.strokeCircle(0,0,10);
+        cr.lineStyle(1.2, 0xffffff, 0.5); cr.strokeCircle(0,0,5);
+        S.tweens.add({targets:cr, scaleX:3.2, scaleY:3.2, alpha:0,
+            duration:260, ease:"Quad.easeOut",
+            onComplete:()=>cr.destroy()
         });
+
+    } else {
+        // ── NORMAL: white→yellow gradient feel, size by value
+        const big   = value >= 10;
+        const med   = value >= 4;
+        const tiny  = value < 2;
+        const col   = big?"#ffffff": med?"#ffe599": tiny?"#aaaaaa":"#ffdd88";
+        const fs    = big?14: med?12: 9;
+        const depth = 40;
+
+        const t = S.add.text(tx, ty, str, {
+            fontFamily:"LilitaOne",
+            fontSize: fs+"px",
+            color: col,
+            stroke:"#000000",
+            strokeThickness:2,
+            padding:{x:1,y:0}
+        }).setOrigin(0.5).setDepth(depth)
+          .setAlpha(big?1.0: tiny?0.55: 0.88);
+
+        const rise = big?42: med?30: 18;
+        const dur  = big?420: med?320: 220;
+
+        // Scale pop for big hits
+        if(big){
+            t.setScale(0.5);
+            S.tweens.add({targets:t, scaleX:1.0, scaleY:1.0,
+                duration:80, ease:"Back.easeOut",
+                onComplete:()=>{
+                    S.tweens.add({targets:t, y:ty-rise, alpha:0,
+                        duration:dur, ease:"Quad.easeOut",
+                        onComplete:()=>{
+                            _dmgNumCount=Math.max(0,_dmgNumCount-1);
+                            try{t.destroy();}catch(e){}
+                        }
+                    });
+                }
+            });
+        } else {
+            S.tweens.add({targets:t, y:ty-rise, alpha:0,
+                duration:dur, ease:"Quad.easeOut",
+                onComplete:()=>{
+                    _dmgNumCount=Math.max(0,_dmgNumCount-1);
+                    try{t.destroy();}catch(e){}
+                }
+            });
+        }
     }
+}
+
+// Backward-compatible alias (all existing showDmgNum calls still work)
+function showDmgNum(S,x,y,val,isCrit){ spawnDamageText(S,x,y,val,isCrit); }
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  spawnComboText(x, y, combo)                            ║
+// ║  Called from renderUI when combo milestone hits         ║
+// ╚══════════════════════════════════════════════════════════╝
+function spawnComboText(S, x, y, combo){
+    if(!S||!S.add) return;
+
+    // Color progression: low=cyan, mid=purple, high=orange/red
+    const col = combo>=20?"#ff2244": combo>=15?"#ff6600": combo>=10?"#cc44ff":
+                combo>=5 ?"#8844ff": "#44ccff";
+    const gcol= combo>=20?"#ff4466": combo>=15?"#ff8800": combo>=10?"#dd66ff":
+                combo>=5 ?"#aa66ff": "#66ddff";
+
+    // Scale grows with combo: base 1.0 → max 1.5
+    const baseScale = Math.min(1.5, 1.0 + combo * 0.025);
+    const fs = Math.round(Math.min(28, 16 + combo * 0.5));
+    const str = "×"+combo+" COMBO";
+    const depth = 55;
+
+    // Rotation jitter ±5 deg
+    const rot = Phaser.Math.Between(-5, 5);
+
+    // Glow layer
+    const glow = _jtGlow(S, x, y, str, fs, col, gcol, depth, 0.22);
+
+    // Main text
+    const t = S.add.text(x, y, str, {
+        fontFamily:"LilitaOne",
+        fontSize: fs+"px",
+        color: col,
+        stroke:"#000000",
+        strokeThickness: 4,
+        padding:{x:3,y:2}
+    }).setOrigin(0.5).setDepth(depth).setScale(0.3).setAngle(rot);
+
+    // Burst particles
+    const burstCol = combo>=20?0xff2244: combo>=10?0xff6600: combo>=5?0xaa44ff: 0x44ccff;
+    _jtBurst(S, x, y, burstCol, Math.min(8, 3+Math.floor(combo/4)), depth+1);
+
+    // Elastic bounce in
+    S.tweens.add({
+        targets: [t, glow].filter(Boolean),
+        scaleX: baseScale * 1.15,
+        scaleY: baseScale * 1.15,
+        angle: 0,
+        duration: 320,
+        ease: "Elastic.easeOut",
+        onComplete: ()=>{
+            S.tweens.add({
+                targets: [t, glow].filter(Boolean),
+                scaleX: baseScale,
+                scaleY: baseScale,
+                duration: 120,
+                ease: "Quad.easeOut",
+                onComplete: ()=>{
+                    // Subtle alpha pulse then fade
+                    S.tweens.add({
+                        targets: [t, glow].filter(Boolean),
+                        alpha: { from:1, to:0 },
+                        y: y - 28,
+                        duration: 420,
+                        delay: 400,
+                        ease: "Quad.easeIn",
+                        onComplete: ()=>{ _jtDestroy([t, glow]); }
+                    });
+                }
+            });
+        }
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  spawnGoldText(x, y, amount)                            ║
+// ╚══════════════════════════════════════════════════════════╝
+function spawnGoldText(S, x, y, amount){
+    if(!S||!S.add) return;
+    const str  = "+"+amount+"G";
+    const fs   = amount>=5 ? 16 : 13;
+    const depth= 38;
+
+    // Shine flicker via glow
+    const glow = _jtGlow(S, x, y, str, fs, "#FFD700", "#FFB800", depth, 0.30);
+
+    const t = S.add.text(x, y, str, {
+        fontFamily:"LilitaOne",
+        fontSize: fs+"px",
+        color:"#FFD700",
+        stroke:"#7a4400",
+        strokeThickness:3,
+        padding:{x:2,y:1}
+    }).setOrigin(0.5).setDepth(depth).setAlpha(0).setScale(0.6);
+
+    // Horizontal drift offset
+    const driftX = Phaser.Math.Between(-18, 18);
+
+    // Pop in + float up + drift + fade
+    S.tweens.add({targets:[t, glow].filter(Boolean),
+        alpha:1, scaleX:1.0, scaleY:1.0,
+        duration:90, ease:"Back.easeOut",
+        onComplete:()=>{
+            // Shine flicker on glow
+            if(glow && _perfMode!=="low"){
+                S.tweens.add({targets:glow,
+                    alpha:{from:0.30, to:0.08},
+                    duration:180, yoyo:true, repeat:1, ease:"Sine.easeInOut"
+                });
+            }
+            S.tweens.add({targets:[t, glow].filter(Boolean),
+                y: y-38, x: x+driftX, alpha:0,
+                duration:580, delay:160, ease:"Quad.easeOut",
+                onComplete:()=>{ _jtDestroy([t, glow]); }
+            });
+        }
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  spawnKillText(x, y)                                    ║
+// ╚══════════════════════════════════════════════════════════╝
+function spawnKillText(S, x, y){
+    if(!S||!S.add) return;
+    const str   = "KILL!";
+    const fs    = 18;
+    const depth = 46;
+
+    // Glow layer
+    const glow = _jtGlow(S, x, y, str, fs, "#ff3300", "#ff6600", depth, 0.30);
+
+    const t = S.add.text(x, y, str, {
+        fontFamily:"LilitaOne",
+        fontSize: fs+"px",
+        color:"#ff3300",
+        stroke:"#220000",
+        strokeThickness:5,
+        padding:{x:3,y:2}
+    }).setOrigin(0.5).setDepth(depth).setScale(0.1);
+
+    // Burst behind text
+    _jtBurst(S, x, y, 0xff3300, 7, depth-1);
+    _jtBurst(S, x, y, 0xff8800, 4, depth-1);
+
+    // Text-only shake (translate oscillation — no camera)
+    const startX = x;
+    let shakePhase = 0;
+    const shakeTick = S.time.addEvent({delay:16, repeat:5, callback:()=>{
+        shakePhase++;
+        t.x = startX + Math.sin(shakePhase*2.8)*3;
+        if(glow) glow.x = t.x;
+    }});
+
+    // Pop in → shake → float fade
+    S.tweens.add({targets:[t, glow].filter(Boolean),
+        scaleX:1.3, scaleY:1.3, duration:80, ease:"Back.easeOut",
+        onComplete:()=>{
+            S.tweens.add({targets:[t, glow].filter(Boolean),
+                scaleX:1.0, scaleY:1.0, duration:60, ease:"Quad.easeOut",
+                onComplete:()=>{
+                    S.tweens.add({targets:[t, glow].filter(Boolean),
+                        y:y-50, alpha:0, duration:500, delay:200, ease:"Quad.easeOut",
+                        onComplete:()=>{ _jtDestroy([t, glow]); }
+                    });
+                }
+            });
+        }
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  spawnLevelUpText(x, y)                                 ║
+// ╚══════════════════════════════════════════════════════════╝
+function spawnLevelUpText(S, x, y){
+    if(!S||!S.add) return;
+    const str   = "LEVEL UP!";
+    const fs    = 24;
+    const depth = 600;
+
+    // Expanding energy ring behind text
+    const ring = S.add.graphics().setDepth(depth-2);
+    ring.x = x; ring.y = y;
+    ring.lineStyle(3, 0xaa44ff, 0.90); ring.strokeCircle(0,0,14);
+    ring.lineStyle(1.5, 0xffffff, 0.4); ring.strokeCircle(0,0,8);
+    S.tweens.add({targets:ring, scaleX:9, scaleY:9, alpha:0,
+        duration:700, ease:"Quad.easeOut",
+        onComplete:()=>ring.destroy()
+    });
+    // Second ring delayed
+    S.time.delayedCall(80, ()=>{
+        if(!S||!S.add) return;
+        const ring2 = S.add.graphics().setDepth(depth-2);
+        ring2.x=x; ring2.y=y;
+        ring2.lineStyle(2, 0xcc66ff, 0.7); ring2.strokeCircle(0,0,10);
+        S.tweens.add({targets:ring2, scaleX:14, scaleY:14, alpha:0,
+            duration:800, ease:"Quad.easeOut",
+            onComplete:()=>ring2.destroy()
+        });
+    });
+
+    // Glow layer
+    const glow = _jtGlow(S, x, y, str, fs, "#cc44ff", "#aa00ff", depth, 0.30);
+
+    // Main text
+    const t = S.add.text(x, y, str, {
+        fontFamily:"LilitaOne",
+        fontSize: fs+"px",
+        color:"#dd88ff",
+        stroke:"#220044",
+        strokeThickness:5,
+        padding:{x:4,y:2}
+    }).setOrigin(0.5).setDepth(depth).setScale(0.0).setAlpha(0);
+
+    // Burst
+    _jtBurst(S, x, y, 0xaa44ff, 8, depth+1);
+    _jtBurst(S, x, y, 0xffffff, 4, depth+1);
+
+    // Scale 0 → 1.5 → 1.0 with glow pulse
+    S.tweens.add({targets:[t, glow].filter(Boolean),
+        scaleX:1.5, scaleY:1.5, alpha:1,
+        duration:260, ease:"Back.easeOut",
+        onComplete:()=>{
+            S.tweens.add({targets:[t, glow].filter(Boolean),
+                scaleX:1.0, scaleY:1.0,
+                duration:160, ease:"Quad.easeOut",
+                onComplete:()=>{
+                    // Glow pulse (alpha oscillation)
+                    if(glow){
+                        S.tweens.add({targets:glow,
+                            alpha:{from:0.30, to:0.08},
+                            duration:200, yoyo:true, repeat:2, ease:"Sine.easeInOut"
+                        });
+                    }
+                    // Float up and out
+                    S.tweens.add({targets:[t, glow].filter(Boolean),
+                        y:y-55, alpha:0,
+                        duration:600, delay:500, ease:"Quad.easeIn",
+                        onComplete:()=>{ _jtDestroy([t, glow]); }
+                    });
+                }
+            });
+        }
+    });
 }
 // ══════════════════════════════════════════════════════════════
 // ★ PATLAMA EFEKTİ — debris + halka + parçalar
 // ══════════════════════════════════════════════════════════════
-function doExplodeVFX(S, x, y, col, sizeScale){
-    if(!S||!S.add) return;
-    const c  = col  || 0xffcc55;
-    const sc = sizeScale || 1.0;
-    const isBig = sc >= 1.5; // tank, elder, titan, colossus
+function doExplodeVFX(S,x,y,col,sizeScale){
+    if(!S||!_POOL) return;
+    x=_snap(x); y=_snap(y);
+    const sz=Math.min(sizeScale||1,1.8), col2=col||0xffcc55;
 
-    // 1. ── İÇ FLASH — anlık beyaz patlak ──────────────────────
-    const flash = S.add.graphics().setDepth(24).setPosition(x, y);
-    flash.fillStyle(0xffffff, 0.95);
-    flash.fillCircle(0, 0, 14 * sc);
-    S.tweens.add({targets:flash, scaleX:0.1, scaleY:0.1, alpha:0,
-        duration:80, ease:"Quad.easeIn",
-        onComplete:()=>{ try{flash.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
-
-    // 2. ── ANA PATLAMA HALKASI ─────────────────────────────────
-    const ring1 = S.add.graphics().setDepth(23).setPosition(x, y);
-    ring1.lineStyle(3.5 * sc, c, 1.0);
-    ring1.strokeCircle(0, 0, 6);
-    S.tweens.add({targets:ring1, scaleX:4.5 * sc, scaleY:4.5 * sc, alpha:0,
-        duration:350, ease:"Quad.easeOut",
-        onComplete:()=>{ try{ring1.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
-
-    // 3. ── İKİNCİ HALKA — hafif gecikeli ──────────────────────
-    S.time.delayedCall(40, ()=>{
-        const ring2 = S.add.graphics().setDepth(22).setPosition(x, y);
-        ring2.lineStyle(1.5, c, 0.6);
-        ring2.strokeCircle(0, 0, 8);
-        S.tweens.add({targets:ring2, scaleX:6 * sc, scaleY:6 * sc, alpha:0,
-            duration:450, ease:"Sine.easeOut",
-            onComplete:()=>{ try{ring2.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
+    // Inner flash burst
+    const inner=_POOL.get(23); if(inner){
+        inner.fillStyle(0xffffff,0.52); inner.fillCircle(0,0,6*sz);
+        inner.setPosition(x,y);
+        _pt(S,inner,{scaleX:2.5,scaleY:2.5,alpha:0,duration:100,ease:"Quad.easeIn"});
+    }
+    // Main colour ring
+    const ring1=_POOL.get(23); if(ring1){
+        ring1.lineStyle(3.5*sz,col2,1.0); ring1.strokeCircle(0,0,6);
+        ring1.setPosition(x,y);
+        _pt(S,ring1,{scaleX:4.5*sz,scaleY:4.5*sz,alpha:0,duration:340,ease:"Quad.easeOut"});
+    }
+    // Second ring (delayed)
+    S.time.delayedCall(42,()=>{
+        const ring2=_POOL.get(22); if(!ring2) return;
+        ring2.lineStyle(1.5,col2,0.60); ring2.strokeCircle(0,0,8);
+        ring2.setPosition(x,y);
+        _pt(S,ring2,{scaleX:6*sz,scaleY:6*sz,alpha:0,duration:440,ease:"Sine.easeOut"});
     });
-
-    // 4. ── PARLAK ORB MERKEZİ ──────────────────────────────────
-    const orb = S.add.graphics().setDepth(23).setPosition(x, y);
-    orb.fillStyle(c, 0.85);
-    orb.fillCircle(0, 0, 8 * sc);
-    orb.fillStyle(0xffffff, 0.6);
-    orb.fillCircle(-2 * sc, -2 * sc, 3 * sc);
-    S.tweens.add({targets:orb, scaleX:1.8, scaleY:1.8, alpha:0,
-        duration:220, ease:"Quad.easeOut",
-        onComplete:()=>{ try{orb.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
-
-    // 5. ── DEBRIS — üçgen parçacıklar (pyramitten kopuyor) ────
-    const debrisCount = isBig ? 10 : 7;
-    for(let i = 0; i < debrisCount; i++){
-        const ang  = (i / debrisCount) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.3, 0.3);
-        const dist = Phaser.Math.Between(28, 55) * sc;
-        const sz   = Phaser.Math.Between(3, isBig ? 8 : 5);
-        const dCol = i % 3 === 0 ? 0xffffff : i % 3 === 1 ? c : Phaser.Display.Color.Interpolate.ColorWithColor(
-            Phaser.Display.Color.ValueToColor(c),
-            Phaser.Display.Color.ValueToColor(0x333333), 3, i % 3
-        ).color;
-
-        const d = S.add.graphics().setDepth(22).setPosition(x, y);
-        d.fillStyle(dCol, 0.95);
-        // Üçgen şekil — pyramid parçası hissi
-        d.fillTriangle(0, -sz, sz*0.8, sz*0.6, -sz*0.8, sz*0.6);
-        d.fillStyle(0xffffff, 0.3);
-        d.fillTriangle(0, -sz+1, sz*0.4, 0, -sz*0.4, 0);
-
-        const tx = x + Math.cos(ang) * dist;
-        const ty = y + Math.sin(ang) * dist;
-        S.tweens.add({targets:d,
-            x: tx,
-            y: ty + Phaser.Math.Between(10, 30), // yerçekimi hissi
-            angle: Phaser.Math.Between(-200, 200),
-            scaleX: 0.1, scaleY: 0.1,
-            alpha: 0,
-            duration: Phaser.Math.Between(350, 600),
-            ease: "Quad.easeOut",
-            delay: i * 15,
-            onComplete:()=>{ try{d.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }
+    // Colour orb centre
+    const orb=_POOL.get(23); if(orb){
+        orb.fillStyle(col2,0.85); orb.fillCircle(0,0,8*sz);
+        orb.fillStyle(0xffffff,0.55); orb.fillCircle(-2*sz,-2*sz,3*sz);
+        orb.setPosition(x,y);
+        _pt(S,orb,{scaleX:1.8,scaleY:1.8,alpha:0,duration:215,ease:"Quad.easeOut"});
+    }
+    // Debris shards (pooled triangles via lines)
+    const debrisCount=sz>=1.5?8:6;
+    for(let i=0;i<debrisCount;i++){
+        const dp=_POOL.get(22); if(!dp) break;
+        const ang=(i/debrisCount)*Math.PI*2+Phaser.Math.FloatBetween(-0.3,0.3);
+        const dist=Phaser.Math.Between(28,55)*sz;
+        const len=Phaser.Math.Between(3,sz>=1.5?8:5);
+        const dCol=i%2===0?0xffffff:col2;
+        dp.lineStyle(1.5,dCol,0.92);
+        dp.lineBetween(0,-len,len*0.8,len*0.6);
+        dp.lineBetween(len*0.8,len*0.6,-len*0.8,len*0.6);
+        dp.lineBetween(-len*0.8,len*0.6,0,-len);
+        dp.setPosition(x,y);
+        _pt(S,dp,{x:x+Math.cos(ang)*dist,y:y+Math.sin(ang)*dist+Phaser.Math.Between(8,25),
+            angle:Phaser.Math.Between(-200,200),scaleX:0.1,scaleY:0.1,alpha:0,
+            duration:Phaser.Math.Between(340,580),delay:i*14,ease:"Quad.easeOut"});
+    }
+    // Sparks (pooled)
+    const sparkCount=sz>=1.5?8:5;
+    for(let i=0;i<sparkCount;i++){
+        S.time.delayedCall(i*16,()=>{
+            const sp=_POOL.get(23); if(!sp) return;
+            sp.fillStyle(i%2===0?0xffffff:col2,0.90);
+            sp.fillRect(-1,-1,2,Phaser.Math.Between(4,8));
+            sp.setPosition(x+Phaser.Math.Between(-10,10)*sz,y+Phaser.Math.Between(-10,10)*sz);
+            const sa=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+            const sd=Phaser.Math.Between(18,42)*sz;
+            _pt(S,sp,{x:sp.x+Math.cos(sa)*sd,y:sp.y+Math.sin(sa)*sd,
+                angle:Phaser.Math.Between(-90,90),alpha:0,
+                duration:Phaser.Math.Between(175,310),ease:"Quad.easeOut"});
         });
     }
-
-    // 6. ── KIVIRCIM KIYILCIMLAR — 8 adet ─────────────────────
-    const sparkCount = isBig ? 10 : 6;
-    for(let i = 0; i < sparkCount; i++){
-        S.time.delayedCall(i * 18, ()=>{
-            const sp = S.add.graphics().setDepth(23).setPosition(
-                x + Phaser.Math.Between(-10, 10) * sc,
-                y + Phaser.Math.Between(-10, 10) * sc
-            );
-            sp.fillStyle(i % 2 === 0 ? 0xffffff : c, 0.9);
-            sp.fillRect(-1, -1, 2, Phaser.Math.Between(4, 8));
-            const sa = Phaser.Math.DegToRad(Phaser.Math.Between(0, 360));
-            const sd = Phaser.Math.Between(20, 45) * sc;
-            S.tweens.add({targets:sp,
-                x: sp.x + Math.cos(sa) * sd,
-                y: sp.y + Math.sin(sa) * sd,
-                angle: Phaser.Math.Between(-90, 90),
-                alpha: 0,
-                duration: Phaser.Math.Between(180, 320),
-                ease: "Quad.easeOut",
-                onComplete:()=>{ try{sp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }
-            });
-        });
-    }
-
-    // 7. ── ZEMİN LEKESİ — küçük koyu halka yerde kalır ───────
-    S.time.delayedCall(80, ()=>{
-        const stain = S.add.graphics().setDepth(5).setPosition(x, y);
-        stain.fillStyle(0x111111, 0.35);
-        stain.fillEllipse(0, 0, 28 * sc, 8 * sc);
-        S.tweens.add({targets:stain, alpha:0, duration:1800,
-            delay:400, ease:"Sine.easeIn",
-            onComplete:()=>{ try{stain.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
+    // Ground stain
+    S.time.delayedCall(80,()=>{
+        const st=_POOL.get(5); if(!st) return;
+        st.fillStyle(0x111111,0.32);
+        st.fillEllipse(0,0,28*sz,8*sz);
+        st.setPosition(x,y);
+        _pt(S,st,{alpha:0,duration:1700,delay:380,ease:"Sine.easeIn"});
     });
 }
 
@@ -5179,57 +5547,81 @@ function showFloatingText(S, priority, text, x, y){
         } else if(priority === FT_IMPORTANT){
             if(!_ftEvict()) return;
         } else {
-            return; // LOW/NORMAL için yer yoksa gösterme
+            return;
         }
     }
 
-    // Görsel parametreler priority'e göre
-    let fontSize, depth, strokeTh, riseY, stayDur, fadeDur, scaleIn, offsetY;
+    // ── Per-priority visual params ──────────────────────────────
+    let fs, depth, strokeTh, riseY, stayDur, fadeDur, scaleIn, textCol, strokeCol, glowCol;
     if(priority === FT_CRITICAL){
-        fontSize  = "bold 20px LilitaOne, Arial, sans-serif";
-        depth     = 42; strokeTh = 6; riseY = 60; stayDur = 800; fadeDur = 500;
-        scaleIn   = 1.4; offsetY = 0;
+        fs=20; depth=42; strokeTh=6; riseY=65; stayDur=800; fadeDur=500; scaleIn=1.4;
+        textCol="#ffffff"; strokeCol="#330000"; glowCol="#ff4400";
     } else if(priority === FT_IMPORTANT){
-        fontSize  = "bold 15px LilitaOne, Arial, sans-serif";
-        depth     = 36; strokeTh = 4; riseY = 46; stayDur = 500; fadeDur = 380;
-        scaleIn   = 1.15; offsetY = 0;
+        fs=15; depth=36; strokeTh=4; riseY=50; stayDur=500; fadeDur=380; scaleIn=1.15;
+        textCol="#ffeecc"; strokeCol="#000000"; glowCol="#ffaa44";
     } else if(priority === FT_NORMAL){
-        fontSize  = isPerfect ? "bold 17px LilitaOne, Arial, sans-serif" : "bold 13px LilitaOne, Arial, sans-serif";
-        depth     = 32; strokeTh = 4; riseY = 38; stayDur = 300; fadeDur = 280;
-        scaleIn   = isPerfect ? 1.25 : 1.05; offsetY = 0;
+        fs=isPerfect?17:13; depth=32; strokeTh=4; riseY=40; stayDur=300; fadeDur=280;
+        scaleIn=isPerfect?1.25:1.05;
+        textCol=isPerfect?"#ffee44":"#ffffcc"; strokeCol="#000000"; glowCol=isPerfect?"#ffcc00":null;
     } else {
-        fontSize  = "bold 10px LilitaOne, Arial, sans-serif";
-        depth     = 25; strokeTh = 0; riseY = 22; stayDur = 180; fadeDur = 200;
-        scaleIn   = 0.95; offsetY = 0;
+        fs=10; depth=25; strokeTh=0; riseY=22; stayDur=180; fadeDur=200; scaleIn=0.95;
+        textCol="#cccccc"; strokeCol=null; glowCol=null;
     }
 
-    // CRITICAL ekran ortasında gösterilir
+    // CRITICAL: screen centre
     const tx = (priority === FT_CRITICAL) ? 180 : x;
     const ty = (priority === FT_CRITICAL) ? 220 : y;
 
-    const t = S.add.text(tx, ty, text, {
-        font: fontSize, color: "#ffffff",
-        ...(strokeTh>0 ? {stroke:"#000000",strokeThickness:strokeTh} : {}),
-        padding:{x:3,y:2}
-    }).setOrigin(0.5).setDepth(depth).setAlpha(0).setScale(0.3);
+    // ── Glow layer (IMPORTANT+) ─────────────────────────────────
+    let glow = null;
+    if(glowCol && _perfMode!=="low" && (priority===FT_CRITICAL||priority===FT_IMPORTANT||isPerfect)){
+        glow = _jtGlow(S, tx, ty, text, fs, textCol, glowCol, depth, 0.22);
+        if(glow) glow.setScale(0.3).setAlpha(0);
+    }
 
+    // ── Main text ────────────────────────────────────────────────
+    const styleObj = {
+        fontFamily:"LilitaOne",
+        fontSize: fs+"px",
+        color: textCol,
+        padding:{x:3,y:2}
+    };
+    if(strokeTh>0){ styleObj.stroke=strokeCol||"#000000"; styleObj.strokeThickness=strokeTh; }
+
+    const t = S.add.text(tx, ty, text, styleObj)
+        .setOrigin(0.5).setDepth(depth).setAlpha(0).setScale(0.3);
+
+    const allObjs = [t, glow].filter(Boolean);
     const entry = { obj: t, priority, tween: null };
     _ftActive.push(entry);
 
-    // Giriş animasyonu
-    S.tweens.add({targets:t, alpha:1, scaleX:scaleIn, scaleY:scaleIn, y:ty - riseY*0.3,
-        duration: 70, ease:"Back.easeOut",
+    // ── Ghost trail (CRITICAL/IMPORTANT) ───────────────────────
+    if((priority===FT_CRITICAL||isPerfect) && _perfMode!=="low"){
+        _jtTrail(S, tx, ty, text, fs, textCol, depth);
+    }
+
+    // ── Particle burst (CRITICAL/IMPORTANT) ────────────────────
+    if(priority===FT_CRITICAL){
+        _jtBurst(S, tx, ty, 0xff6600, 6, depth+1);
+        _jtBurst(S, tx, ty, 0xffffff, 3, depth+1);
+    } else if(priority===FT_IMPORTANT || isPerfect){
+        _jtBurst(S, tx, ty, 0xffdd44, 4, depth+1);
+    }
+
+    // ── Entry animation ─────────────────────────────────────────
+    S.tweens.add({targets:allObjs, alpha:1, scaleX:scaleIn, scaleY:scaleIn, y:ty - riseY*0.3,
+        duration: priority===FT_CRITICAL?120:70, ease:"Back.easeOut",
         onComplete:()=>{
-            S.tweens.add({targets:t, scaleX:scaleIn*0.9, scaleY:scaleIn*0.9,
+            S.tweens.add({targets:allObjs, scaleX:scaleIn*0.9, scaleY:scaleIn*0.9,
                 duration:90, ease:"Quad.easeOut",
                 onComplete:()=>{
-                    const tw = S.tweens.add({targets:t, alpha:0, y:ty - riseY,
+                    const tw = S.tweens.add({targets:allObjs, alpha:0, y:ty-riseY,
                         scaleX:0.6, scaleY:0.6,
-                        duration: fadeDur, ease:"Quad.easeIn", delay: stayDur,
+                        duration:fadeDur, ease:"Quad.easeIn", delay:stayDur,
                         onComplete:()=>{
                             const idx = _ftActive.indexOf(entry);
                             if(idx !== -1) _ftActive.splice(idx, 1);
-                            try{ t.destroy(); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                            _jtDestroy(allObjs);
                         }
                     });
                     entry.tween = tw;
@@ -5238,22 +5630,22 @@ function showFloatingText(S, priority, text, x, y){
         }
     });
 
-    // Perfect hit sparkler
+    // ── Perfect sparkler ────────────────────────────────────────
     if(isPerfect){
-        for(let i=0;i<4;i++){
-            const ca=Phaser.Math.DegToRad(i*90+45);
+        for(let i=0;i<5;i++){
+            const ca=Phaser.Math.DegToRad(i*72+36);
             const sp=S.add.graphics().setDepth(depth+1);
-            sp.lineStyle(1.5,0xffee00,0.85);
-            sp.lineBetween(0,0,Math.cos(ca)*4,Math.sin(ca)*4);
-            sp.x=tx+Math.cos(ca)*20; sp.y=ty+Math.sin(ca)*10;
+            sp.lineStyle(1.5,0xffee00,0.9);
+            sp.lineBetween(0,0,Math.cos(ca)*5,Math.sin(ca)*5);
+            sp.x=tx+Math.cos(ca)*22; sp.y=ty+Math.sin(ca)*11;
             S.tweens.add({targets:sp,
-                x:sp.x+Math.cos(ca)*14, y:sp.y+Math.sin(ca)*8,
-                alpha:0, scaleY:0.1, duration:160, ease:"Quad.easeOut",
-                onComplete:()=>{try{sp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+                x:sp.x+Math.cos(ca)*16, y:sp.y+Math.sin(ca)*9,
+                alpha:0, scaleY:0.1, duration:180, ease:"Quad.easeOut",
+                onComplete:()=>{try{sp.destroy();}catch(e){}}});
         }
     }
 
-    // CRITICAL: ekran shake
+    // ── CRITICAL shake ───────────────────────────────────────────
     if(priority === FT_CRITICAL && S.cameras?.main){
         S.cameras.main.shake(40, 0.004);
     }
@@ -6266,8 +6658,10 @@ class SceneGame extends Phaser.Scene {
                     gs.comboDmgBoost=Math.min(1.20,1+gs.combo*0.010); // referans
                     syncStatsFromPipeline(gs); // [v9.2]
                 }
-                // ── AAA NORMAL HIT VFX ──
-                vfxNormalHit(_S,enemy.x,enemy.y,isCrit);
+                // ── AAA NORMAL HIT VFX v2 — directional + squash ──
+                const _bAng=Math.atan2(b.body.velocity.y,b.body.velocity.x);
+                vfxNormalHit(_S,enemy.x,enemy.y,isCrit,_bAng);
+                vfxEnemySquash(_S,enemy);
             }
 
             // Mermi yönü: merminin x pozisyonundan hesapla
@@ -6569,8 +6963,8 @@ class SceneGame extends Phaser.Scene {
         if(gs.invincible){gs._invT=(gs._invT||0)+delta;if(gs._invT>350){gs.invincible=false;gs._invT=0;}}
 
         // Player sınır
-        this.player.x=Phaser.Math.Clamp(this.player.x,14,346);
-        this.player.y=Phaser.Math.Clamp(this.player.y,60,GROUND_Y-32);
+        this.player.x=_snap(Phaser.Math.Clamp(this.player.x,14,346));
+        this.player.y=_snap(Phaser.Math.Clamp(this.player.y,60,GROUND_Y-32));
     }
 }
 
@@ -6618,6 +7012,54 @@ function movePlayer(S,delta){
 }
 
 // ── ATEŞ — SİLAH TİPİNE GÖRE DAĞITIM ──────────────────────
+// ── MUZZLE FLASH v2 — per-weapon, pool-based ─────────────────
+function vfxMuzzleFlash(S,x,y,weaponType){
+    if(!S||!_POOL) return;
+    const CFG={
+        rapid:    {col:0xffee44,glow:0xffcc00,sparks:3,sz:3, glowR:6 },
+        cannon:   {col:0xff6600,glow:0xff8800,sparks:5,sz:7, glowR:14},
+        spread:   {col:0xcc44ff,glow:0xaa22dd,sparks:4,sz:4, glowR:8 },
+        chain:    {col:0x44aaff,glow:0x2288cc,sparks:3,sz:4, glowR:7 },
+        precision:{col:0xff2244,glow:0xff5566,sparks:2,sz:2, glowR:5 },
+        reflect:  {col:0x20ccaa,glow:0x44ffdd,sparks:3,sz:3, glowR:7 },
+        default:  {col:0xffffaa,glow:0xffee66,sparks:3,sz:3, glowR:6 },
+    };
+    const c=CFG[weaponType]||CFG.default;
+    // Glow burst
+    const glow=_POOL.get(18); if(glow){
+        glow.fillStyle(c.glow,0.52); glow.fillCircle(0,0,c.glowR);
+        glow.fillStyle(0xffffff,0.42); glow.fillCircle(0,0,c.glowR*0.38);
+        glow.setPosition(_snap(x),_snap(y));
+        _pt(S,glow,{scaleX:2.6,scaleY:2.6,alpha:0,duration:75,ease:"Quad.easeOut"});
+    }
+    // Spark jets
+    for(let i=0;i<c.sparks;i++){
+        const sp=_POOL.get(19); if(!sp) continue;
+        const isUp=(weaponType!=="cannon");
+        const ang=isUp
+            ?Phaser.Math.DegToRad(Phaser.Math.Between(250,290))
+            :Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+        const len=Phaser.Math.Between(c.sz,c.sz*2.4);
+        sp.lineStyle(1.5,i%2===0?c.col:0xffffff,0.90);
+        sp.lineBetween(0,0,Math.cos(ang)*len,Math.sin(ang)*len);
+        sp.setPosition(_snap(x),_snap(y));
+        _pt(S,sp,{x:_snap(x)+Math.cos(ang)*Phaser.Math.Between(7,18),
+            y:_snap(y)+Math.sin(ang)*Phaser.Math.Between(7,18),
+            alpha:0,scaleY:0.1,
+            duration:Phaser.Math.Between(42,88),ease:"Quad.easeOut"});
+    }
+}
+
+// ── RECOIL ANIMATION ─────────────────────────────────────────
+function vfxRecoil(S,weaponType){
+    if(!S||!S.player||!S.tweens) return;
+    const KICK={cannon:5,rapid:2,spread:3,precision:4,reflect:2,default:2};
+    const kick=KICK[weaponType]||KICK.default;
+    const baseY=S.player.y;
+    S.tweens.add({targets:S.player,y:baseY+kick,duration:36,ease:"Quad.easeOut",
+        onComplete:()=>S.tweens.add({targets:S.player,y:baseY,duration:90,ease:"Back.easeOut"})});
+}
+
 function doShoot(S){
     const gs=GS;
     const sp=gs.bulletSpeed||380;
@@ -6663,6 +7105,10 @@ function doShoot(S){
     } else {
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.03,vy,1.0);
     }
+
+    // ── VFX v2 — muzzle flash + recoil ──
+    vfxMuzzleFlash(S,px,py+10,wt);
+    vfxRecoil(S,wt);
 
     // BALANCE: Overload proc rate reduced (1% per shot, 15% per enemy, 0.35x damage)
     if(gs._evoOverload&&Math.random()<0.01){
@@ -8621,29 +9067,18 @@ function applyUpgrade(S,key,isEvo){
     // ★ Build title — güçlü kombo varsa göster
     S.time.delayedCall(600,()=>showBuildTitle(S));
 
-    // [VFX] Upgrade alınma oyuncu feedback — rarity rengiyle aura
+    // [VFX v2] Upgrade pickup — glow pulse + text float
     if(S&&S.player){
         const upColor=UPGRADES[key]?.color||0x4488ff;
-        const plx=S.player.x, ply=S.player.y;
-        // Oyuncu etrafında renkli halka patlaması
-        for(let ui=0;ui<2;ui++){
-            S.time.delayedCall(ui*80,()=>{
-                const ur=S.add.graphics().setDepth(25);
-                ur.x=plx; ur.y=ply;
-                ur.lineStyle(2+ui,upColor,1.0); ur.strokeCircle(0,0,12+ui*10);
-                S.tweens.add({targets:ur,scaleX:3.5,scaleY:3.5,alpha:0,
-                    duration:350,ease:"Quad.easeOut",onComplete:()=>ur.destroy()});
-            });
-        }
-        // Yukarı yükselen renk teli
-        const ut=S.add.text(plx,ply-28,">> "+L(UPGRADES[key]?.nameKey||key),{
+        const plx=_snap(S.player.x), ply=_snap(S.player.y);
+        vfxLevelUpGlow(S,plx,ply,upColor);
+        const ut=S.add.text(plx,ply-30,">> "+L(UPGRADES[key]?.nameKey||key),{
             font:"bold 12px LilitaOne, Arial, sans-serif",
-            color:Phaser.Display.Color.IntegerToColor(upColor).rgba
-        ,
+            color:Phaser.Display.Color.IntegerToColor(upColor).rgba,
             padding:{x:2,y:1}
         }).setOrigin(0.5).setDepth(25).setAlpha(0.9);
-        S.tweens.add({targets:ut,y:ut.y-22,alpha:0,duration:700,ease:"Quad.easeOut",
-            onComplete:()=>ut.destroy()});
+        S.tweens.add({targets:ut,y:ply-52,alpha:0,duration:680,ease:"Quad.easeOut",
+            onComplete:()=>{ try{ut.destroy();}catch(e){} }});
     }
 }
 
@@ -8720,6 +9155,8 @@ function killEnemy(S,p,giveXP){
     if(!p.isBoss&&p.type!=="minion"&&!p._groundKill){
         try{
             doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
+            // ── VFX v2 kill reward ──
+            vfxEnemyKillReward(S,px,py,p.type,p.elite,p.isBoss||false);
             const particleCount=p.elite?8:p.titan||p.colossus||p.obsidian?10:5;
             const rainbowDebris=[0xFF00FF,0x00FFFF,0xFFD700,0x8B00FF,0xFF8C00,0x00FF88];
             for(let i=0;i<particleCount;i++){
@@ -8964,6 +9401,7 @@ function killEnemy(S,p,giveXP){
     // Elite/Titan kill VFX
     if(p.elite&&!p.isBoss){
         showHitTxt(S,px,py-22,"★ ELİT ÖLDÜRÜLDÜ ★","#ffdd00",true);
+        spawnKillText(S, px, py-44);
         S.cameras.main.shake(45,0.007);
         for(let ei=0;ei<10;ei++){
             const eang=Phaser.Math.DegToRad(ei*36);
@@ -9125,7 +9563,12 @@ function killEnemy(S,p,giveXP){
     ));
     gs.gold+=gV; PLAYER_GOLD+=gV;
     // [PERF] localStorage her kill'de değil, sadece oyun sonunda kaydedilir (donma önleme)
-    if(gV>0){const c=S.add.image(px+Phaser.Math.Between(-15,15),py-5,"xp_coin").setDepth(18);S.tweens.add({targets:c,y:c.y-18,alpha:0,duration:520,onComplete:()=>c.destroy()});}
+    if(gV>0){
+        const c=S.add.image(px+Phaser.Math.Between(-15,15),py-5,"xp_coin").setDepth(18);
+        S.tweens.add({targets:c,y:c.y-18,alpha:0,duration:520,onComplete:()=>c.destroy()});
+        // ── Gold floating text — only for notable amounts
+        if(gV>=3){ spawnGoldText(S, px+Phaser.Math.Between(-8,8), py-18, gV); }
+    }
     spawnHitDebris(S,px,py-10,p.type,false);
     // Fiziksel debris — parçalar zemine düşer
     spawnFallingDebris(S,px,py,p.type,p.isBoss||p.titan||p.colossus);
@@ -10654,6 +11097,36 @@ function doExplosion(S,x,y){
     }
     if(GS._evoPlagueBearer) spawnPoisonCloud(S,x,y); // [OPT] GS flag kullan
 }
+// ── KILL REWARD VFX v2 ────────────────────────────────────────
+function vfxEnemyKillReward(S,px,py,enemyType,isElite,isBoss){
+    if(!S||!_POOL) return;
+    px=_snap(px); py=_snap(py);
+    const typeColors={
+        normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,
+        kamikaze:0xFFBB55,ghost:0xDDBBFF,split:0xFFEE44,swarm:0xFFBB66,
+        elder:0xFFCC44,spinner:0xFF55DD,armored:0x9977FF,bomber:0xFF9966,
+        stealth:0x44FFDD,healer:0x66FFAA,magnet:0xFFCC33,mirror:0xCCAAFF,
+        berserker:0xFF7799,absorber:0x33EEFF,chain:0x77AAFF,freezer:0xAAEEFF,
+        leech:0xFF77BB,titan:0xDD55FF,shadow:0xBB88FF,spiker:0xFFDD66,
+        vortex:0x33FFCC,phantom:0xEEBBFF,rusher:0xFFAA55,splitter:0x88FF88,
+        toxic:0xBBFF44,colossus:0xFF66AA,inferno:0xFF9977,glacier:0x66DDFF,
+        phantom_tri:0xFF55FF,volt:0xFFFF66,obsidian:0xCC77FF,zigzag:0x88FF88,
+    };
+    const col=typeColors[enemyType]||0xff88cc;
+    const tier=isBoss?3:isElite?2:1;
+
+    // Subtle slow-motion for elite/boss kills only
+    if((isElite||isBoss)&&S.time){
+        const prevTS=S.time.timeScale;
+        S.time.timeScale=isBoss?0.22:0.62;
+        S.time.delayedCall(isBoss?110:65,()=>{ if(S.time) S.time.timeScale=prevTS; });
+    }
+
+    // Score popup
+    const scoreVal=isBoss?2000:isElite?300:50;
+    if(GS&&GS.combo>1) vfxScorePopup(S,px,py-14,scoreVal,col);
+}
+
 // ── POISON ORB — Vampire Survivors iksiri gibi serbest uçar ──
 function spawnPoisonOrb(S){
     const gs=GS, lv=UPGRADES.poison.level;
@@ -10901,22 +11374,38 @@ function tickNearDeathPulse(S, delta){
 
 // ── 3. COMBO BREAK — çöküş hissi ───────────────────────────────
 function showComboBreak(S, lastCombo){
-    if(!S||!S.add||lastCombo < 3) return; // 5→3: daha küçük combo kayıpları da gösteriliyor
+    if(!S||!S.add||lastCombo < 3) return;
     const W=360;
     const intensity = Math.min(lastCombo, 30);
-    const txt = S.add.text(W/2, 300, L("comboBreak"), {
-        font:"bold 16px LilitaOne, Arial, sans-serif",
-        color:"#ff4444"
-    }).setOrigin(0.5).setAlpha(0).setDepth(60).setScale(1.2);
-    S.tweens.add({targets:txt, alpha:0.9, scaleX:1.0, scaleY:1.0,
+    const str = L("comboBreak");
+    const depth = 60;
+
+    // Glow layer
+    const glow = _jtGlow(S, W/2, 300, str, 17, "#ff4444", "#ff0000", depth, 0.28);
+    if(glow){ glow.setAlpha(0).setScale(1.2); }
+
+    const txt = S.add.text(W/2, 300, str, {
+        fontFamily:"LilitaOne",
+        fontSize:"17px",
+        color:"#ff4444",
+        stroke:"#220000",
+        strokeThickness:4,
+        padding:{x:3,y:2}
+    }).setOrigin(0.5).setAlpha(0).setDepth(depth).setScale(1.2);
+
+    const allObjs = [txt, glow].filter(Boolean);
+
+    // Burst
+    _jtBurst(S, W/2, 300, 0xff2200, 5, depth+1);
+
+    S.tweens.add({targets:allObjs, alpha:0.95, scaleX:1.0, scaleY:1.0,
         duration:120, ease:"Quad.easeOut"});
-    S.tweens.add({targets:txt, alpha:0, y:txt.y+18, scaleX:0.7, scaleY:0.7,
+    S.tweens.add({targets:allObjs, alpha:0, y:318, scaleX:0.7, scaleY:0.7,
         duration:500, delay:350, ease:"Quad.easeIn",
-        onComplete:()=>{ try{txt.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} }});
-    // Küçük kamera sarsıntısı — çöküş hissi
+        onComplete:()=>{ _jtDestroy(allObjs); }});
+
+    // Shake — combo breakage feel
     S.cameras.main.shake(60 + intensity*2, 0.006 + intensity*0.0003);
-    // Renk filtresi anlık
-    
 }
 
 // ── 4. PROGRESSİVE CHAOS ────────────────────────────────────────
@@ -11242,117 +11731,182 @@ function playerCollisionExplosion(S, x, y, type){
 // ════════════════════════════════════════════════════════════════
 
 // ── GLOBAL VFX STATE ─────────────────────────────────────────
-const _VFX={
-    glowOverlay:null, chromR:null, chromB:null, vignette:null,
-    comboAura:null, comboRing:null, groundFlash:null,
-    _comboRingAngle:0, _chromaticActive:false, _chromaticTimer:0,
-    _hurtFlashTimer:0, _glowPulseT:0, _idleT:0, _initialized:false
+// ════════════════════════════════════════════════════════════════
+// NT_VFX SYSTEM v2 — Object Pool + Juicy VFX Engine
+// ════════════════════════════════════════════════════════════════
+const NT_VFX = {
+    _game:null, _scene:null,
+    vignette:null, comboAura:null, comboRing:null,
+    _glowPulseT:0, _idleT:0, _ambientT:0,
+    _hurtFlashTimer:0, _comboRingAngle:0,
+    _initialized:false,
 };
+
+// Keep legacy _VFX alias so any remaining references still work
+const _VFX = NT_VFX;
+
+// ── Object Pool ─────────────────────────────────────────────────
+class ParticlePool {
+    constructor(scene, maxSize=120){
+        this._scene=scene; this._pool=[]; this._maxSize=maxSize; this._active=0;
+    }
+    get(depth=20){
+        let g;
+        if(this._pool.length>0){
+            g=this._pool.pop();
+            try{ g.clear().setDepth(depth).setAlpha(1).setScale(1)
+                  .setPosition(0,0).setAngle(0).setVisible(true).setActive(true); }catch(e){}
+        } else {
+            if(this._active>=this._maxSize) return null;
+            g=this._scene.add.graphics().setDepth(depth);
+        }
+        this._active++;
+        return g;
+    }
+    release(g){
+        if(!g) return;
+        try{ g.clear().setAlpha(0).setVisible(false).setActive(false); }catch(e){}
+        this._active=Math.max(0,this._active-1);
+        if(this._pool.length<this._maxSize){ this._pool.push(g); }
+        else{ try{g.destroy();}catch(e){} }
+    }
+}
+let _POOL=null;
+
+// ── Pool tween helper (auto-release on complete) ─────────────────
+function _pt(S,g,cfg){
+    S.tweens.add({targets:g,...cfg,
+        onComplete:()=>{ if(_POOL)_POOL.release(g); else{try{g.destroy();}catch(e){}} }
+    });
+}
+// Integer-snap helper — prevents sub-pixel jitter
+function _snap(v){ return Math.round(v); }
 
 // ── INIT — SceneGame.create() içinde çağrılır ────────────────
 function initVFX(S){
     if(!S||!S.add) return;
-    _VFX._initialized=true;
-    _VFX.glowOverlay=S.add.graphics().setDepth(200).setAlpha(0);
-    _VFX.chromR=S.add.graphics().setDepth(201).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-    _VFX.chromB=S.add.graphics().setDepth(201).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
-    _VFX.vignette=S.add.graphics().setDepth(199).setAlpha(0.28);
+    NT_VFX._scene=S;
+    NT_VFX._initialized=true;
+    _POOL=new ParticlePool(S,120);
+
+    // Vignette (static, drawn once)
+    NT_VFX.vignette=S.add.graphics().setDepth(199).setAlpha(0.30);
     _drawVignette();
-    _VFX.comboAura=S.add.graphics().setDepth(14).setAlpha(0);
-    _VFX.comboRing=S.add.graphics().setDepth(14).setAlpha(0);
-    _VFX.groundFlash=S.add.graphics().setDepth(5).setAlpha(0);
+
+    // Combo aura (persistent, redrawn each frame)
+    NT_VFX.comboAura=S.add.graphics().setDepth(14).setAlpha(0);
+    NT_VFX.comboRing=S.add.graphics().setDepth(14).setAlpha(0);
+
+    // ── Ambient environment layers ──────────────────────────────
+    // Warm ground glow
+    const warmGlow=S.add.graphics().setDepth(1).setAlpha(0.040);
+    warmGlow.fillGradientStyle(0xff5500,0xff5500,0x000000,0x000000,1,1,0,0);
+    warmGlow.fillRect(0,GROUND_Y-50,360,70);
+    S.tweens.add({targets:warmGlow,alpha:0.075,duration:3400,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+
+    // Cool sky glow
+    const coolGlow=S.add.graphics().setDepth(1).setAlpha(0.025);
+    coolGlow.fillGradientStyle(0x000000,0x000000,0x003366,0x003366,0,0,1,1);
+    coolGlow.fillRect(0,0,360,130);
+    S.tweens.add({targets:coolGlow,alpha:0.050,duration:5200,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+
+    // Subtle mid-field depth line
+    const depthLine=S.add.graphics().setDepth(2).setAlpha(0.06);
+    depthLine.fillStyle(0x000000,1);
+    depthLine.fillRect(0,GROUND_Y-2,360,3);
 }
 
 function _drawVignette(){
-    if(!_VFX.vignette) return;
-    const g=_VFX.vignette; g.clear();
-    const W=360,H=640,d=72;
-    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0.58,0.58,0,0); g.fillRect(0,0,W,d);
-    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0,0,0.58,0.58); g.fillRect(0,H-d,W,d);
-    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0.46,0,0.46,0); g.fillRect(0,0,d,H);
-    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0,0.46,0,0.46); g.fillRect(W-d,0,d,H);
+    const g=NT_VFX.vignette; if(!g) return;
+    g.clear();
+    const W=360,H=640,d=82;
+    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0.65,0.65,0,0); g.fillRect(0,0,W,d);
+    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0,0,0.65,0.65); g.fillRect(0,H-d,W,d);
+    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0.52,0,0.52,0); g.fillRect(0,0,d,H);
+    g.fillGradientStyle(0x000000,0x000000,0x000000,0x000000,0,0.52,0,0.52); g.fillRect(W-d,0,d,H);
 }
 
 // ── TICK — SceneGame.update() içinde çağrılır ────────────────
 function tickVFX(S,delta){
-    if(!_VFX._initialized||!GS) return;
+    if(!NT_VFX._initialized||!GS) return;
     const dt=delta/1000;
-    _VFX._glowPulseT+=dt; _VFX._idleT+=dt;
+    NT_VFX._glowPulseT+=dt; NT_VFX._idleT+=dt; NT_VFX._ambientT+=dt;
 
-    // Chromatic sönümü
-    if(_VFX._chromaticActive){
-        _VFX._chromaticTimer-=delta;
-        if(_VFX._chromaticTimer<=0){
-            _VFX._chromaticActive=false;
-            if(_VFX.chromR) _VFX.chromR.setAlpha(0);
-            if(_VFX.chromB) _VFX.chromB.setAlpha(0);
-        } else {
-            const p=Math.min(1,_VFX._chromaticTimer/130);
-            if(_VFX.chromR) _VFX.chromR.setAlpha(p*0.22);
-            if(_VFX.chromB) _VFX.chromB.setAlpha(p*0.18);
-        }
-    }
-
-    // Hurt vignette flash sönümü
-    if(_VFX._hurtFlashTimer>0){
-        _VFX._hurtFlashTimer-=delta;
-        const p=Math.max(0,_VFX._hurtFlashTimer/350);
-        if(_VFX.vignette) _VFX.vignette.setAlpha(0.28+p*0.55);
+    // Hurt vignette flash decay
+    if(NT_VFX._hurtFlashTimer>0){
+        NT_VFX._hurtFlashTimer-=delta;
+        const p=Math.max(0,NT_VFX._hurtFlashTimer/380);
+        if(NT_VFX.vignette) NT_VFX.vignette.setAlpha(0.30+p*0.62);
     } else {
-        if(_VFX.vignette) _VFX.vignette.setAlpha(0.28);
+        if(NT_VFX.vignette) NT_VFX.vignette.setAlpha(0.30);
     }
 
-    // Combo aurası
+    // Combo aura
     const combo=GS.combo||0;
     if(combo>=3&&S.player&&S.player.active){
         _tickComboAura(S,combo,dt);
     } else {
-        if(_VFX.comboAura) _VFX.comboAura.setAlpha(Math.max(0,(_VFX.comboAura.alpha||0)-dt*4));
-        if(_VFX.comboRing) _VFX.comboRing.setAlpha(Math.max(0,(_VFX.comboRing.alpha||0)-dt*4));
+        if(NT_VFX.comboAura) NT_VFX.comboAura.setAlpha(Math.max(0,(NT_VFX.comboAura.alpha||0)-dt*4));
+        if(NT_VFX.comboRing) NT_VFX.comboRing.setAlpha(Math.max(0,(NT_VFX.comboRing.alpha||0)-dt*4));
+    }
+
+    // Ambient dust — rate-limited, performance-gated
+    if(_perfMode!=="low"&&NT_VFX._ambientT>0.32&&!GS.pickingUpgrade){
+        NT_VFX._ambientT=0;
+        _spawnAmbientDust(S);
     }
 }
 
+function _spawnAmbientDust(S){
+    if(!_POOL||!S||!S.add) return;
+    const g=_POOL.get(2); if(!g) return;
+    const x=_snap(Phaser.Math.Between(10,350));
+    const y=_snap(Phaser.Math.Between(GROUND_Y-130,GROUND_Y-8));
+    g.fillStyle(0xffffff,0.055);
+    g.fillRect(0,0,Phaser.Math.Between(1,3),Phaser.Math.Between(1,2));
+    g.setPosition(x,y);
+    _pt(S,g,{y:y-Phaser.Math.Between(20,55),alpha:0,
+        duration:Phaser.Math.Between(1000,2000),ease:"Sine.easeOut"});
+}
+
 function _tickComboAura(S,combo,dt){
-    if(!S.player||!_VFX.comboAura) return;
-    const px=S.player.x,py=S.player.y;
-    const t=_VFX._glowPulseT;
+    if(!S.player||!NT_VFX.comboAura) return;
+    const px=_snap(S.player.x),py=_snap(S.player.y);
+    const t=NT_VFX._glowPulseT;
     const intensity=Math.min(1,combo/15);
     const col=combo>=15?0xffcc00:combo>=9?0xff2244:0xff8800;
     const col2=combo>=15?0xffee88:combo>=9?0xff4466:0xffaa44;
-    const aura=_VFX.comboAura;
+    const aura=NT_VFX.comboAura;
     aura.clear();
     const r1=26+Math.sin(t*3.2)*4+combo*0.8;
-    aura.fillStyle(col,0.06+intensity*0.08); aura.fillCircle(px,py,r1*1.8);
-    aura.fillStyle(col2,0.12+intensity*0.08); aura.fillCircle(px,py,r1);
+    aura.fillStyle(col,0.05+intensity*0.07); aura.fillCircle(px,py,r1*1.8);
+    aura.fillStyle(col2,0.10+intensity*0.07); aura.fillCircle(px,py,r1);
     if(combo>=5){
         const dotCount=Math.min(8,Math.floor(combo/2));
         for(let i=0;i<dotCount;i++){
             const a=t*2.1+i*(Math.PI*2/dotCount);
             const r=r1*(0.6+Math.sin(t*1.8+i)*0.2);
-            aura.fillStyle(0xffffff,0.55+Math.sin(t*4+i)*0.3);
-            aura.fillRect(px+Math.cos(a)*r-1,py+Math.sin(a)*r*0.55-1,2,2);
+            aura.fillStyle(0xffffff,0.50+Math.sin(t*4+i)*0.28);
+            aura.fillRect(_snap(px+Math.cos(a)*r)-1,_snap(py+Math.sin(a)*r*0.55)-1,2,2);
         }
     }
     aura.setAlpha(Math.min(1,aura.alpha+dt*5));
-    _VFX._comboRingAngle+=dt*(1.5+intensity*2.5);
-    const ring=_VFX.comboRing; ring.clear();
+    NT_VFX._comboRingAngle+=dt*(1.5+intensity*2.5);
+    const ring=NT_VFX.comboRing; ring.clear();
     if(combo>=7){
         const segs=Math.min(6,2+Math.floor(combo/4));
         for(let i=0;i<segs;i++){
-            const a=_VFX._comboRingAngle+i*(Math.PI*2/segs);
+            const a=NT_VFX._comboRingAngle+i*(Math.PI*2/segs);
             ring.fillStyle(col,0.85);
-            ring.fillRect(px+Math.cos(a)*(r1+6)-1.5,py+Math.sin(a)*(r1+6)*0.55-1.5,3,3);
+            ring.fillRect(_snap(px+Math.cos(a)*(r1+6))-1,_snap(py+Math.sin(a)*(r1+6)*0.55)-1,3,3);
         }
-        ring.lineStyle(1.5,col,0.3+intensity*0.4);
+        ring.lineStyle(1.5,col,0.28+intensity*0.40);
         ring.strokeEllipse(px,py,(r1+6)*2,(r1+6)*1.1);
     }
     ring.setAlpha(Math.min(1,ring.alpha+dt*5));
 }
 
-function _triggerChromatic(S,x,y,duration){
-    // Chromatic aberration devre dışı — göz yorucu
-    // Gelecekte bir ayar ile açılabilir
-}
+function _triggerChromatic(S,x,y,duration){ /* disabled — eye-strain */ }
 
 // ── PERFECT HIT VFX ──────────────────────────────────────────
 function vfxPerfectHit(S,ex,ey,combo){
@@ -11415,56 +11969,139 @@ function vfxPerfectHit(S,ex,ey,combo){
         S.tweens.add({targets:crack,alpha:0,duration:500,ease:"Quad.easeIn",
             onComplete:()=>{try{crack.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
 
-        // Tier 3: minimal text — "✦ PERFECT" sadece
-        const gText=S.add.text(ex,ey-8,"✦ PERFECT",{
-            font:"bold 14px LilitaOne, Arial, sans-serif",color:"#ffee00"
+        // Tier 3: "✦ PERFECT" with glow
+        const pfStr="✦ PERFECT";
+        const pfGlow = _jtGlow(S, ex, ey-8, pfStr, 15, "#ffee00", "#ffaa00", 31, 0.25);
+        if(pfGlow){ pfGlow.setAlpha(0).setScale(0.5); }
+        const gText=S.add.text(ex,ey-8,pfStr,{
+            fontFamily:"LilitaOne",
+            fontSize:"15px",
+            color:"#ffee00",
+            stroke:"#440000",
+            strokeThickness:3,
+            padding:{x:2,y:1}
         }).setOrigin(0.5).setDepth(32).setAlpha(0).setScale(0.5);
-        S.tweens.add({targets:gText,alpha:1,scaleX:1.1,scaleY:1.1,y:ey-30,
+        const pfAll=[gText, pfGlow].filter(Boolean);
+        S.tweens.add({targets:pfAll,alpha:1,scaleX:1.1,scaleY:1.1,y:ey-30,
             duration:200,ease:"Back.easeOut",
             onComplete:()=>{
-                S.tweens.add({targets:gText,alpha:0,y:ey-50,duration:300,delay:400,ease:"Quad.easeIn",
-                    onComplete:()=>{try{gText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+                S.tweens.add({targets:pfAll,alpha:0,y:ey-52,duration:300,delay:400,ease:"Quad.easeIn",
+                    onComplete:()=>{ _jtDestroy(pfAll); }});
             }});
     }
 }
 
-// ── NORMAL HIT VFX ───────────────────────────────────────────
-function vfxNormalHit(S,ex,ey,isCrit){
+// ── NORMAL HIT VFX v2 — layered impact + directional sparks ──
+function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
+    if(!S||!_POOL) return;
+    ex=_snap(ex); ey=_snap(ey);
+    // Directional bias — sparks fly away from bullet origin
+    const hitDir=(bulletAngle!==undefined)?bulletAngle:Math.PI*1.5;
+    const sparkCount=isCrit?8:5;
+    const sparkCol  =isCrit?0xffee44:0xddbb88;
+
+    // Layer 1 — directional spark burst
+    for(let i=0;i<sparkCount;i++){
+        const sp=_POOL.get(24); if(!sp) break;
+        const spread=isCrit?Math.PI*2:Math.PI*0.85;
+        const baseAng=hitDir+Math.PI;
+        const ang=baseAng+(Math.random()-0.5)*spread;
+        const spd=Phaser.Math.Between(isCrit?16:8, isCrit?40:24);
+        const len=Phaser.Math.Between(2,isCrit?6:4);
+        sp.lineStyle(isCrit?1.6:1.2,i%2===0?sparkCol:0xffffff,0.90);
+        sp.lineBetween(0,0,Math.cos(ang)*len,Math.sin(ang)*len);
+        sp.setPosition(ex,ey);
+        _pt(S,sp,{x:ex+Math.cos(ang)*spd,y:ey+Math.sin(ang)*spd*0.52,
+            alpha:0,scaleY:0.08,
+            duration:Phaser.Math.Between(85,isCrit?185:155),ease:"Quad.easeOut"});
+    }
+
+    // Layer 2 — radial energy ring
+    const ring=_POOL.get(23); if(ring){
+        ring.lineStyle(isCrit?2.0:1.4,isCrit?0xffee00:0xddbb66,0.80);
+        ring.strokeCircle(0,0,isCrit?5:3);
+        ring.setPosition(ex,ey);
+        _pt(S,ring,{scaleX:isCrit?3.2:2.0,scaleY:isCrit?3.2:2.0,alpha:0,
+            duration:isCrit?175:120,ease:"Quad.easeOut"});
+    }
+
+    // Layer 3 — glow halo (always for crit, 50% chance normal)
+    if(isCrit||Math.random()<0.50){
+        const glow=_POOL.get(22); if(glow){
+            glow.fillStyle(isCrit?0xffee44:0xffcc88,0.22);
+            glow.fillCircle(0,0,isCrit?8:5);
+            glow.setPosition(ex,ey);
+            _pt(S,glow,{scaleX:isCrit?4:2.6,scaleY:isCrit?4:2.6,alpha:0,
+                duration:210,ease:"Quad.easeOut"});
+        }
+    }
+}
+
+// ── Enemy squash micro-animation on hit ─────────────────────────
+function vfxEnemySquash(S,e){
+    if(!S||!e||!e.active) return;
+    const sx=e.scaleX,sy=e.scaleY;
+    S.tweens.add({targets:e,scaleX:sx*0.87,scaleY:sy*1.09,duration:42,ease:"Quad.easeOut",
+        onComplete:()=>S.tweens.add({targets:e,scaleX:sx*1.06,scaleY:sy*0.95,duration:52,ease:"Quad.easeOut",
+            onComplete:()=>S.tweens.add({targets:e,scaleX:sx,scaleY:sy,duration:80,ease:"Quad.easeOut"})
+        })
+    });
+}
+
+// ── Score popup — float + fade ──────────────────────────────────
+function vfxScorePopup(S,x,y,value,col){
     if(!S||!S.add) return;
-    if(isCrit){
-        // Sadece ince halka + 4 kıvılcım — büyük dolu daire YOK
-        const cRing=S.add.graphics().setDepth(24);
-        cRing.x=ex; cRing.y=ey;
-        cRing.lineStyle(1.8,0xffee00,0.85); cRing.strokeCircle(0,0,6);
-        S.tweens.add({targets:cRing,scaleX:2.8,scaleY:2.8,alpha:0,duration:160,ease:"Quad.easeOut",
-            onComplete:()=>{try{cRing.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-        for(let i=0;i<4;i++){
-            const ang=Phaser.Math.DegToRad(i*90+Phaser.Math.Between(-15,15));
-            const spd=Phaser.Math.Between(12,32);
-            const dp=S.add.graphics().setDepth(23);
-            dp.x=ex; dp.y=ey;
-            dp.lineStyle(1.2,i%2?0xffee44:0xffffff,0.85);
-            dp.lineBetween(0,0,Math.cos(ang)*4,Math.sin(ang)*4);
-            S.tweens.add({targets:dp,
-                x:ex+Math.cos(ang)*spd,y:ey+Math.sin(ang)*spd*0.6,
-                alpha:0,scaleY:0.1,duration:Phaser.Math.Between(100,160),ease:"Quad.easeOut",
-                onComplete:()=>{try{dp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-        }
-    } else {
-        // Kum/toz parçacıkları — küçük nokta çizgiler, dikdörtgen YOK
-        const dustCols=[0xddbb88,0xccaa66,0xeedd99,0xbb9955];
-        for(let i=0;i<5;i++){
-            const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-            const spd=Phaser.Math.Between(8,24);
-            const dp=S.add.graphics().setDepth(17);
-            dp.x=ex; dp.y=ey;
-            dp.lineStyle(1,dustCols[i%dustCols.length],0.7);
-            dp.lineBetween(0,0,Math.cos(ang)*2,Math.sin(ang)*2);
-            S.tweens.add({targets:dp,
-                x:ex+Math.cos(ang)*spd,y:ey+Math.sin(ang)*spd*0.5,
-                alpha:0,scaleX:0.1,scaleY:0.1,duration:Phaser.Math.Between(100,200),ease:"Quad.easeOut",
-                onComplete:()=>{try{dp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-        }
+    const hexCol="#"+(col||0xffcc44).toString(16).padStart(6,"0");
+    const prefix=value>=2000?"★ ":value>=300?"✦ ":"";
+    const fs=value>=300?15:12;
+    const str = prefix+"+"+value;
+    const depth = 32;
+
+    const glow = _jtGlow(S, _snap(x), _snap(y), str, fs, hexCol, hexCol, depth, 0.20);
+    if(glow){ glow.setScale(0.4).setAlpha(0); }
+
+    const t=S.add.text(_snap(x),_snap(y), str,{
+        fontFamily:"LilitaOne",
+        fontSize:fs+"px",
+        color:hexCol,
+        stroke:"#000000",
+        strokeThickness:3,
+        padding:{x:2,y:1}
+    }).setOrigin(0.5).setDepth(depth).setAlpha(0).setScale(0.4);
+
+    const allObjs = [t, glow].filter(Boolean);
+    S.tweens.add({targets:allObjs,alpha:1,scaleX:1.1,scaleY:1.1,y:y-8,duration:140,ease:"Back.easeOut",
+        onComplete:()=>S.tweens.add({targets:allObjs,alpha:0,y:y-36,scaleX:0.75,scaleY:0.75,
+            duration:420,delay:280,ease:"Quad.easeIn",
+            onComplete:()=>{ _jtDestroy(allObjs); }})});
+}
+
+// ── Level-up glow pulse (no flash) ─────────────────────────────
+function vfxLevelUpGlow(S,px,py,upgradeColor){
+    if(!S||!_POOL) return;
+    px=_snap(px); py=_snap(py);
+    const col=upgradeColor||0x4488ff;
+    for(let i=0;i<3;i++){
+        S.time.delayedCall(i*65,()=>{
+            const r=_POOL.get(26); if(!r) return;
+            r.lineStyle(3-i*0.7,col,0.90-i*0.12);
+            r.strokeCircle(0,0,14+i*10);
+            r.fillStyle(col,0.04);
+            r.fillCircle(0,0,14+i*10);
+            r.setPosition(px,py);
+            _pt(S,r,{scaleX:4+i,scaleY:4+i,alpha:0,duration:340+i*55,ease:"Quad.easeOut"});
+        });
+    }
+    // Rising energy sparks
+    for(let j=0;j<6;j++){
+        const ep=_POOL.get(25); if(!ep) continue;
+        const ang=Phaser.Math.DegToRad(j*60+Phaser.Math.Between(-10,10));
+        const spd=Phaser.Math.Between(20,52);
+        ep.fillStyle(col,0.80); ep.fillRect(-1,-2,3,5);
+        ep.setPosition(px,py);
+        _pt(S,ep,{x:px+Math.cos(ang)*spd,y:py+Math.sin(ang)*spd*0.52,
+            alpha:0,scaleX:0.1,scaleY:0.1,
+            duration:Phaser.Math.Between(230,410),ease:"Quad.easeOut"});
     }
 }
 
@@ -11565,14 +12202,23 @@ function vfxComboMilestone(S,combo,px,py){
             S.tweens.add({targets:ray,scaleX:0,scaleY:0,alpha:0,duration:350,ease:"Quad.easeOut",
                 onComplete:()=>{try{ray.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
         }
-        const mcTxt=S.add.text(px,py-16,"MAX KOMBO!",{
-            font:"bold 13px LilitaOne, Arial, sans-serif",color:"#ffcc00"
+        const mcStr="MAX KOMBO!";
+        const mcGlow = _jtGlow(S, px, py-16, mcStr, 14, "#ffcc00", "#ff8800", 35, 0.28);
+        if(mcGlow){ mcGlow.setAlpha(0).setScale(0.6); }
+        const mcTxt=S.add.text(px,py-16,mcStr,{
+            fontFamily:"LilitaOne",
+            fontSize:"14px",
+            color:"#ffcc00",
+            stroke:"#330000",
+            strokeThickness:3,
+            padding:{x:2,y:1}
         }).setOrigin(0.5).setDepth(36).setAlpha(0).setScale(0.6);
-        S.tweens.add({targets:mcTxt,alpha:1,scaleX:1.0,scaleY:1.0,y:py-44,
+        const mcAll=[mcTxt, mcGlow].filter(Boolean);
+        S.tweens.add({targets:mcAll,alpha:1,scaleX:1.0,scaleY:1.0,y:py-44,
             duration:260,ease:"Back.easeOut",
             onComplete:()=>{
-                S.tweens.add({targets:mcTxt,alpha:0,y:py-68,duration:380,delay:700,ease:"Quad.easeIn",
-                    onComplete:()=>{try{mcTxt.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+                S.tweens.add({targets:mcAll,alpha:0,y:py-68,duration:380,delay:700,ease:"Quad.easeIn",
+                    onComplete:()=>{ _jtDestroy(mcAll); }});
             }});
     }
 }
@@ -11584,6 +12230,10 @@ function vfxLevelUp(S,level){
     S.cameras.main.zoomTo(1.04,90,"Quad.easeOut");
     S.time.delayedCall(90,()=>S.cameras.main.zoomTo(1.0,300,"Back.easeOut"));
     S.cameras.main.shake(35,0.004);
+    // ── LEVEL UP floating text — centred above player
+    if(S.player){
+        spawnLevelUpText(S, S.player.x, S.player.y - 55);
+    }
     // Oyuncu etrafı halkalar
     if(S.player){
         const plx=S.player.x,ply=S.player.y;
@@ -11659,55 +12309,91 @@ function vfxChestOpen(S,x,y,rarity){
     }
 }
 
-// ── PLAYER HURT VFX ──────────────────────────────────────────
+// ── PLAYER HURT VFX v2 ────────────────────────────────────────
 function vfxPlayerHurt(S){
     if(!S||!S.add) return;
-    // Vignette kırmızıya döner (flash YOK)
-    _VFX._hurtFlashTimer=320;
-    // Chromatic — kısa
-    _triggerChromatic(S,180,320,120);
-    // Oyuncu etrafında kırmızı halka
-    if(S.player){
-        const ring=S.add.graphics().setDepth(25);
-        ring.x=S.player.x; ring.y=S.player.y;
-        ring.lineStyle(3,0xff2222,0.9); ring.strokeCircle(0,0,16);
-        S.tweens.add({targets:ring,scaleX:3.0,scaleY:3.0,alpha:0,duration:240,ease:"Quad.easeOut",
-            onComplete:()=>{try{ring.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+    NT_VFX._hurtFlashTimer=360;
+    if(!S.player||!_POOL) return;
+    const px=_snap(S.player.x),py=_snap(S.player.y);
+
+    // Red expanding ring
+    const ring=_POOL.get(25); if(ring){
+        ring.lineStyle(3,0xff2222,0.92); ring.strokeCircle(0,0,16);
+        ring.setPosition(px,py);
+        _pt(S,ring,{scaleX:3.2,scaleY:3.2,alpha:0,duration:250,ease:"Quad.easeOut"});
+    }
+
+    // Small red dust particles
+    for(let i=0;i<5;i++){
+        const dp=_POOL.get(24); if(!dp) continue;
+        const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+        const spd=Phaser.Math.Between(10,28);
+        dp.lineStyle(1.4,i%2===0?0xff2244:0xff8888,0.88);
+        dp.lineBetween(0,0,Math.cos(ang)*3,Math.sin(ang)*3);
+        dp.setPosition(px,py);
+        _pt(S,dp,{x:px+Math.cos(ang)*spd,y:py+Math.sin(ang)*spd*0.52,
+            alpha:0,scaleY:0.1,duration:Phaser.Math.Between(95,170),ease:"Quad.easeOut"});
     }
 }
 
-// ── BUTTON JUICE — isteğe bağlı UI polish ────────────────────
+// ── BUTTON JUICE v2 — hover glow expand + click spring ───────
 function addButtonJuice(S,btn,cb){
     if(!btn||!btn.on) return;
     const oSX=btn.scaleX||1, oSY=btn.scaleY||1;
+    let _glowRing=null;
+
     btn.on("pointerover",()=>{
         if(!S||!S.tweens) return;
-        S.tweens.add({targets:btn,scaleX:oSX*1.08,scaleY:oSY*1.08,duration:80,ease:"Back.easeOut"});
+        S.tweens.killTweensOf(btn);
+        S.tweens.add({targets:btn,scaleX:oSX*1.09,scaleY:oSY*1.09,duration:90,ease:"Back.easeOut"});
+        // Glow ring
+        try{
+            if(!_glowRing&&btn.x&&btn.y){
+                _glowRing=S.add.graphics().setDepth((btn.depth||50)+1);
+                const hw=(btn.displayWidth||60)*0.5+4, hh=(btn.displayHeight||30)*0.5+4;
+                _glowRing.lineStyle(2.5,0xffdd44,0.50);
+                _glowRing.strokeRoundedRect(btn.x-hw,btn.y-hh,hw*2,hh*2,8);
+                S.tweens.add({targets:_glowRing,alpha:0.70,duration:80});
+            }
+        }catch(e){}
     });
+
     btn.on("pointerout",()=>{
         if(!S||!S.tweens) return;
-        S.tweens.add({targets:btn,scaleX:oSX,scaleY:oSY,duration:120,ease:"Back.easeOut"});
+        S.tweens.killTweensOf(btn);
+        S.tweens.add({targets:btn,scaleX:oSX,scaleY:oSY,duration:130,ease:"Quad.easeOut"});
+        if(_glowRing){
+            const gr=_glowRing; _glowRing=null;
+            S.tweens.add({targets:gr,alpha:0,duration:100,
+                onComplete:()=>{try{gr.destroy();}catch(e){}}});
+        }
     });
+
     btn.on("pointerdown",()=>{
         if(!S||!S.tweens) return;
-        S.tweens.add({targets:btn,scaleX:oSX*0.88,scaleY:oSY*0.88,duration:55,ease:"Quad.easeOut",
+        if(_glowRing){try{_glowRing.destroy();}catch(e){} _glowRing=null;}
+        S.tweens.killTweensOf(btn);
+        S.tweens.add({targets:btn,scaleX:oSX*0.87,scaleY:oSY*0.87,duration:50,ease:"Quad.easeOut",
             onComplete:()=>{
                 if(!S.tweens) return;
-                S.tweens.add({targets:btn,scaleX:oSX*1.12,scaleY:oSY*1.12,duration:90,ease:"Back.easeOut",
+                S.tweens.add({targets:btn,scaleX:oSX*1.13,scaleY:oSY*1.13,duration:92,ease:"Back.easeOut",
                     onComplete:()=>{
                         if(!S.tweens) return;
                         S.tweens.add({targets:btn,scaleX:oSX,scaleY:oSY,duration:80,ease:"Quad.easeOut"});
                         if(cb) cb();
                     }});
             }});
+        // Click burst — pooled
         const bx=btn.x||180,by=btn.y||300;
-        for(let i=0;i<6;i++){
+        for(let i=0;i<7;i++){
+            const sp=_POOL?_POOL.get(55):null;
+            if(!sp) break;
             const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-            const sp=S.add.graphics().setDepth(50);
-            sp.fillStyle(0xffffff,0.8); sp.fillRect(-1,-1,2,4);
-            sp.x=bx+Phaser.Math.Between(-20,20); sp.y=by+Phaser.Math.Between(-8,8);
-            S.tweens.add({targets:sp,x:sp.x+Math.cos(ang)*22,y:sp.y+Math.sin(ang)*12,
-                alpha:0,duration:180,ease:"Quad.easeOut",onComplete:()=>{try{sp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+            sp.fillStyle(0xffffff,0.80); sp.fillRect(-1,-1,2,4);
+            sp.setPosition(_snap(bx+Phaser.Math.Between(-22,22)),_snap(by+Phaser.Math.Between(-9,9)));
+            _pt(S,sp,{x:sp.x+Math.cos(ang)*Phaser.Math.Between(14,28),
+                y:sp.y+Math.sin(ang)*Phaser.Math.Between(10,20),
+                alpha:0,duration:Phaser.Math.Between(130,210),ease:"Quad.easeOut"});
         }
     });
 }
@@ -11762,7 +12448,12 @@ function _ensureFontLoaded(callback){
             // Hem regular hem bold yükle
             Promise.all([
                 document.fonts.load("bold 16px LilitaOne"),
-                document.fonts.load("16px LilitaOne")
+                document.fonts.load("16px LilitaOne"),
+                document.fonts.load("24px LilitaOne"),
+                document.fonts.load("bold 22px LilitaOne"),
+                document.fonts.load("bold 18px LilitaOne"),
+                document.fonts.load("bold 14px LilitaOne"),
+                document.fonts.load("10px LilitaOne")
             ]).then(()=>{
                 // Canvas warm-up — tarayıcı font rasterizer'ı ısıt
                 try{
@@ -11771,14 +12462,32 @@ function _ensureFontLoaded(callback){
                     const ctx = tc.getContext("2d");
                     const variants = [
                         "bold 32px LilitaOne, Arial, sans-serif",
+                        "bold 24px LilitaOne, Arial, sans-serif",
+                        "bold 22px LilitaOne, Arial, sans-serif",
                         "bold 20px LilitaOne, Arial, sans-serif",
+                        "bold 18px LilitaOne, Arial, sans-serif",
+                        "bold 17px LilitaOne, Arial, sans-serif",
                         "bold 16px LilitaOne, Arial, sans-serif",
+                        "bold 15px LilitaOne, Arial, sans-serif",
                         "bold 14px LilitaOne, Arial, sans-serif",
                         "bold 13px LilitaOne, Arial, sans-serif",
                         "bold 12px LilitaOne, Arial, sans-serif",
                         "bold 11px LilitaOne, Arial, sans-serif",
                         "11px LilitaOne, Arial, sans-serif",
-                        "bold 10px LilitaOne, Arial, sans-serif"
+                        "bold 10px LilitaOne, Arial, sans-serif",
+                        "28px LilitaOne",
+                        "24px LilitaOne",
+                        "22px LilitaOne",
+                        "20px LilitaOne",
+                        "18px LilitaOne",
+                        "17px LilitaOne",
+                        "16px LilitaOne",
+                        "15px LilitaOne",
+                        "14px LilitaOne",
+                        "13px LilitaOne",
+                        "12px LilitaOne",
+                        "10px LilitaOne",
+                        "9px LilitaOne"
                     ];
                     const warmupTexts = [
                         "PLAY SETTINGS HOW TO PLAY LEADERBOARD",
@@ -11856,84 +12565,60 @@ function _startPhaserGame(){
             expandParent:false
         },
         render:{
-            antialias:true,           // [FIX v2] LINEAR default — upicon PNG'leri 128x128 net görünsün
-            antialiasGL:true,         // [FIX v2] GL antialiasGL açık — icon kalitesi için
-            pixelArt:false,           // [FIX v2] pixelArt:false — idle/run karakter texture'ları postBoot'ta manuel NEAREST alır
-            roundPixels:true,         // subpixel jitter önle
-            resolution: window.devicePixelRatio || 1,
+            antialias:      false,        // NEAREST everywhere — characters pixel-crisp
+            antialiasGL:    false,
+            pixelArt:       true,         // Phaser sets NEAREST on all WebGL textures by default
+            roundPixels:    true,         // no sub-pixel jitter
+            resolution:     window.devicePixelRatio || 1,
             powerPreference:"high-performance"
         },
         callbacks:{
             postBoot:(game)=>{
-                // ── KARAKTER BULANIKLIK FİX — Phaser 3.90 uyumlu ──────────────
-                // createTextureFromSource hook'u 3.90'da null tex dönebiliyor.
-                // Bunun yerine: texture cache'e eklenince NEAREST uygula.
+                // ── VFX UPGRADE v2 — Texture Filter System ────────────────────
+                // pixelArt:true sets NEAREST globally. Here we selectively
+                // upgrade smooth PNGs (icons, UI) to LINEAR_MIPMAP_LINEAR.
+                NT_VFX._game = game;
                 const renderer = game.renderer;
                 const gl = renderer && renderer.gl;
+                if(!gl) return;
 
-                // Yardımcı: verilen glTexture'a NEAREST filter uygula
-                function _applyNearest(glTex) {
-                    if (!gl || !glTex) return;
-                    try {
+                function _applyFilter(glTex, filter){
+                    if(!glTex) return;
+                    try{
                         gl.bindTexture(gl.TEXTURE_2D, glTex);
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER,
+                            filter === gl.LINEAR_MIPMAP_LINEAR ? gl.LINEAR : filter);
+                        if(filter === gl.LINEAR_MIPMAP_LINEAR)
+                            gl.generateMipmap(gl.TEXTURE_2D);
                         gl.bindTexture(gl.TEXTURE_2D, null);
-                    } catch(e) { console.warn("[NT] NEAREST patch:", e); }
+                    }catch(e){ console.warn("[NT] filter patch:", e); }
                 }
 
-                // TextureManager: her texture eklenince kontrol et
-                const tm = game.textures;
-                if (tm) {
-                    // addImage hook — tek frame resimler
-                    const _origAddImage = tm.addImage ? tm.addImage.bind(tm) : null;
-                    if (_origAddImage) {
-                        tm.addImage = function(key, ...args) {
-                            const result = _origAddImage(key, ...args);
-                            if (key === "idle" || key === "run") {
-                                try {
-                                    const t = tm.get(key);
-                                    if (t && t.source) t.source.forEach(s => {
-                                        s.smoothed = false;
-                                        _applyNearest(s.glTexture);
-                                    });
-                                } catch(e) { console.warn("[NT] Hata yutuldu:", e); }
-                            }
-                            return result;
-                        };
-                    }
+                // Smooth PNGs — icons + UI assets need LINEAR (they scale down)
+                const SMOOTH_KEYS = new Set([
+                    "bg","pause_button","ui_pause_win","ui_btn_wide_g",
+                    "ui_confirm","ui_decline","pyramid","zigzag",
+                    "tex_chest_common","tex_chest_rare","tex_chest_legendary",
+                ]);
 
-                    // addSpriteSheet hook — sprite sheet'ler (idle/run buradan geliyor)
-                    const _origAdd = tm.addSpriteSheet ? tm.addSpriteSheet.bind(tm) : null;
-                    if (_origAdd) {
-                        tm.addSpriteSheet = function(...args) {
-                            const result = _origAdd(...args);
-                            const key = args[0];
-                            if (key === "idle" || key === "run") {
-                                try {
-                                    const t = tm.get(key);
-                                    if (t && t.source) t.source.forEach(s => {
-                                        s.smoothed = false;
-                                        _applyNearest(s.glTexture);
-                                    });
-                                } catch(e) { console.warn("[NT] Hata yutuldu:", e); }
-                            }
-                            return result;
-                        };
-                    }
-
-                    // Güvenlik: texture cache'e eklenince de yakala
-                    tm.on("addtexture", (key) => {
-                        if (key !== "idle" && key !== "run") return;
-                        try {
-                            const t = tm.get(key);
-                            if (t && t.source) t.source.forEach(s => {
-                                s.smoothed = false;
-                                _applyNearest(s.glTexture);
-                            });
-                        } catch(e) { console.warn("[NT] addtexture patch:", e); }
+                game.textures.on("addtexture", (key)=>{
+                    const isChar   = (key === "idle" || key === "run");
+                    const isSmooth = SMOOTH_KEYS.has(key) || key.startsWith("upicon_");
+                    const t = game.textures.get(key);
+                    if(!t || !t.source) return;
+                    t.source.forEach(src => {
+                        if(!src || !src.glTexture) return;
+                        if(isChar){
+                            src.smoothed = false;
+                            _applyFilter(src.glTexture, gl.NEAREST);
+                        } else if(isSmooth){
+                            src.smoothed = true;
+                            _applyFilter(src.glTexture, gl.LINEAR_MIPMAP_LINEAR);
+                        }
+                        // All other textures already NEAREST from pixelArt:true
                     });
-                }
+                });
             }
         }
     };
