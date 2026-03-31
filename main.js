@@ -13229,11 +13229,12 @@ function _startPhaserGame(){
             antialiasGL:    false,
             pixelArt:       true,
             roundPixels:    true,
-            resolution:     1,           // [FIX] Her zaman 1 — dpr burada kullanılmaz
+            resolution:     Math.min(window.devicePixelRatio || 1, 2),
             powerPreference:"high-performance"
         },
         callbacks:{
             postBoot:(game)=>{
+                game.canvas.style.imageRendering = "auto";
                 // ── VFX UPGRADE v2 — Texture Filter System ────────────────────
                 // pixelArt:true sets NEAREST globally. Here we selectively
                 // upgrade smooth PNGs (icons, UI) to LINEAR_MIPMAP_LINEAR.
@@ -13283,6 +13284,7 @@ function _startPhaserGame(){
         }
     };
     new Phaser.Game(config);
+    
     // SceneGame direkt başlar
 }
 // DOMContentLoaded çoktan geçmişse direkt başlat, geçmemişse bekle
