@@ -1642,7 +1642,7 @@ const RUN_EVENTS = [
                      showHitTxt(S,180,220,"\ud83d\udd2e Cam Top bitti.","#888888",false);
                  }});
                  if(EventManager._state) EventManager._state.timerEv=timerEv;
-                 showHitTxt(S,180,200,"\ud83d\udd2e CAM TOP! +15% HASAR / Max HP-2 (40sn)","#44aaff",true);
+                 showHitTxt(S,180,200,"\ud83d\udd2e CAM TOP! +15% HASAR / Max HP-2 (40sn)","#ffaa22",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
              fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
@@ -8437,8 +8437,8 @@ function showLevelUpUI(S) {
     //  LAYER 2 — RADIAL GLOW  (centered on card group)
     // ════════════════════════════════════════════════════════════════════════════
     const radGlow = ui.add(S.add.graphics().setDepth(301).setAlpha(0));
-    radGlow.fillStyle(0x2a58ff, 0.16); radGlow.fillEllipse(VFX_CX, VFX_CY, 330, 295);
-    radGlow.fillStyle(0x2a58ff, 0.06); radGlow.fillEllipse(VFX_CX, VFX_CY, 360, 360);
+    radGlow.fillStyle(0xdd8800, 0.16); radGlow.fillEllipse(VFX_CX, VFX_CY, 330, 295);
+    radGlow.fillStyle(0xdd8800, 0.06); radGlow.fillEllipse(VFX_CX, VFX_CY, 360, 360);
     S.tweens.add({ targets: radGlow, alpha: 1, duration: 420, delay: 70 });
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -8453,7 +8453,7 @@ function showLevelUpUI(S) {
             for (let r = 0; r < 3; r++) {
                 const rad   = 82 + r * 92 + Math.sin(_bgT * 0.52 + r * 1.3) * 22;
                 const alpha = 0.030 + 0.016 * Math.sin(_bgT * 0.78 + r * 0.9);
-                bgFx.lineStyle(1.5, 0x4488ff, alpha);
+                bgFx.lineStyle(1.5, 0xffaa22, alpha);
                 bgFx.strokeCircle(VFX_CX, VFX_CY, rad);
             }
         }
@@ -8464,7 +8464,7 @@ function showLevelUpUI(S) {
     //  LAYER 4 — INTRO FLASH + CAMERA SHAKE
     // ════════════════════════════════════════════════════════════════════════════
     try { S.cameras.main.shake(220, 0.006); } catch (e) { console.warn("[NT] Hata yutuldu:", e); }
-    const flashRect = ui.add(S.add.rectangle(CX, CY, W, H, 0x4488ff, 0).setDepth(302));
+    const flashRect = ui.add(S.add.rectangle(CX, CY, W, H, 0xffaa00, 0).setDepth(302));
     S.tweens.add({ targets: flashRect, fillAlpha: 0.22, duration: 75, yoyo: true });
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -8479,11 +8479,11 @@ function showLevelUpUI(S) {
             _hdrT += 0.016;
             hdrGlowGfx.clear();
             const gA = 0.09 + 0.055 * Math.sin(_hdrT * 1.55);
-            hdrGlowGfx.lineStyle(10, 0x4488ff, gA * 0.38);
+            hdrGlowGfx.lineStyle(10, 0xffaa22, gA * 0.38);
             hdrGlowGfx.strokeRoundedRect(HDR_X - 5, HDR_TOP - 5, HDR_W + 10, HDR_H + 10, 16);
-            hdrGlowGfx.lineStyle(5,  0x6699ff, gA * 0.65);
+            hdrGlowGfx.lineStyle(5,  0xffcc44, gA * 0.65);
             hdrGlowGfx.strokeRoundedRect(HDR_X - 2, HDR_TOP - 2, HDR_W + 4,  HDR_H + 4,  14);
-            hdrGlowGfx.lineStyle(2,  0x99bbff, gA);
+            hdrGlowGfx.lineStyle(2,  0xffdd88, gA);
             hdrGlowGfx.strokeRoundedRect(HDR_X - 1, HDR_TOP - 1, HDR_W + 2,  HDR_H + 2,  13);
         }
     });
@@ -8498,7 +8498,7 @@ function showLevelUpUI(S) {
     headerBg.fillRoundedRect(HDR_X + 4, HDR_TOP + 5, HDR_W, HDR_H, 12);
 
     // Dark glass body
-    headerBg.fillStyle(0x020609, 0.98);
+    headerBg.fillStyle(0x0c0501, 0.98);
     headerBg.fillRoundedRect(HDR_X, HDR_TOP, HDR_W, HDR_H, 12);
 
     // Frosted-glass top highlight (simulates glass material)
@@ -8506,9 +8506,9 @@ function showLevelUpUI(S) {
     headerBg.fillRoundedRect(HDR_X, HDR_TOP, HDR_W, HDR_H * 0.42, { tl: 12, tr: 12, bl: 0, br: 0 });
 
     // Glow halo behind title text (elliptical light source)
-    headerBg.fillStyle(0x2255ff, 0.11);
+    headerBg.fillStyle(0xdd8800, 0.13);
     headerBg.fillEllipse(HDR_CX, HDR_CY_mid - 5, 230, 38);
-    headerBg.fillStyle(0x4477ff, 0.05);
+    headerBg.fillStyle(0xffaa00, 0.07);
     headerBg.fillEllipse(HDR_CX, HDR_CY_mid - 5, 300, 55);
 
     // Radial light rays from title center (subtle, 6 rays)
@@ -8516,7 +8516,7 @@ function showLevelUpUI(S) {
     for (let r = 0; r < 6; r++) {
         const ang = r * (Math.PI / 3);
         const len = 52 + (r % 2) * 28;
-        headerBg.fillStyle(0x4488ff, 0.020);
+        headerBg.fillStyle(0xffaa00, 0.020);
         headerBg.fillTriangle(
             RX, RY,
             RX + Math.cos(ang - 0.13) * len, RY + Math.sin(ang - 0.13) * len * 0.55,
@@ -8525,37 +8525,37 @@ function showLevelUpUI(S) {
     }
 
     // Side decorative lines + endpoint dots
-    headerBg.lineStyle(1, 0x4488ff, 0.24);
+    headerBg.lineStyle(1, 0xffaa00, 0.24);
     headerBg.lineBetween(HDR_X + 12,       HDR_CY_mid, HDR_X + 44,       HDR_CY_mid);
     headerBg.lineBetween(HDR_X + HDR_W - 44, HDR_CY_mid, HDR_X + HDR_W - 12, HDR_CY_mid);
     [[HDR_X + 12, HDR_CY_mid], [HDR_X + HDR_W - 12, HDR_CY_mid]].forEach(([dx, dy]) => {
-        headerBg.fillStyle(0x4488ff, 0.60); headerBg.fillCircle(dx, dy, 1.5);
+        headerBg.fillStyle(0xffaa00, 0.60); headerBg.fillCircle(dx, dy, 1.5);
     });
 
     // Bottom level-indicator strip
-    headerBg.fillStyle(0x0a1535, 0.90);
+    headerBg.fillStyle(0x1a0800, 0.90);
     headerBg.fillRoundedRect(HDR_X, HDR_TOP + HDR_H - 22, HDR_W, 22, { tl: 0, tr: 0, bl: 12, br: 12 });
-    headerBg.lineStyle(0.8, 0x1c3070, 0.55);
+    headerBg.lineStyle(0.8, 0x3d2000, 0.55);
     headerBg.lineBetween(HDR_X + 14, HDR_TOP + HDR_H - 22, HDR_X + HDR_W - 14, HDR_TOP + HDR_H - 22);
 
     // Inner border (subtle)
-    headerBg.lineStyle(0.8, 0x4488ff, 0.20);
+    headerBg.lineStyle(0.8, 0xffaa00, 0.20);
     headerBg.strokeRoundedRect(HDR_X + 2, HDR_TOP + 2, HDR_W - 4, HDR_H - 4, 10);
 
     // Main border
-    headerBg.lineStyle(1.8, 0x4488ff, 0.72);
+    headerBg.lineStyle(1.8, 0xffaa22, 0.72);
     headerBg.strokeRoundedRect(HDR_X, HDR_TOP, HDR_W, HDR_H, 12);
 
     // Top accent stripe — bright center, dimmer ends
-    headerBg.fillStyle(0x4488ff, 1.0);
+    headerBg.fillStyle(0xffaa22, 1.0);
     headerBg.fillRoundedRect(HDR_X + 18, HDR_TOP + 0.5, HDR_W - 36, 2.5, 1);
-    headerBg.fillStyle(0xaaccff, 1.0);
+    headerBg.fillStyle(0xffe8a0, 1.0);
     headerBg.fillRoundedRect(HDR_CX - 45, HDR_TOP + 0.5, 90, 2.5, 1);
 
     // Corner accent circles
     [[HDR_X + 9, HDR_TOP + 9], [HDR_X + HDR_W - 9, HDR_TOP + 9]].forEach(([dx, dy]) => {
-        headerBg.fillStyle(0x4488ff, 0.55);   headerBg.fillCircle(dx, dy, 3);
-        headerBg.lineStyle(0.8, 0x88aaff, 0.45); headerBg.strokeCircle(dx, dy, 5);
+        headerBg.fillStyle(0xffaa22, 0.55);   headerBg.fillCircle(dx, dy, 3);
+        headerBg.lineStyle(0.8, 0xffd080, 0.45); headerBg.strokeCircle(dx, dy, 5);
     });
 
     // Fade in
@@ -8575,7 +8575,7 @@ function showLevelUpUI(S) {
             if (a > 0.002) {
                 scanGfx.fillStyle(0xffffff, a);
                 scanGfx.fillTriangle(sx - 22, HDR_TOP + 3, sx + 22, HDR_TOP + 3, sx, HDR_TOP + HDR_H - 22);
-                scanGfx.fillStyle(0xaaccff, a * 0.6);
+                scanGfx.fillStyle(0xffee88, a * 0.6);
                 scanGfx.fillTriangle(sx - 8, HDR_TOP + 3, sx + 8, HDR_TOP + 3, sx, HDR_TOP + HDR_H * 0.5);
             }
         }
@@ -8587,9 +8587,9 @@ function showLevelUpUI(S) {
     const titleTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + 30, "✦  LEVEL UP!  ✦", {
         font:            "28px LilitaOne, Arial, sans-serif",
         color:           "#ffffff",
-        stroke:          "#001255",
+        stroke:          "#331100",
         strokeThickness: 6,
-        shadow:          { offsetX: 0, offsetY: 0, color: "#3366ff", blur: 10, fill: true },
+        shadow:          { offsetX: 0, offsetY: 0, color: "#cc7700", blur: 10, fill: true },
         padding:         { x: 4, y: 2 }
     }).setOrigin(0.5).setDepth(306).setAlpha(0).setScale(0.30));
     S.tweens.add({
@@ -8601,7 +8601,7 @@ function showLevelUpUI(S) {
     const subTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + HDR_H - 12,
         `LEVEL ${gs.level}  ·  CHOOSE AN UPGRADE`, {
             font:    "10px LilitaOne, Arial, sans-serif",
-            color:   "#3f608c",
+            color:   "#7a5020",
             padding: { x: 2, y: 1 }
         }).setOrigin(0.5).setDepth(306).setAlpha(0));
     S.tweens.add({ targets: subTxt, alpha: 1, duration: 220, delay: 250 });
@@ -8609,7 +8609,7 @@ function showLevelUpUI(S) {
     // ════════════════════════════════════════════════════════════════════════════
     //  LAYER 6 — FLOATING PARTICLES  (spawn in UI region only)
     // ════════════════════════════════════════════════════════════════════════════
-    const _pCols = [0x4488ff, 0x88aaff, 0xffffff, 0x44ff88, 0xaa66ff, 0xffcc44];
+    const _pCols = [0xffaa22, 0xffcc44, 0xffffff, 0xff8800, 0xffee66, 0xffdd00];
     const partTick = S.time.addEvent({
         delay: 78, loop: true, callback: () => {
             if (!_partsOn) return;
@@ -8635,7 +8635,7 @@ function showLevelUpUI(S) {
     // ════════════════════════════════════════════════════════════════════════════
 
     const TYPE_COLORS = {
-        passive: 0x4499ff, weapon: 0xff7722,
+        passive: 0xffaa22, weapon: 0xff7722,
         mainweapon: 0xcc44ff, evo: 0x44ff88, reward: 0xffcc22
     };
     const rewardMeta = {
@@ -8652,7 +8652,7 @@ function showLevelUpUI(S) {
         const rMeta    = isReward ? (rewardMeta[upKey] || { icon: "upicon_damage", name: upKey, desc: "" }) : null;
         const evoObj   = isEvo ? EVOLUTIONS.find(e => e.nameKey === upKey.replace("evo_", "")) : null;
         const uType    = isEvo ? "evo" : isReward ? "reward" : (up?.type || "passive");
-        const ACC      = TYPE_COLORS[uType] || 0x4499ff;
+        const ACC      = TYPE_COLORS[uType] || 0xffaa22;
 
         // ── Card position (all derived from CARDS_LEFT / CARDS_TOP) ───────────
         const cx   = CARDS_LEFT + i * (CARD_W + CARD_GAP);  // left edge
@@ -8829,7 +8829,7 @@ function showLevelUpUI(S) {
         }
         const lvBadgeTxt = ui.add(S.add.text(ccx, _lvY + 2, lvStr, {
             font:    `${fSzS}px LilitaOne, Arial, sans-serif`,
-            color:   isEvo ? "#44ff88" : "#99bbee",
+            color:   isEvo ? "#44ff88" : "#ffdd88",
             padding: { x: 2, y: 1 }
         }).setOrigin(0.5, 0).setDepth(311).setAlpha(0));
         fadeEls.push(lvBadgeTxt);
@@ -8838,7 +8838,7 @@ function showLevelUpUI(S) {
         const _descY  = _lvY + fSzS + 12;
         const descTxt = ui.add(S.add.text(ccx, _descY, descStr, {
             font:    `${fSzS}px LilitaOne, Arial, sans-serif`,
-            color:   "#7799bb",
+            color:   "#cc9944",
             wordWrap: { width: CARD_W - 8, useAdvancedWrap: true },
             align:   "center"
         }).setOrigin(0.5, 0).setDepth(310).setAlpha(0));
@@ -8856,7 +8856,7 @@ function showLevelUpUI(S) {
                 const isNext = lv2 === up.level;
                 const px     = pipsStartX + lv2 * (pipW + 2);
                 const pg     = ui.add(S.add.graphics().setDepth(310).setAlpha(0));
-                pg.fillStyle(filled ? ACC : (isNext ? ACC : 0x1a1e38),
+                pg.fillStyle(filled ? ACC : (isNext ? ACC : 0x1e0800),
                              filled ? 0.94 : (isNext ? 0.48 : 0.18));
                 pg.fillRoundedRect(px, _pipY, pipW, 4, 2);
                 if (filled) { pg.fillStyle(0xffffff, 0.28); pg.fillRoundedRect(px, _pipY, pipW, 2, 1); }
@@ -10763,7 +10763,7 @@ function showRunEventUI(S, ev){
         const BTN_X=W/2-BTN_W/2;
         const BTN_Y=BTN_BASE_Y + i*52;
         const BTN_H=isAccept?48:40;
-        const col=i===0?ev.color:i===1?0x4488ff:0x555566;
+        const col=i===0?ev.color:i===1?0xffaa22:0x555566;
 
         const btnG=ui.add(S.add.graphics().setDepth(803));
         const drawBtn=hov=>{
