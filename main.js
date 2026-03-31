@@ -1419,7 +1419,7 @@ function syncStatsFromPipeline(gs){
         gs.damage    *= 0.65;                                // ×0.60 dmgM per bullet, 2 bullets, floor 120ms
         gs.shootDelay = Math.max(120, gs.shootDelay / 1.7); // was /1.8 floor 110 — slightly slower
     } else if(wt==="heavy_cannon"){
-        gs.damage    *= 1.85;                                // was 2.0 — splash still makes up for it
+        gs.damage    *= 2.60;                                // was 1.85 — yavaş ama güçlü, arttırıldı
         gs.shootDelay = Math.min(750, gs.shootDelay * 2.0);
     } else if(wt==="spread_shot"){
         gs.damage    *= 0.75;                                // ×0.70 dmgM per bullet, 3 bullets
@@ -6624,13 +6624,21 @@ class SceneGame extends Phaser.Scene {
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
-            // Ateş butonu — daha aşağı, sağ alta hizalı
+            // ── TÜM BUTONLAR SAĞ TARAFA HİZALI ──
             const BTN_Y = H_MB - 30;
             this.input.addPointer(3);
 
-            // ── ATEŞ BUTONU — sol alt, biraz daha ince ve aşağı ──────────
-            const FIRE_X = 54, FIRE_W = 88, FIRE_H = 44, FIRE_R = 10;
-            const FIRE_Y = BTN_Y;
+            const DIR_BTN_W = 78, DIR_BTN_H = 44, DIR_BTN_R = 10;
+            const FIRE_W = 88, FIRE_H = 44, FIRE_R = 10;
+            const BTN_GAP = 4;
+
+            // Sağdan sola: Fire → Right → Left
+            const FIRE_X  = W_MB - FIRE_W/2 - 6;                        // en sağda
+            const RIGHT_X = FIRE_X - FIRE_W/2 - BTN_GAP - DIR_BTN_W/2;  // fire'ın solunda
+            const LEFT_X  = RIGHT_X - DIR_BTN_W - BTN_GAP;              // right'ın solunda
+            const FIRE_Y  = BTN_Y;
+            const DIR_BTN_Y = BTN_Y;
+
             const fireG = this.add.graphics().setDepth(800).setScrollFactor(0);
             let _firePressing = false;
 
@@ -6676,15 +6684,7 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── SOL / SAĞ BUTONLAR — ateş butonuyla aynı satırda ──────────
-            const DIR_BTN_W = 78, DIR_BTN_H = 44, DIR_BTN_R = 10;
-            const DIR_BTN_Y = BTN_Y; // ateş butonuyla tam aynı Y
-
-            // Sol buton — ateş butonunun sağında
-            const LEFT_X  = FIRE_X + FIRE_W/2 + 4 + DIR_BTN_W/2;
-            // Sağ buton — solun sağında
-            const RIGHT_X = LEFT_X + DIR_BTN_W + 4;
-
+            // ── SOL / SAĞ BUTONLAR — sağa hizalı, ateş butonu solunda ──────────
             const leftG  = this.add.graphics().setDepth(800).setScrollFactor(0);
             const rightG = this.add.graphics().setDepth(800).setScrollFactor(0);
 
@@ -6923,34 +6923,37 @@ class SceneGame extends Phaser.Scene {
             if(b._weaponType==="chain"&&!b._chainBounced){
                 b._chainBounced=true;
                 b._chainCount=0;
-                let lastEnemy=enemy;
-                const _visited=new Set([enemy]); // [FIX] ziyaret listesi — aynı düşmana ikinci kez gitme
+                // [BUG FIX] Koordinatları anında kaydet — düşman öldüğünde active=false olur ama x/y erişilebilir kalır
+                let lastX=enemy.x, lastY=enemy.y;
+                const _visited=new Set([enemy]);
                 const doBounce=()=>{
                     if(!GS||GS.gameOver) return;
                     if(b._chainCount>=3) return;
                     b._chainCount++;
-                    const allE=_S._activeEnemies||_S.pyramids.getMatching("active",true);
+                    const allE=_S._activeEnemies&&_S._activeEnemies.length>0?_S._activeEnemies:_S.pyramids.getMatching("active",true);
                     let nearest=null; let nearD=9999;
                     for(let _ci=0;_ci<allE.length;_ci++){
                         const ce=allE[_ci];
-                        if(!ce.active||_visited.has(ce)||ce.spawnProtected) continue; // [FIX] visited check
-                        const _dx=ce.x-lastEnemy.x, _dy=ce.y-lastEnemy.y;
+                        if(!ce.active||_visited.has(ce)||ce.spawnProtected) continue;
+                        const _dx=ce.x-lastX, _dy=ce.y-lastY;
                         const _d=Math.sqrt(_dx*_dx+_dy*_dy);
-                        if(_d<160&&_d<nearD){nearD=_d;nearest=ce;}
+                        // [BUG FIX] Radius 160→260 — daha geniş arama alanı, sekme daha güvenilir
+                        if(_d<260&&_d<nearD){nearD=_d;nearest=ce;}
                     }
                     if(!nearest) return;
                     // Chain VFX — blue lightning line
                     const lg=_S.add.graphics().setDepth(18);
                     lg.lineStyle(2,0x44aaff,0.9);
-                    lg.lineBetween(lastEnemy.x,lastEnemy.y,nearest.x,nearest.y);
+                    lg.lineBetween(lastX,lastY,nearest.x,nearest.y);
                     _S.tweens.add({targets:lg,alpha:0,duration:180,onComplete:()=>{try{lg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
                     // Damage falloff per bounce
-                    const falloff=Math.pow(0.65,b._chainCount);
-                    applyDmg(_S,nearest,GS.damage*0.8*falloff,false);
+                    const falloff=Math.pow(0.72,b._chainCount); // [BUG FIX] 0.65→0.72 — daha güçlü sekme hasarı
+                    applyDmg(_S,nearest,GS.damage*0.85*falloff,false);
                     // Chain Lightning synergy — trigger lightning on bounce
                     if(GS._synergyChainLightning) doLightning(_S);
-                    _visited.add(nearest); // [FIX] ziyaret edildi olarak işaretle
-                    lastEnemy=nearest;
+                    _visited.add(nearest);
+                    // [BUG FIX] Koordinatları güncelle — nearest artık yeni kaynak nokta
+                    lastX=nearest.x; lastY=nearest.y;
                     _S.time.delayedCall(80,doBounce);
                 };
                 _S.time.delayedCall(60,doBounce);
@@ -11334,7 +11337,8 @@ function triggerResonance(S,src,depth){
 }
 function doExplosion(S,x,y){
     const gs=GS, lv=UPGRADES.explosive.level, r=44+lv*12;
-    // u2500u2500 EXPLOSION SPRITE ANu0130MASYONU (yeni PNG) u2500u2500
+    const _isHeavy = gs && gs.activeWeapon === "heavy_cannon";
+    // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
         try{
             const sc=4.5+(lv*0.4);
@@ -11342,6 +11346,26 @@ function doExplosion(S,x,y){
             es.play("anim_expl");
             es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
         }catch(_){}
+    }
+    // ── HEAVY CANNON — ekstra exp1 animasyonları ──
+    if(_isHeavy && S.anims && S.anims.exists("anim_exp1")){
+        // Merkez + 2 offset exp1 — güçlü patlama hissi
+        const _exp1Configs = [
+            {ox:0,  oy:0,  sc:5.5, delay:0},
+            {ox:-18,oy:-8, sc:3.8, delay:55},
+            {ox:20, oy:-5, sc:3.5, delay:90},
+        ];
+        _exp1Configs.forEach(cfg=>{
+            S.time.delayedCall(cfg.delay, ()=>{
+                if(!S||!S.add) return;
+                try{
+                    const es=S.add.sprite(x+cfg.ox, y+cfg.oy, "exp1")
+                        .setDepth(27).setScale(cfg.sc).setAlpha(0.92);
+                    es.play("anim_exp1");
+                    es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
+                }catch(_){}
+            });
+        });
     }
     // [VFX OPT] İç parlama — daha küçük
     const inner=S.add.graphics().setDepth(22);
