@@ -5878,7 +5878,7 @@ function NT_YellowBtn(scene, cx, cy, bw, bh, label, depth, fn){
 // ── NT_OpenPopup — sprite window + title + content ────────────────────
 // panelCY: world y center of panel (default = 320)
 // Returns {A,close,objs,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW}
-function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth){
+function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose){
     const W=360,H=640,CX=180;
     panelCY = panelCY||H/2;
     depth   = depth||20;
@@ -5914,6 +5914,7 @@ function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth){
     scene.tweens.add({targets:sp,scaleX:m.sc,scaleY:m.sc,alpha:1,duration:160,ease:"Back.easeOut"});
 
     function close(cb2){
+        if(onClose) try{ onClose(); }catch(_){}
         objs.forEach(o=>{try{if(o.disableInteractive)o.disableInteractive();o.destroy();}catch(_){}});
         // Arkadaki menü butonlarını yeniden etkinleştir
         if(scene._menuHitZones){
@@ -6364,11 +6365,9 @@ class SceneMainMenu extends Phaser.Scene {
 
     // ── Leaderboard ───────────────────────────────────────────────────
     _showLeaderboard(){
-        const {A,close,objs,contentTop,contentBot,TX,VX,CX,PW,depth}
-            = NT_OpenPopup(this,"mm_panel",330,"🏆  LEADERBOARD",320,20);
-        // Panel kapanınca NT_OpenPopup'ın close() tüm objs'yi destroy eder.
-        // objs[0] (dim overlay) destroy olunca panel kapandı demektir.
-        const _isPanelClosed = () => !objs[0] || objs[0].destroyed;
+        let _lbClosed = false;
+        const {A,close,contentTop,contentBot,TX,VX,CX,PW,depth}
+            = NT_OpenPopup(this,"mm_panel",330,"🏆  LEADERBOARD",320,20, ()=>{ _lbClosed=true; });
         const hY=contentTop+4;
         A(this.add.text(TX,    hY,"#",     NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
         A(this.add.text(TX+28, hY,"PLAYER",NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
@@ -6379,7 +6378,7 @@ class SceneMainMenu extends Phaser.Scene {
         const loadTxt=A(this.add.text(CX,hY+55,"⏳  Loading...",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3));
         lbFetchScores().then(()=>{
             try{if(loadTxt&&!loadTxt.destroyed)loadTxt.destroy();}catch(_){}
-            if(_isPanelClosed()) return; // panel zaten kapandı — sahneye metin bırakma
+            if(_lbClosed) return;
             const myId=(_TG_USER&&_TG_USER.id)||null;
             const scores=lbGetMergedScores().slice(0,12);
             const newTexts=[];
@@ -6400,7 +6399,10 @@ class SceneMainMenu extends Phaser.Scene {
             }
             // 2 frame bekle → font glyphleri rasterize edilsin, sonra göster
             requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                if(_isPanelClosed()){ newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.destroy();}catch(_){} }); return; }
+                if(_lbClosed){
+                    newTexts.forEach(t=>{ try{if(t&&!t.destroyed){t.setAlpha(0);t.destroy();}}catch(_){} });
+                    return;
+                }
                 newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
             }));
         }).catch(()=>{ try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){} });
