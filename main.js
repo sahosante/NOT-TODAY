@@ -2164,24 +2164,27 @@ function buildTextures(S){
     g.fillStyle(0xcc0022,0.7); g.fillRect(7,3,2,4);
     g.generateTexture("tex_heart",16,16); g.clear();
 
-    // ── ALTIN İKONU — canvas API ile, ortası gerçekten transparan ──
-    // (Phaser Graphics destination-out desteklemez, canvas kullanıyoruz)
+    // ── ALTIN İKONU — kalın kenarlık, küçük transparan merkez ──
     if(!S.textures.exists("tex_gold_icon")){
         const _gc=document.createElement("canvas");
-        _gc.width=14; _gc.height=14;
+        _gc.width=20; _gc.height=20;
         const _gctx=_gc.getContext("2d");
-        // Dış sarı kare (1px boşluk bırak kenarlarda)
+        // Dış sarı kare (tam dolu)
         _gctx.fillStyle="#FFD700";
-        _gctx.fillRect(1,1,12,12);
+        _gctx.fillRect(0,0,20,20);
         // Üst parlaması
-        _gctx.fillStyle="rgba(255,242,120,0.55)";
-        _gctx.fillRect(2,2,10,3);
-        // Alt gölge
-        _gctx.fillStyle="rgba(140,90,0,0.40)";
-        _gctx.fillRect(2,11,10,2);
-        // Ortası transparan — destination-out ile deli
+        _gctx.fillStyle="rgba(255,248,160,0.60)";
+        _gctx.fillRect(1,1,18,4);
+        // Alt gölgesi
+        _gctx.fillStyle="rgba(130,80,0,0.45)";
+        _gctx.fillRect(1,16,18,3);
+        // İç kare kenar çizgisi — kalın, koyu altın
+        _gctx.strokeStyle="#8A5000";
+        _gctx.lineWidth=2;
+        _gctx.strokeRect(4,4,12,12);
+        // Küçük transparan merkez deliği
         _gctx.globalCompositeOperation="destination-out";
-        _gctx.fillRect(4,4,6,6);
+        _gctx.fillRect(7,7,6,6);
         _gctx.globalCompositeOperation="source-over";
         S.textures.addCanvas("tex_gold_icon",_gc);
     }
@@ -4517,8 +4520,8 @@ function buildUI(S){
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
     // Altın ikonu — goldText'in soluna dinamik olarak yerleştirilir (renderUI'da güncellenir)
-    S.goldIcon=S.add.image(W-50,33,"tex_gold_icon")
-        .setDisplaySize(12,12).setOrigin(0.5,0.5)
+    S.goldIcon=S.add.image(W-50,35,"tex_gold_icon")
+        .setDisplaySize(13,13).setOrigin(0.5,0.5)
         .setScrollFactor(0).setDepth(D+5);
 
     S._crystalHudText=null; // HUD crystal display removed
@@ -4599,7 +4602,10 @@ function renderUI(S){
     S._goldDisplay=Math.floor(S._goldDisplay+(gs.gold-S._goldDisplay)*0.08);
     S.goldText.setText(""+S._goldDisplay);
     // Altın ikonu — sayının hemen soluna hizala
-    if(S.goldIcon && S.goldText) S.goldIcon.setX(360 - 8 - S.goldText.width - 8);
+    if(S.goldIcon && S.goldText){
+        S.goldIcon.setX(360 - 8 - S.goldText.width - 8);
+        S.goldIcon.setY(26 + S.goldText.height * 0.5); // text ile dikey hizala
+    }
     // Kristal — statik (değişmez sık sık)
     if(S._crystalHudText) S._crystalHudText.setText("GEM "+PLAYER_CRYSTAL);
 
@@ -5359,20 +5365,19 @@ function doExplodeVFX(S,x,y,col,sizeScale){
 
     // ── EXPLOSION SPRITE — Explosion2 genel, exp1/2/3 her ~4.'de nadir ──
     _rareExplCounter++;
-    const useRare = (_rareExplCounter % 4 === 0);
+    const useRare = (_rareExplCounter % 6 === 0); // Her 6. patlamada nadir efekt (~%16)
     if(useRare){
         const rareKeys  = ["anim_exp1","anim_exp2","anim_exp3"];
         const texKeys   = ["exp1","exp2","exp3"];
-        // Üçgen ~78x64px. exp1/exp2: 32px kare → ~100px için scale ~3.2+
-        // exp3: 72px kare → ~100px için scale ~1.4+. sz ile büyük düşmanlarda ölçeklenir.
+        // exp1/exp2 daha küçük scale, exp3 biraz daha büyük ama hepsi azaltıldı
         const rareScales= [
-            Math.max(3.2, sz * 7.5),  // exp1 — 32px frame → ~102px görsel
-            Math.max(3.2, sz * 7.5),  // exp2 — 32px frame → ~102px görsel
-            Math.max(1.4, sz * 3.3),  // exp3 — 72px frame → ~101px görsel
+            Math.max(2.2, sz * 5.0),  // exp1 — 32px → ~70px görsel
+            Math.max(2.2, sz * 5.0),  // exp2 — 32px → ~70px görsel
+            Math.max(1.1, sz * 2.5),  // exp3 — 72px → ~79px görsel
         ];
-        // Ağırlıklı seçim: exp3 %50, exp1 %25, exp2 %25
+        // Ağırlıklı seçim: exp3 %70, exp1 %15, exp2 %15
         const rnd = Math.random();
-        const ri = rnd < 0.25 ? 0 : rnd < 0.50 ? 1 : 2;
+        const ri = rnd < 0.15 ? 0 : rnd < 0.30 ? 1 : 2;
         if(S.anims && S.anims.exists(rareKeys[ri])){
             try{
                 const es=S.add.sprite(x,y,texKeys[ri]).setDepth(26).setScale(rareScales[ri]).setAlpha(0.97);
@@ -5961,7 +5966,8 @@ class SceneMainMenu extends Phaser.Scene {
     create(){
         const W=360,H=640,CX=180;
 
-        // Background
+        // Background — turuncu solid fallback + görsel üstüne
+        this.add.rectangle(CX,H/2,W,H,0xC85A00,1).setDepth(-1);
         this.add.image(CX,H/2,"mm_bg").setDepth(0);
 
         // Panel sprite — measure EXACT dimensions at runtime
@@ -5999,6 +6005,31 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(150,()=>{ _warmObjs.forEach(o=>{try{o.destroy();}catch(_){}}) });
 
         const btns=DEFS.map((d,i)=>NT_MenuBtn(this,CX,aTop+slot*i+slot/2,d.icon,d.label,d.cb));
+
+        // ── BUTON GLOW ANİMASYONU — her butona bağımsız altın parlaması ──
+        const _BW=268,_BH=70,_BR=16;
+        DEFS.forEach((_d,i)=>{
+            const bcy=aTop+slot*i+slot/2;
+            const glowG=this.add.graphics().setDepth(4);
+            const dummy={v:0};
+            this.tweens.add({
+                targets:dummy, v:1,
+                duration:1600+i*180,
+                delay:i*320,
+                ease:"Sine.easeInOut",
+                yoyo:true, repeat:-1,
+                onUpdate:()=>{
+                    const v=dummy.v;
+                    glowG.clear();
+                    // Dış parlama halkası
+                    glowG.lineStyle(3+v*4, 0xffdd00, 0.07+v*0.22);
+                    glowG.strokeRoundedRect(CX-_BW/2-4,bcy-_BH/2-4,_BW+8,_BH+8,_BR+4);
+                    // Üst shine flash
+                    glowG.fillStyle(0xffffff, v*0.08);
+                    glowG.fillRoundedRect(CX-_BW/2+6,bcy-_BH/2+4,_BW-12,_BH*0.38,_BR*0.6);
+                }
+            });
+        });
         // Hit zone'ları sakla — popup açılınca devre dışı bırakmak için
         this._menuHitZones = btns.map(b=>b.hit);
         // Buton label text'lerini başta gizle — warm-up bittikten sonra göster (PC siyah kutu fix)
@@ -6008,6 +6039,27 @@ class SceneMainMenu extends Phaser.Scene {
         // Smooth texture filter
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
+
+        // ── HIGH SCORE — panel üstünde ortada göster ──
+        const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
+        if(hs > 0){
+            const hsY = pTop - 28;
+            // Arka plan kapsül
+            const hsBg = this.add.graphics().setDepth(5);
+            hsBg.fillStyle(0x000000,0.45); hsBg.fillRoundedRect(CX-80,hsY-14,160,28,14);
+            hsBg.lineStyle(1.5,0xffcc00,0.55); hsBg.strokeRoundedRect(CX-80,hsY-14,160,28,14);
+            // Yıldız + skor yazısı
+            this.add.text(CX,hsY,"🏆  BEST: "+hs.toLocaleString(),{
+                fontFamily:"LilitaOne, Arial, sans-serif",
+                fontSize:"15px",
+                color:"#FFD700",
+                stroke:"#000000",
+                strokeThickness:2
+            }).setOrigin(0.5).setDepth(6);
+            // Hafif fade-in
+            hsBg.setAlpha(0);
+            this.tweens.add({targets:hsBg,alpha:1,duration:300,delay:350});
+        }
 
         // Entrance: camera fade + panel pop-in
         // Buttons are immediately visible — no alpha trickery
@@ -6182,6 +6234,7 @@ class SceneGame extends Phaser.Scene {
         this.load.spritesheet("idle",  "assets/Idle.png",  {frameWidth:32, frameHeight:34});  // 200x34 → 6 kare (32px aralıklı)
         this.load.spritesheet("run",   "assets/Run.png",   {frameWidth:32, frameHeight:32});  // 320x32 → 10 kare
         this.load.spritesheet("death", "assets/Death.png", {frameWidth:40, frameHeight:40});  // 320x40 → 8 kare
+        this.load.spritesheet("get_damage", "assets/get_damage.png", {frameWidth:33, frameHeight:30}); // 132x30 → 4 kare
         // ── PATLAMA SPRITE SHEET ──
         this.load.spritesheet("explosion",  "assets/Explosion.png", {frameWidth:64, frameHeight:64});  // 256x256 → 4x4=16 kare
         this.load.spritesheet("exp1", "assets/exp1.png", {frameWidth:32, frameHeight:32}); // 352x32 → 11 kare
@@ -6370,6 +6423,9 @@ class SceneGame extends Phaser.Scene {
         if(!this.anims.exists("anim_idle"))  this.anims.create({key:"anim_idle",  frames:this.anims.generateFrameNumbers("idle",  {start:0,end:5}),  frameRate:8,  repeat:-1});
         if(!this.anims.exists("anim_run"))   this.anims.create({key:"anim_run",   frames:this.anims.generateFrameNumbers("run",   {start:0,end:7}),  frameRate:14, repeat:-1});
         if(!this.anims.exists("anim_death")) this.anims.create({key:"anim_death", frames:this.anims.generateFrameNumbers("death", {start:0,end:7}),  frameRate:12, repeat:0});
+        // anim_damage — sadece texture yüklüyse oluştur
+        if(!this.anims.exists("anim_damage") && this.textures.exists("get_damage"))
+            this.anims.create({key:"anim_damage", frames:this.anims.generateFrameNumbers("get_damage",{start:0,end:3}), frameRate:14, repeat:0});
         if(!this.anims.exists("anim_expl"))  this.anims.create({key:"anim_expl",  frames:this.anims.generateFrameNumbers("explosion", {start:0,end:15}), frameRate:18, repeat:0});
         if(!this.anims.exists("anim_exp1"))  this.anims.create({key:"anim_exp1",  frames:this.anims.generateFrameNumbers("exp1", {start:0,end:10}), frameRate:16, repeat:0});
         if(!this.anims.exists("anim_exp2"))  this.anims.create({key:"anim_exp2",  frames:this.anims.generateFrameNumbers("exp2", {start:0,end:5}),  frameRate:14, repeat:0});
@@ -6504,7 +6560,9 @@ class SceneGame extends Phaser.Scene {
             }
         }catch(e){console.warn("[NT] Hata yutuldu:",e)}
 
-        // ── ARKAPLAN — statik görsel, 360×640 ──
+        // ── ARKAPLAN — önce turuncu solid renk (bg image yüklenemezse fallback görünür) ──
+        this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
+        // Arka plan görseli (kullanıcı değiştirdiği versiyon)
         this.add.image(W/2,H/2,"bg").setDisplaySize(W,H).setDepth(-10);
 
         // Zemin şeridi kaldırıldı
@@ -6614,14 +6672,14 @@ class SceneGame extends Phaser.Scene {
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
             // ── DİNAMİK JOYSTICK — yatay uzunlamasına, parmak bastığında çıkar ──
-            const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4; // ateş butonunun sağından itibaren
-            const JS_ZONE_Y = H_MB - 110;             // alt 110px zone
+            const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4;
+            const JS_ZONE_Y = H_MB - 130;
             const JS_ZONE_W = W_MB - JS_ZONE_X;
-            const JS_ZONE_H = 110;
-            const JS_RX = 52;   // yatay yarıçap (geniş)
-            const JS_RY = 22;   // dikey yarıçap (ince)
-            const JS_R_INNER = 16;  // iç top yarıçapı
-            const JS_DEAD = 6;      // dead zone px
+            const JS_ZONE_H = 130;
+            const JS_RX = 72;   // daha geniş yatay yarıçap
+            const JS_RY = 30;   // daha yüksek dikey yarıçap — tutması kolay
+            const JS_R_INNER = 17;  // knob yarıçapı
+            const JS_DEAD = 14;     // büyük dead zone — kaza hareketi önler
             const JS_MAX  = JS_RX - JS_R_INNER; // max yatay sürükleme
 
             // Joystick grafik objeleri
@@ -6712,11 +6770,11 @@ class SceneGame extends Phaser.Scene {
             // Joystick smooth update — her frame çalışır
             this._jsUpdateEvent = this.time.addEvent({ delay: 16, loop: true, callback: () => {
                 if(!_jsActive){ this._mobileLeft = false; this._mobileRight = false; return; }
-                // Smooth interpolation: target state'e doğru yumuşak geçiş
+                // Smooth interpolation — düşük katsayı = daha yavaş tepki = daha kontrollü
                 const target = _jsTargetRight ? 1 : _jsTargetLeft ? -1 : 0;
-                _jsSmooth += (target - _jsSmooth) * 0.55;
-                this._mobileLeft  = _jsSmooth < -0.18;
-                this._mobileRight = _jsSmooth >  0.18;
+                _jsSmooth += (target - _jsSmooth) * 0.28;
+                this._mobileLeft  = _jsSmooth < -0.30; // daha yüksek eşik = kasıtlı hareket gerekir
+                this._mobileRight = _jsSmooth >  0.30;
             }});
 
             this._btnLeft  = { g: jsOuterG, lbl: null, hit: jsZone };
@@ -12597,6 +12655,24 @@ function vfxPlayerHurt(S){
     if(!S.player||!_POOL) return;
     const px=_snap(S.player.x),py=_snap(S.player.y);
 
+    // ── HASAR ANİMASYONU — ayrı sprite, player texture bozulmasın ──
+    // Texture yüklenmediyse (assets/get_damage.png eksik) sessizce atla
+    if(S.textures.exists("get_damage") && S.anims.exists("anim_damage")){
+        try{
+            const sc = Math.max(S.player.scaleX||2.0, 1.5);
+            const ds = S.add.sprite(px, py, "get_damage", 0)
+                .setDepth(S.player.depth + 2)
+                .setScale(sc)
+                .setFlipX(S.player.flipX || false)
+                .setOrigin(0.5, 0.5)
+                .setAlpha(0.95);
+            ds.play("anim_damage");
+            ds.once("animationcomplete", ()=>{ try{ds.destroy();}catch(_){} });
+            // Güvenlik: animasyon bitmezse 600ms sonra destroy
+            S.time.delayedCall(600, ()=>{ try{ if(ds && ds.active) ds.destroy(); }catch(_){} });
+        }catch(e){ console.warn("[NT] Damage anim:", e); }
+    }
+
     // Red expanding ring
     const ring=_POOL.get(25); if(ring){
         ring.lineStyle(3,0xff2222,0.92); ring.strokeCircle(0,0,16);
@@ -12833,7 +12909,7 @@ function _startPhaserGame(){
 
     const config={
         type:Phaser.AUTO, width:360, height:640,
-        backgroundColor:"#000000",
+        backgroundColor:"#C85A00",
         parent:"game-container",
         physics:{default:"arcade",arcade:{gravity:{y:0},debug:false,overlapBias:24,tileBias:16}},
         scene:[SceneMainMenu, SceneGame],
