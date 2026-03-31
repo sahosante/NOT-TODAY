@@ -806,6 +806,8 @@ function _hideMobileBtns(S){
         try{ if(btn.g)btn.g.setVisible(false); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
         try{ if(btn.lbl)btn.lbl.setVisible(false); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
         try{ if(btn.hit){btn.hit.disableInteractive();btn.hit.setVisible(false);} }catch(e){console.warn("[NT] Hata yutuldu:",e)}
+        // Sol/sağ buton için rightHit ayrı saklıdır
+        try{ if(btn.hitR){btn.hitR.disableInteractive();btn.hitR.setVisible(false);} }catch(e){console.warn("[NT] Hata yutuldu:",e)}
     });
 }
 function _showMobileBtns(S){
@@ -815,6 +817,7 @@ function _showMobileBtns(S){
         try{ if(btn.g)btn.g.setVisible(true); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
         try{ if(btn.lbl)btn.lbl.setVisible(true); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
         try{ if(btn.hit){btn.hit.setInteractive();btn.hit.setVisible(true);} }catch(e){console.warn("[NT] Hata yutuldu:",e)}
+        try{ if(btn.hitR){btn.hitR.setInteractive();btn.hitR.setVisible(true);} }catch(e){console.warn("[NT] Hata yutuldu:",e)}
     });
 }
 
@@ -2169,7 +2172,9 @@ function buildTextures(S){
         const _gc=document.createElement("canvas");
         _gc.width=20; _gc.height=20;
         const _gctx=_gc.getContext("2d");
-        // Şeffaf arka plan (dış sarı yok)
+        // Şeffaf arka plan — köşe noktaları yok
+        // Dış kare dolgu — arka planla uyumlu (siyah/transparan)
+        _gctx.clearRect(0,0,20,20);
         // Dış kare çerçeve — altın
         _gctx.strokeStyle="#CC8800";
         _gctx.lineWidth=2.5;
@@ -2178,11 +2183,7 @@ function buildTextures(S){
         _gctx.strokeStyle="#FFD700";
         _gctx.lineWidth=1.5;
         _gctx.strokeRect(6,6,8,8);
-        // Köşe aksan noktaları
-        _gctx.fillStyle="#FFD700";
-        [[3,3],[17,3],[3,17],[17,17]].forEach(([cx,cy])=>{
-            _gctx.beginPath(); _gctx.arc(cx,cy,1.2,0,Math.PI*2); _gctx.fill();
-        });
+        // Köşe noktaları KALDIRILDI — minik sarı köşe artifact'ları engellendi
         S.textures.addCanvas("tex_gold_icon",_gc);
     }
 
@@ -2934,6 +2935,8 @@ function resetEF(p){
     p._magT=0; p._vortT=0; // magnet/vortex throttle timer'ları
     p._lastCritVfx=0; // krit VFX throttle
     p._fallEffT=0; p._debrisT=0; p._fireT=0; // düşme efekti timer'ları
+    // [BUG FIX] Squash scale birikimini sıfırla — pool'dan gelen nesne eski base scale taşımasın
+    p._baseScaleX=undefined; p._basescaleY=undefined;
     if(p._shadowGfx){try{p._shadowGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)} p._shadowGfx=null;}
     // Texture ve frame sıfırla — pool'dan gelen obje eski break frame'de kalabilir
     try{p.setTexture("pyramid",0).clearTint().setAlpha(1);}catch(e){try{p.clearTint().setAlpha(1);}catch(ex){}}
@@ -6096,8 +6099,7 @@ class SceneMainMenu extends Phaser.Scene {
     }
 
     _goGame(){
-        this.cameras.main.fadeOut(200,0,0,0);
-        this.cameras.main.once("camerafadeoutcomplete",()=>this.scene.start("SceneGame"));
+        this.scene.start("SceneGame");
     }
 
     // ── Settings — use mm_panel (large) for more room ─────────────────
@@ -6566,8 +6568,7 @@ class SceneGame extends Phaser.Scene {
         this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
         // Arka plan görseli (kullanıcı değiştirdiği versiyon)
         this.add.image(W/2,H/2,"bg").setDisplaySize(W,H).setDepth(-10);
-        // Kamera fade-in — geçişi yumuşat, turuncu flaşı gizle
-        this.cameras.main.fadeIn(180, 0, 0, 0);
+        // Kamera fade-in kaldırıldı — direkt oyuna geçiş
 
         // Zemin şeridi kaldırıldı
 
@@ -6675,115 +6676,66 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── SABİT JOYSTICK — her zaman görünür, sadece knob hareket eder ──
-            const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4;
-            const JS_ZONE_W = W_MB - JS_ZONE_X;
-            const JS_RX = 82;   // daha geniş
-            const JS_RY = 28;
-            const JS_R_INNER = 17;
-            const JS_DEAD = 20;  // büyük dead zone
-            const JS_MAX  = JS_RX - JS_R_INNER;
-            // Sabit merkez — sağ altta tam hizalı
-            const JS_CX = JS_ZONE_X + JS_ZONE_W / 2;
-            const JS_CY = H_MB - 46; // ateş butonuyla aynı yükseklikte
+            // ── SOL / SAĞ BUTONLAR — ateş butonuyla aynı satırda ──────────
+            const DIR_BTN_W = 78, DIR_BTN_H = 44, DIR_BTN_R = 10;
+            const DIR_BTN_Y = BTN_Y; // ateş butonuyla tam aynı Y
 
-            const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0);
-            const jsInnerG = this.add.graphics().setDepth(801).setScrollFactor(0);
+            // Sol buton — ateş butonunun sağında
+            const LEFT_X  = FIRE_X + FIRE_W/2 + 4 + DIR_BTN_W/2;
+            // Sağ buton — solun sağında
+            const RIGHT_X = LEFT_X + DIR_BTN_W + 4;
 
-            const drawJoystick = (kx, ky, active) => {
-                jsOuterG.clear(); jsInnerG.clear();
-                // Dış elips — her zaman görünür
-                jsOuterG.lineStyle(2.5, 0x88aaff, active ? 0.85 : 0.45);
-                jsOuterG.strokeEllipse(JS_CX, JS_CY, JS_RX*2, JS_RY*2);
-                jsOuterG.fillStyle(0x1122aa, active ? 0.30 : 0.12);
-                jsOuterG.fillEllipse(JS_CX, JS_CY, JS_RX*2, JS_RY*2);
-                jsOuterG.lineStyle(1, 0xaaccff, 0.18);
-                jsOuterG.strokeEllipse(JS_CX, JS_CY, (JS_RX-5)*2, (JS_RY-4)*2);
-                // Yön okları
-                jsOuterG.fillStyle(0x88aaff, active ? 0.55 : 0.25);
-                jsOuterG.fillTriangle(JS_CX-JS_RX+9,JS_CY, JS_CX-JS_RX+16,JS_CY-6, JS_CX-JS_RX+16,JS_CY+6);
-                jsOuterG.fillTriangle(JS_CX+JS_RX-9,JS_CY, JS_CX+JS_RX-16,JS_CY-6, JS_CX+JS_RX-16,JS_CY+6);
-                // Merkez yatay çizgi
-                jsOuterG.lineStyle(1, 0x4466cc, 0.18);
-                jsOuterG.lineBetween(JS_CX-JS_RX+20,JS_CY, JS_CX+JS_RX-20,JS_CY);
-                // Knob — her zaman görünür
-                const ka = active ? 0.95 : 0.55;
-                jsInnerG.fillStyle(0x4488ff, ka);
-                jsInnerG.fillCircle(kx, ky, JS_R_INNER);
-                jsInnerG.fillStyle(0xffffff, active ? 0.28 : 0.14);
-                jsInnerG.fillCircle(kx-4, ky-4, JS_R_INNER*0.42);
-                jsInnerG.lineStyle(1.5, 0x88bbff, ka);
-                jsInnerG.strokeCircle(kx, ky, JS_R_INNER);
+            const leftG  = this.add.graphics().setDepth(800).setScrollFactor(0);
+            const rightG = this.add.graphics().setDepth(800).setScrollFactor(0);
+
+            const _drawDirBtn = (gfx, cx, label, pressed, borderCol) => {
+                gfx.clear();
+                // Gölge
+                gfx.fillStyle(0x000000, pressed ? 0.0 : 0.25);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 2, DIR_BTN_Y - DIR_BTN_H/2 + 4, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Ana body
+                gfx.fillStyle(0x1a1a2e, pressed ? 0.90 : 0.55);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Üst shine
+                gfx.fillStyle(0xffffff, pressed ? 0.04 : 0.10);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 4, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 8, DIR_BTN_H * 0.38, DIR_BTN_R * 0.7);
+                // Border
+                gfx.lineStyle(pressed ? 2 : 1.5, borderCol, pressed ? 0.95 : 0.50);
+                gfx.strokeRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Inner glow
+                if(pressed){
+                    gfx.lineStyle(4, borderCol, 0.18);
+                    gfx.strokeRoundedRect(cx - DIR_BTN_W/2 + 3, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 6, DIR_BTN_H - 6, DIR_BTN_R - 2);
+                }
+                // Ok ikonu
+                gfx.fillStyle(0xffffff, pressed ? 0.95 : 0.60);
+                const ax = cx, ay = DIR_BTN_Y;
+                if(label === "left"){
+                    gfx.fillTriangle(ax-12, ay, ax+6, ay-9, ax+6, ay+9);
+                } else {
+                    gfx.fillTriangle(ax+12, ay, ax-6, ay-9, ax-6, ay+9);
+                }
             };
-            drawJoystick(JS_CX, JS_CY, false); // başlangıçta çiz
+            _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff);
+            _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff);
 
-            let _jsActive = false;
-            let _jsPtr = null;
-            let _jsKnobX = JS_CX, _jsKnobY = JS_CY;
-            let _jsTargetLeft = false, _jsTargetRight = false;
-            let _jsSmooth = 0;
+            let _leftActivePtr = null, _rightActivePtr = null;
 
-            const jsZone = this.add.rectangle(
-                JS_ZONE_X + JS_ZONE_W/2, H_MB - 130 + 65,
-                JS_ZONE_W, 130, 0xffffff, 0.001
-            ).setDepth(799).setScrollFactor(0).setInteractive();
+            const leftHit = this.add.rectangle(LEFT_X,  DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive();
+            const rightHit = this.add.rectangle(RIGHT_X, DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive();
 
-            const _getGameX = (ptr) => {
-                // ptr.worldX zaten Phaser'ın dönüştürdüğü oyun koordinatı
-                // Manuel scale hesabı yanlış sonuç veriyordu (kayma bug'ı)
-                if(ptr.worldX !== undefined) return ptr.worldX;
-                // Fallback: manuel dönüşüm
-                const cam = this.cameras.main;
-                const scale = this.scale.displayScale || {x:1,y:1};
-                return (ptr.x / scale.x - (cam.x||0)) / (cam.zoom||1);
-            };
+            leftHit.on("pointerdown",  (ptr) => { _leftActivePtr = ptr.id; this._mobileLeft = true;  _drawDirBtn(leftG,  LEFT_X,  "left",  true,  0x5588ff); });
+            leftHit.on("pointerup",    (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
+            leftHit.on("pointerout",   (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
 
-            jsZone.on("pointerdown", (ptr) => {
-                if(_jsActive) return;
-                _jsActive = true; _jsPtr = ptr.id;
-                const dx = Phaser.Math.Clamp(_getGameX(ptr) - JS_CX, -JS_MAX, JS_MAX);
-                _jsKnobX = JS_CX + dx; _jsKnobY = JS_CY;
-                _jsTargetLeft  = dx < -JS_DEAD;
-                _jsTargetRight = dx >  JS_DEAD;
-                drawJoystick(_jsKnobX, _jsKnobY, true);
-            });
+            rightHit.on("pointerdown", (ptr) => { _rightActivePtr = ptr.id; this._mobileRight = true; _drawDirBtn(rightG, RIGHT_X, "right", true,  0x5588ff); });
+            rightHit.on("pointerup",   (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
+            rightHit.on("pointerout",  (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
 
-            jsZone.on("pointermove", (ptr) => {
-                if(!_jsActive || ptr.id !== _jsPtr) return;
-                const dx = Phaser.Math.Clamp(_getGameX(ptr) - JS_CX, -JS_MAX, JS_MAX);
-                _jsKnobX = JS_CX + dx; _jsKnobY = JS_CY;
-                _jsTargetLeft  = dx < -JS_DEAD;
-                _jsTargetRight = dx >  JS_DEAD;
-                drawJoystick(_jsKnobX, _jsKnobY, true);
-            });
-
-            const _jsRelease = (ptr) => {
-                if(!_jsActive || ptr.id !== _jsPtr) return;
-                _jsActive = false; _jsPtr = null;
-                _jsTargetLeft = false; _jsTargetRight = false;
-                this._mobileLeft = false; this._mobileRight = false;
-                _jsSmooth = 0;
-                _jsKnobX = JS_CX; _jsKnobY = JS_CY;
-                drawJoystick(JS_CX, JS_CY, false);
-            };
-            jsZone.on("pointerup",  _jsRelease);
-            jsZone.on("pointerout", _jsRelease);
-
-            this._jsUpdateEvent = this.time.addEvent({ delay: 16, loop: true, callback: () => {
-                if(!_jsActive){ this._mobileLeft = false; this._mobileRight = false; return; }
-                const target = _jsTargetRight ? 1 : _jsTargetLeft ? -1 : 0;
-                _jsSmooth += (target - _jsSmooth) * 0.15; // çok yavaş = çok kontrollü
-                this._mobileLeft  = _jsSmooth < -0.38;
-                this._mobileRight = _jsSmooth >  0.38;
-            }});
-
-            this._btnLeft  = { g: jsOuterG, lbl: null, hit: jsZone };
-            this._btnRight = { g: jsInnerG, lbl: null, hit: null };
-
-            // Joystick shutdown cleanup
-            this.events.once("shutdown", () => {
-                try{ if(this._jsUpdateEvent) this._jsUpdateEvent.remove(); }catch(_){}
-            });
+            this._btnLeft  = { g: leftG,  lbl: null, hit: leftHit  };
+            this._btnRight = { g: rightG, lbl: null, hit: rightHit };
         }
         // ── MOBİL KONTROL SONU ───────────────────────────────────────
 
@@ -6949,7 +6901,8 @@ class SceneGame extends Phaser.Scene {
                 // ── AAA NORMAL HIT VFX v2 — directional + squash ──
                 const _bAng=Math.atan2(b.body.velocity.y,b.body.velocity.x);
                 vfxNormalHit(_S,enemy.x,enemy.y,isCrit,_bAng);
-                vfxEnemySquash(_S,enemy);
+                // [BUG FIX] Jelly sistemi aktifken vfxEnemySquash çağırma — iki tween çakışınca şekil bozulur
+                if(!enemy._staggering) vfxEnemySquash(_S,enemy);
             }
 
             // Mermi yönü: merminin x pozisyonundan hesapla
@@ -12381,11 +12334,33 @@ function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
 // ── Enemy squash micro-animation on hit ─────────────────────────
 function vfxEnemySquash(S,e){
     if(!S||!e||!e.active) return;
-    const sx=e.scaleX,sy=e.scaleY;
-    S.tweens.add({targets:e,scaleX:sx*0.87,scaleY:sy*1.09,duration:42,ease:"Quad.easeOut",
-        onComplete:()=>S.tweens.add({targets:e,scaleX:sx*1.06,scaleY:sy*0.95,duration:52,ease:"Quad.easeOut",
-            onComplete:()=>S.tweens.add({targets:e,scaleX:sx,scaleY:sy,duration:80,ease:"Quad.easeOut"})
-        })
+    // [FIX] Önceki squash tween'lerini iptal et — üst üste birikmesini engelle
+    S.tweens.killTweensOf(e);
+    // [FIX] Orijinal scale'i her zaman taze oku — birikmeden kaynaklanan drift'i engelle
+    // Piramit sprite'ları için temel scale 1.0 (texture boyutları zaten doğru)
+    const sx = e._baseScaleX !== undefined ? e._baseScaleX : (Math.abs(e.scaleX) < 0.05 ? 1.0 : e.scaleX);
+    const sy = e._basescaleY !== undefined ? e._basescaleY : (Math.abs(e.scaleY) < 0.05 ? 1.0 : e.scaleY);
+    // Orijinal scale'i ilk kez kaydet
+    if(e._baseScaleX === undefined){ e._baseScaleX = sx; e._basescaleY = sy; }
+    const bsx = e._baseScaleX, bsy = e._basescaleY;
+    // Squash: hafif yatay genişle + dikey kıs, sonra geri dön
+    S.tweens.add({targets:e,
+        scaleX: bsx * 0.90, scaleY: bsy * 1.08,
+        duration: 38, ease:"Quad.easeOut",
+        onComplete:()=>{
+            if(!e||!e.active||!S||!S.tweens) return;
+            S.tweens.add({targets:e,
+                scaleX: bsx * 1.05, scaleY: bsy * 0.96,
+                duration: 48, ease:"Quad.easeOut",
+                onComplete:()=>{
+                    if(!e||!e.active||!S||!S.tweens) return;
+                    S.tweens.add({targets:e,
+                        scaleX: bsx, scaleY: bsy,
+                        duration: 70, ease:"Quad.easeOut"
+                    });
+                }
+            });
+        }
     });
 }
 
