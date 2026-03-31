@@ -407,60 +407,60 @@ const NT_SFX = (function(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
             // Tok patlama + fısıltı kuyruk
-            _osc("square", 280, t, 0.04, _vol(0.55), 80);
-            _noise(t, 0.055, _vol(0.35), 1800, 9000);
-            _osc("sine", 95, t, 0.07, _vol(0.38), 35);
+            _osc("square", 280, t, 0.04, _vol(0.47), 80);
+            _noise(t, 0.055, _vol(0.30), 1800, 9000);
+            _osc("sine", 95, t, 0.07, _vol(0.32), 35);
         },
 
         shoot_rapid(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
-            _osc("square", 380, t, 0.025, _vol(0.38), 120);
-            _noise(t, 0.03, _vol(0.25), 3000, 12000);
+            _osc("square", 380, t, 0.025, _vol(0.32), 120);
+            _noise(t, 0.03, _vol(0.21), 3000, 12000);
         },
 
         shoot_cannon(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
             // Ağır top — düşük boom
-            _osc("sine",   60, t, 0.22, _vol(0.85), 22);
-            _osc("square",140, t, 0.12, _vol(0.45), 40);
-            _noise(t, 0.08, _vol(0.55), 200, 4000);
+            _osc("sine",   60, t, 0.22, _vol(0.72), 22);
+            _osc("square",140, t, 0.12, _vol(0.38), 40);
+            _noise(t, 0.08, _vol(0.47), 200, 4000);
             // Reverb tail
-            _noise(t+0.06, 0.18, _vol(0.12), 100, 1200);
+            _noise(t+0.06, 0.18, _vol(0.10), 100, 1200);
         },
 
         shoot_spread(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
-            _osc("sawtooth", 240, t, 0.035, _vol(0.42), 70);
-            _noise(t, 0.05, _vol(0.28), 2200, 8000);
-            _osc("square",  180, t+0.01, 0.03, _vol(0.22), 60);
+            _osc("sawtooth", 240, t, 0.035, _vol(0.36), 70);
+            _noise(t, 0.05, _vol(0.24), 2200, 8000);
+            _osc("square",  180, t+0.01, 0.03, _vol(0.19), 60);
         },
 
         shoot_precision(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
             // Lazer snap — çok keskin, tiz
-            _osc("sine", 900, t, 0.008, _vol(0.6), 200);
-            _osc("sine", 600, t, 0.055, _vol(0.4), 120);
-            _noise(t, 0.02, _vol(0.2), 6000, 16000);
+            _osc("sine", 900, t, 0.008, _vol(0.51), 200);
+            _osc("sine", 600, t, 0.055, _vol(0.34), 120);
+            _noise(t, 0.02, _vol(0.17), 6000, 16000);
         },
 
         shoot_chain(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
-            _osc("triangle", 320, t, 0.045, _vol(0.45), 90);
-            _osc("sine", 480, t, 0.03, _vol(0.22), 160);
-            _noise(t, 0.04, _vol(0.18), 2500, 8000);
+            _osc("triangle", 320, t, 0.045, _vol(0.38), 90);
+            _osc("sine", 480, t, 0.03, _vol(0.19), 160);
+            _noise(t, 0.04, _vol(0.15), 2500, 8000);
         },
 
         shoot_reflect(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
-            _osc("sine", 520, t, 0.05, _vol(0.38), 260);
-            _osc("triangle", 780, t, 0.04, _vol(0.2), 390);
-            _noise(t, 0.035, _vol(0.15), 4000, 10000);
+            _osc("sine", 520, t, 0.05, _vol(0.32), 260);
+            _osc("triangle", 780, t, 0.04, _vol(0.17), 390);
+            _noise(t, 0.035, _vol(0.13), 4000, 10000);
         },
 
         bullet_bounce(){
@@ -682,8 +682,8 @@ const NT_SFX = (function(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
             // Hafif "thud" — zemin darbesi
-            _osc("sine", 95, t, 0.042, _vol(0.18), 38);
-            _noise(t, 0.032, _vol(0.14), 120, 900);
+            _osc("sine", 95, t, 0.042, _vol(0.32), 38);
+            _noise(t, 0.032, _vol(0.25), 120, 900);
         },
     };
 
