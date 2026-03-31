@@ -6564,6 +6564,8 @@ class SceneGame extends Phaser.Scene {
         this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
         // Arka plan görseli (kullanıcı değiştirdiği versiyon)
         this.add.image(W/2,H/2,"bg").setDisplaySize(W,H).setDepth(-10);
+        // Kamera fade-in — geçişi yumuşat, turuncu flaşı gizle
+        this.cameras.main.fadeIn(180, 0, 0, 0);
 
         // Zemin şeridi kaldırıldı
 
@@ -6671,88 +6673,82 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── DİNAMİK JOYSTICK — yatay uzunlamasına, parmak bastığında çıkar ──
+            // ── SABİT JOYSTICK — her zaman görünür, sadece knob hareket eder ──
             const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4;
-            const JS_ZONE_Y = H_MB - 130;
             const JS_ZONE_W = W_MB - JS_ZONE_X;
-            const JS_ZONE_H = 130;
-            const JS_RX = 72;   // daha geniş yatay yarıçap
-            const JS_RY = 30;   // daha yüksek dikey yarıçap — tutması kolay
-            const JS_R_INNER = 17;  // knob yarıçapı
-            const JS_DEAD = 14;     // büyük dead zone — kaza hareketi önler
-            const JS_MAX  = JS_RX - JS_R_INNER; // max yatay sürükleme
+            const JS_RX = 72;
+            const JS_RY = 30;
+            const JS_R_INNER = 17;
+            const JS_DEAD = 16;
+            const JS_MAX  = JS_RX - JS_R_INNER;
+            // Sabit merkez — dokunulan yere göre değil, her zaman aynı yerde
+            const JS_CX = JS_ZONE_X + JS_ZONE_W / 2;
+            const JS_CY = H_MB - 52;
 
-            // Joystick grafik objeleri
-            const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0).setAlpha(0);
-            const jsInnerG = this.add.graphics().setDepth(801).setScrollFactor(0).setAlpha(0);
+            const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0);
+            const jsInnerG = this.add.graphics().setDepth(801).setScrollFactor(0);
+
+            const drawJoystick = (kx, ky, active) => {
+                jsOuterG.clear(); jsInnerG.clear();
+                // Dış elips — her zaman görünür
+                jsOuterG.lineStyle(2.5, 0x88aaff, active ? 0.85 : 0.45);
+                jsOuterG.strokeEllipse(JS_CX, JS_CY, JS_RX*2, JS_RY*2);
+                jsOuterG.fillStyle(0x1122aa, active ? 0.30 : 0.12);
+                jsOuterG.fillEllipse(JS_CX, JS_CY, JS_RX*2, JS_RY*2);
+                jsOuterG.lineStyle(1, 0xaaccff, 0.18);
+                jsOuterG.strokeEllipse(JS_CX, JS_CY, (JS_RX-5)*2, (JS_RY-4)*2);
+                // Yön okları
+                jsOuterG.fillStyle(0x88aaff, active ? 0.55 : 0.25);
+                jsOuterG.fillTriangle(JS_CX-JS_RX+9,JS_CY, JS_CX-JS_RX+16,JS_CY-6, JS_CX-JS_RX+16,JS_CY+6);
+                jsOuterG.fillTriangle(JS_CX+JS_RX-9,JS_CY, JS_CX+JS_RX-16,JS_CY-6, JS_CX+JS_RX-16,JS_CY+6);
+                // Merkez yatay çizgi
+                jsOuterG.lineStyle(1, 0x4466cc, 0.18);
+                jsOuterG.lineBetween(JS_CX-JS_RX+20,JS_CY, JS_CX+JS_RX-20,JS_CY);
+                // Knob — her zaman görünür
+                const ka = active ? 0.95 : 0.55;
+                jsInnerG.fillStyle(0x4488ff, ka);
+                jsInnerG.fillCircle(kx, ky, JS_R_INNER);
+                jsInnerG.fillStyle(0xffffff, active ? 0.28 : 0.14);
+                jsInnerG.fillCircle(kx-4, ky-4, JS_R_INNER*0.42);
+                jsInnerG.lineStyle(1.5, 0x88bbff, ka);
+                jsInnerG.strokeCircle(kx, ky, JS_R_INNER);
+            };
+            drawJoystick(JS_CX, JS_CY, false); // başlangıçta çiz
 
             let _jsActive = false;
             let _jsPtr = null;
-            let _jsOriginX = 0, _jsOriginY = 0;
-            let _jsKnobX = 0, _jsKnobY = 0;
+            let _jsKnobX = JS_CX, _jsKnobY = JS_CY;
             let _jsTargetLeft = false, _jsTargetRight = false;
             let _jsSmooth = 0;
 
-            const drawJoystick = (ox, oy, kx, ky, alpha) => {
-                jsOuterG.clear();
-                jsInnerG.clear();
-                if(alpha <= 0) return;
-                jsOuterG.setAlpha(alpha);
-                jsInnerG.setAlpha(alpha);
-                // Dış yatay elips halka
-                jsOuterG.lineStyle(2, 0x88aaff, 0.65);
-                jsOuterG.strokeEllipse(ox, oy, JS_RX*2, JS_RY*2);
-                jsOuterG.fillStyle(0x1122aa, 0.18);
-                jsOuterG.fillEllipse(ox, oy, JS_RX*2, JS_RY*2);
-                // İç glow çizgisi
-                jsOuterG.lineStyle(1, 0xaaccff, 0.22);
-                jsOuterG.strokeEllipse(ox, oy, (JS_RX-4)*2, (JS_RY-3)*2);
-                // Yön ok ipucu (sol/sağ küçük üçgenler)
-                jsOuterG.fillStyle(0x88aaff, 0.35);
-                jsOuterG.fillTriangle(ox-JS_RX+10,oy, ox-JS_RX+16,oy-5, ox-JS_RX+16,oy+5);
-                jsOuterG.fillTriangle(ox+JS_RX-10,oy, ox+JS_RX-16,oy-5, ox+JS_RX-16,oy+5);
-                // Knob — daire
-                jsInnerG.fillStyle(0x4488ff, 0.92);
-                jsInnerG.fillCircle(kx, ky, JS_R_INNER);
-                jsInnerG.fillStyle(0xffffff, 0.22);
-                jsInnerG.fillCircle(kx - 4, ky - 4, JS_R_INNER * 0.45);
-                jsInnerG.lineStyle(1.5, 0x88bbff, 0.80);
-                jsInnerG.strokeCircle(kx, ky, JS_R_INNER);
-            };
-
-            // Joystick zone — tüm sağ-alt alan
             const jsZone = this.add.rectangle(
-                JS_ZONE_X + JS_ZONE_W/2, JS_ZONE_Y + JS_ZONE_H/2,
-                JS_ZONE_W, JS_ZONE_H, 0xffffff, 0.001
+                JS_ZONE_X + JS_ZONE_W/2, H_MB - 130 + 65,
+                JS_ZONE_W, 130, 0xffffff, 0.001
             ).setDepth(799).setScrollFactor(0).setInteractive();
+
+            const _getGameX = (ptr) => {
+                const cam = this.cameras.main;
+                const scale = this.scale.displayScale || {x:1,y:1};
+                return (ptr.x / scale.x - cam.x) / cam.zoom;
+            };
 
             jsZone.on("pointerdown", (ptr) => {
                 if(_jsActive) return;
-                _jsActive = true;
-                _jsPtr = ptr.id;
-                _jsOriginX = ptr.x / (this.scale.displayScale ? this.scale.displayScale.x : 1);
-                _jsOriginY = ptr.y / (this.scale.displayScale ? this.scale.displayScale.y : 1);
-                // Koordinatları oyun alanına dönüştür
-                const cam = this.cameras.main;
-                _jsOriginX = (_jsOriginX - cam.x) / cam.zoom;
-                _jsOriginY = (_jsOriginY - cam.y) / cam.zoom;
-                _jsKnobX = _jsOriginX;
-                _jsKnobY = _jsOriginY;
-                drawJoystick(_jsOriginX, _jsOriginY, _jsKnobX, _jsKnobY, 0.85);
+                _jsActive = true; _jsPtr = ptr.id;
+                const dx = Phaser.Math.Clamp(_getGameX(ptr) - JS_CX, -JS_MAX, JS_MAX);
+                _jsKnobX = JS_CX + dx; _jsKnobY = JS_CY;
+                _jsTargetLeft  = dx < -JS_DEAD;
+                _jsTargetRight = dx >  JS_DEAD;
+                drawJoystick(_jsKnobX, _jsKnobY, true);
             });
 
             jsZone.on("pointermove", (ptr) => {
                 if(!_jsActive || ptr.id !== _jsPtr) return;
-                const cam = this.cameras.main;
-                const scale = this.scale.displayScale || {x:1,y:1};
-                const rx = (ptr.x / scale.x - cam.x) / cam.zoom;
-                // Sadece yatay eksen
-                const dx = Phaser.Math.Clamp(rx - _jsOriginX, -JS_MAX, JS_MAX);
-                _jsKnobX = _jsOriginX + dx;
-                _jsKnobY = _jsOriginY;
+                const dx = Phaser.Math.Clamp(_getGameX(ptr) - JS_CX, -JS_MAX, JS_MAX);
+                _jsKnobX = JS_CX + dx; _jsKnobY = JS_CY;
                 _jsTargetLeft  = dx < -JS_DEAD;
                 _jsTargetRight = dx >  JS_DEAD;
-                drawJoystick(_jsOriginX, _jsOriginY, _jsKnobX, _jsKnobY, 0.85);
+                drawJoystick(_jsKnobX, _jsKnobY, true);
             });
 
             const _jsRelease = (ptr) => {
@@ -6761,20 +6757,18 @@ class SceneGame extends Phaser.Scene {
                 _jsTargetLeft = false; _jsTargetRight = false;
                 this._mobileLeft = false; this._mobileRight = false;
                 _jsSmooth = 0;
-                jsOuterG.clear(); jsInnerG.clear();
-                jsOuterG.setAlpha(0); jsInnerG.setAlpha(0);
+                _jsKnobX = JS_CX; _jsKnobY = JS_CY;
+                drawJoystick(JS_CX, JS_CY, false);
             };
             jsZone.on("pointerup",  _jsRelease);
             jsZone.on("pointerout", _jsRelease);
 
-            // Joystick smooth update — her frame çalışır
             this._jsUpdateEvent = this.time.addEvent({ delay: 16, loop: true, callback: () => {
                 if(!_jsActive){ this._mobileLeft = false; this._mobileRight = false; return; }
-                // Smooth interpolation — düşük katsayı = daha yavaş tepki = daha kontrollü
                 const target = _jsTargetRight ? 1 : _jsTargetLeft ? -1 : 0;
-                _jsSmooth += (target - _jsSmooth) * 0.28;
-                this._mobileLeft  = _jsSmooth < -0.30; // daha yüksek eşik = kasıtlı hareket gerekir
-                this._mobileRight = _jsSmooth >  0.30;
+                _jsSmooth += (target - _jsSmooth) * 0.22;
+                this._mobileLeft  = _jsSmooth < -0.32;
+                this._mobileRight = _jsSmooth >  0.32;
             }});
 
             this._btnLeft  = { g: jsOuterG, lbl: null, hit: jsZone };
@@ -7188,9 +7182,11 @@ class SceneGame extends Phaser.Scene {
             gs.spawnDelay = gs._spawnDelayOverride;
         }
 
-        // SKOR — Subway Surfers tarzı hızlı artış
+        // SKOR — kesirli birikim sistemi (120fps telefonda Math.floor sıfır döndürürdü)
         const prevScore=gs.score;
-        gs.score+=Math.floor((1.2+gs.level*0.32+gs.combo*0.12)*(delta/16));
+        gs._scoreFrac = (gs._scoreFrac||0) + (1.2+gs.level*0.32+gs.combo*0.12)*(delta/16);
+        const scoreToAdd = Math.floor(gs._scoreFrac);
+        if(scoreToAdd > 0){ gs.score += scoreToAdd; gs._scoreFrac -= scoreToAdd; }
         // Her 1000 skor animasyonu
         const prevK=Math.floor(prevScore/1000);
         const newK=Math.floor(gs.score/1000);
@@ -12909,7 +12905,7 @@ function _startPhaserGame(){
 
     const config={
         type:Phaser.AUTO, width:360, height:640,
-        backgroundColor:"#C85A00",
+        backgroundColor:"#000000",
         parent:"game-container",
         physics:{default:"arcade",arcade:{gravity:{y:0},debug:false,overlapBias:24,tileBias:16}},
         scene:[SceneMainMenu, SceneGame],
