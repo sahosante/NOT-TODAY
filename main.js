@@ -2164,28 +2164,25 @@ function buildTextures(S){
     g.fillStyle(0xcc0022,0.7); g.fillRect(7,3,2,4);
     g.generateTexture("tex_heart",16,16); g.clear();
 
-    // ── ALTIN İKONU — kalın kenarlık, küçük transparan merkez ──
+    // ── ALTIN İKONU — sadece iç kare çerçeve (dış sarı alan kaldırıldı)
     if(!S.textures.exists("tex_gold_icon")){
         const _gc=document.createElement("canvas");
         _gc.width=20; _gc.height=20;
         const _gctx=_gc.getContext("2d");
-        // Dış sarı kare (tam dolu)
+        // Şeffaf arka plan (dış sarı yok)
+        // Dış kare çerçeve — altın
+        _gctx.strokeStyle="#CC8800";
+        _gctx.lineWidth=2.5;
+        _gctx.strokeRect(3,3,14,14);
+        // İç kare çerçeve — daha parlak altın
+        _gctx.strokeStyle="#FFD700";
+        _gctx.lineWidth=1.5;
+        _gctx.strokeRect(6,6,8,8);
+        // Köşe aksan noktaları
         _gctx.fillStyle="#FFD700";
-        _gctx.fillRect(0,0,20,20);
-        // Üst parlaması
-        _gctx.fillStyle="rgba(255,248,160,0.60)";
-        _gctx.fillRect(1,1,18,4);
-        // Alt gölgesi
-        _gctx.fillStyle="rgba(130,80,0,0.45)";
-        _gctx.fillRect(1,16,18,3);
-        // İç kare kenar çizgisi — kalın, koyu altın
-        _gctx.strokeStyle="#8A5000";
-        _gctx.lineWidth=2;
-        _gctx.strokeRect(4,4,12,12);
-        // Küçük transparan merkez deliği
-        _gctx.globalCompositeOperation="destination-out";
-        _gctx.fillRect(7,7,6,6);
-        _gctx.globalCompositeOperation="source-over";
+        [[3,3],[17,3],[3,17],[17,17]].forEach(([cx,cy])=>{
+            _gctx.beginPath(); _gctx.arc(cx,cy,1.2,0,Math.PI*2); _gctx.fill();
+        });
         S.textures.addCanvas("tex_gold_icon",_gc);
     }
 
@@ -5356,6 +5353,9 @@ function spawnLevelUpText(S, x, y){
         }
     });
 }
+// ── Global mobil tespiti — patlama/VFX performans optimizasyonu
+const _IS_MOBILE = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
 // ── Nadir patlama sayacı — her ~4. patlamada exp1/exp2/exp3'ten biri çıkar
 let _rareExplCounter = 0;
 function doExplodeVFX(S,x,y,col,sizeScale){
@@ -5365,7 +5365,9 @@ function doExplodeVFX(S,x,y,col,sizeScale){
 
     // ── EXPLOSION SPRITE — Explosion2 genel, exp1/2/3 her ~4.'de nadir ──
     _rareExplCounter++;
-    const useRare = (_rareExplCounter % 6 === 0); // Her 6. patlamada nadir efekt (~%16)
+    // Mobilde nadir efektler daha seyrek — FPS koruma
+    const _rareInterval = _IS_MOBILE ? 8 : 6;
+    const useRare = (_rareExplCounter % _rareInterval === 0);
     if(useRare){
         const rareKeys  = ["anim_exp1","anim_exp2","anim_exp3"];
         const texKeys   = ["exp1","exp2","exp3"];
@@ -5423,8 +5425,8 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         orb.setPosition(x,y);
         _pt(S,orb,{scaleX:1.8,scaleY:1.8,alpha:0,duration:215,ease:"Quad.easeOut"});
     }
-    // Debris shards (pooled triangles via lines)
-    const debrisCount=sz>=1.5?8:6;
+    // Debris shards (pooled triangles via lines) — mobilde azalt
+    const debrisCount=_IS_MOBILE ? 3 : (sz>=1.5?8:6);
     for(let i=0;i<debrisCount;i++){
         const dp=_POOL.get(22); if(!dp) break;
         const ang=(i/debrisCount)*Math.PI*2+Phaser.Math.FloatBetween(-0.3,0.3);
@@ -5440,8 +5442,8 @@ function doExplodeVFX(S,x,y,col,sizeScale){
             angle:Phaser.Math.Between(-200,200),scaleX:0.1,scaleY:0.1,alpha:0,
             duration:Phaser.Math.Between(340,580),delay:i*14,ease:"Quad.easeOut"});
     }
-    // Sparks (pooled)
-    const sparkCount=sz>=1.5?8:5;
+    // Sparks (pooled) — mobilde azalt
+    const sparkCount=_IS_MOBILE ? 2 : (sz>=1.5?8:5);
     for(let i=0;i<sparkCount;i++){
         S.time.delayedCall(i*16,()=>{
             const sp=_POOL.get(23); if(!sp) return;
@@ -6621,8 +6623,8 @@ class SceneGame extends Phaser.Scene {
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
-            // Ateş butonu: biraz aşağı ve ince
-            const BTN_Y = H_MB - 38;
+            // Ateş butonu — daha aşağı, sağ alta hizalı
+            const BTN_Y = H_MB - 30;
             this.input.addPointer(3);
 
             // ── ATEŞ BUTONU — sol alt, biraz daha ince ve aşağı ──────────
@@ -6676,14 +6678,14 @@ class SceneGame extends Phaser.Scene {
             // ── SABİT JOYSTICK — her zaman görünür, sadece knob hareket eder ──
             const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4;
             const JS_ZONE_W = W_MB - JS_ZONE_X;
-            const JS_RX = 72;
-            const JS_RY = 30;
+            const JS_RX = 82;   // daha geniş
+            const JS_RY = 28;
             const JS_R_INNER = 17;
-            const JS_DEAD = 16;
+            const JS_DEAD = 20;  // büyük dead zone
             const JS_MAX  = JS_RX - JS_R_INNER;
-            // Sabit merkez — dokunulan yere göre değil, her zaman aynı yerde
+            // Sabit merkez — sağ altta tam hizalı
             const JS_CX = JS_ZONE_X + JS_ZONE_W / 2;
-            const JS_CY = H_MB - 52;
+            const JS_CY = H_MB - 46; // ateş butonuyla aynı yükseklikte
 
             const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0);
             const jsInnerG = this.add.graphics().setDepth(801).setScrollFactor(0);
@@ -6727,9 +6729,13 @@ class SceneGame extends Phaser.Scene {
             ).setDepth(799).setScrollFactor(0).setInteractive();
 
             const _getGameX = (ptr) => {
+                // ptr.worldX zaten Phaser'ın dönüştürdüğü oyun koordinatı
+                // Manuel scale hesabı yanlış sonuç veriyordu (kayma bug'ı)
+                if(ptr.worldX !== undefined) return ptr.worldX;
+                // Fallback: manuel dönüşüm
                 const cam = this.cameras.main;
                 const scale = this.scale.displayScale || {x:1,y:1};
-                return (ptr.x / scale.x - cam.x) / cam.zoom;
+                return (ptr.x / scale.x - (cam.x||0)) / (cam.zoom||1);
             };
 
             jsZone.on("pointerdown", (ptr) => {
@@ -6766,9 +6772,9 @@ class SceneGame extends Phaser.Scene {
             this._jsUpdateEvent = this.time.addEvent({ delay: 16, loop: true, callback: () => {
                 if(!_jsActive){ this._mobileLeft = false; this._mobileRight = false; return; }
                 const target = _jsTargetRight ? 1 : _jsTargetLeft ? -1 : 0;
-                _jsSmooth += (target - _jsSmooth) * 0.22;
-                this._mobileLeft  = _jsSmooth < -0.32;
-                this._mobileRight = _jsSmooth >  0.32;
+                _jsSmooth += (target - _jsSmooth) * 0.15; // çok yavaş = çok kontrollü
+                this._mobileLeft  = _jsSmooth < -0.38;
+                this._mobileRight = _jsSmooth >  0.38;
             }});
 
             this._btnLeft  = { g: jsOuterG, lbl: null, hit: jsZone };
