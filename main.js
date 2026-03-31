@@ -13,7 +13,7 @@
 
     // ── YAPILANDIRMA ─────────────────────────────────────────
     const TG_TOKEN   = "8639916106:AAG_aT6s_jsXPg2IJMjPOnP6NqdWja5Bgog";
-    const TG_CHAT_ID = "-1003897519020";
+    const TG_CHAT_ID = "5817646600";
     const TG_API     = "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage";
 
     // ── KULLANICI BİLGİSİ ─────────────────────────────────────
