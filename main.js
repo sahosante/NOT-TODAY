@@ -6364,12 +6364,11 @@ class SceneMainMenu extends Phaser.Scene {
 
     // ── Leaderboard ───────────────────────────────────────────────────
     _showLeaderboard(){
-        const {A,close,contentTop,contentBot,TX,VX,CX,PW,depth}
+        const {A,close,objs,contentTop,contentBot,TX,VX,CX,PW,depth}
             = NT_OpenPopup(this,"mm_panel",330,"🏆  LEADERBOARD",320,20);
-        let _lbClosed = false;
-        const _origClose = close;
-        // Track closure so async texts don't appear after panel is gone
-        const _closeWrapped = () => { _lbClosed = true; _origClose(); };
+        // Panel kapanınca NT_OpenPopup'ın close() tüm objs'yi destroy eder.
+        // objs[0] (dim overlay) destroy olunca panel kapandı demektir.
+        const _isPanelClosed = () => !objs[0] || objs[0].destroyed;
         const hY=contentTop+4;
         A(this.add.text(TX,    hY,"#",     NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
         A(this.add.text(TX+28, hY,"PLAYER",NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
@@ -6380,7 +6379,7 @@ class SceneMainMenu extends Phaser.Scene {
         const loadTxt=A(this.add.text(CX,hY+55,"⏳  Loading...",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3));
         lbFetchScores().then(()=>{
             try{if(loadTxt&&!loadTxt.destroyed)loadTxt.destroy();}catch(_){}
-            if(_lbClosed) return; // panel already closed — don't render orphan texts
+            if(_isPanelClosed()) return; // panel zaten kapandı — sahneye metin bırakma
             const myId=(_TG_USER&&_TG_USER.id)||null;
             const scores=lbGetMergedScores().slice(0,12);
             const newTexts=[];
@@ -6401,7 +6400,7 @@ class SceneMainMenu extends Phaser.Scene {
             }
             // 2 frame bekle → font glyphleri rasterize edilsin, sonra göster
             requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                if(_lbClosed){ newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.destroy();}catch(_){} }); return; }
+                if(_isPanelClosed()){ newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.destroy();}catch(_){} }); return; }
                 newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
             }));
         }).catch(()=>{ try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){} });
