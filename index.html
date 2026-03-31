@@ -85,61 +85,6 @@ html, body {
 </head>
 <body>
 
-<!-- ── ORIENTATION LOCK: Sadece mobilde aktif ── -->
-<script>
-(function(){
-  // Mobil mi? Touch + küçük ekran kombinasyonu veya user agent
-  var isMobile = (
-    ('ontouchstart' in window || navigator.maxTouchPoints > 0) &&
-    Math.max(screen.width, screen.height) < 1280
-  );
-  if (!isMobile) return; // PC'de hiçbir şey yapma
-
-  var _proto = Window.prototype;
-  var _wDesc = Object.getOwnPropertyDescriptor(_proto, 'innerWidth');
-  var _hDesc = Object.getOwnPropertyDescriptor(_proto, 'innerHeight');
-  var _rawW  = _wDesc && _wDesc.get ? _wDesc.get : function(){ return screen.width; };
-  var _rawH  = _hDesc && _hDesc.get ? _hDesc.get : function(){ return screen.height; };
-
-  // innerWidth: her zaman küçük boyutu döndür (portrait genişliği)
-  Object.defineProperty(window, 'innerWidth', {
-    get: function() {
-      var w = _rawW.call(window), h = _rawH.call(window);
-      return w <= h ? w : h;
-    },
-    configurable: true
-  });
-
-  // innerHeight: her zaman büyük boyutu döndür (portrait yüksekliği)
-  Object.defineProperty(window, 'innerHeight', {
-    get: function() {
-      var w = _rawW.call(window), h = _rawH.call(window);
-      return w <= h ? h : w;
-    },
-    configurable: true
-  });
-
-  // Landscape'de resize event'ini Phaser'a ulaşmadan kes
-  window.addEventListener('resize', function(e) {
-    var w = _rawW.call(window), h = _rawH.call(window);
-    if (w > h) {
-      e.stopImmediatePropagation();
-      e.preventDefault();
-    }
-  }, true);
-
-  // Screen Orientation API kilidi
-  function _lock() {
-    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(function(){}); } catch(e){}
-    ['lockOrientation','mozLockOrientation','msLockOrientation','webkitLockOrientation'].forEach(function(m){
-      try { if (screen[m]) screen[m]('portrait'); } catch(e){}
-    });
-  }
-  _lock();
-  window.addEventListener('orientationchange', function(){ setTimeout(_lock, 100); });
-})();
-</script>
-
 <!-- Font warm-up div — tarayıcı LilitaOne'ı DOM'a render eder, cache'ler -->
 <div id="font-warmup" aria-hidden="true">
   PLAY SETTINGS HOW TO PLAY LEADERBOARD NOT TODAY LEVEL UP PAUSED RESUME MAIN MENU
@@ -161,7 +106,6 @@ html, body {
     try { Telegram.WebApp.ready(); } catch(e) {}
     try { Telegram.WebApp.expand(); } catch(e) {}
     try { Telegram.WebApp.requestFullscreen(); } catch(e) {}
-    try { if (Telegram.WebApp.lockOrientation) Telegram.WebApp.lockOrientation(); } catch(e) {}
   }
 
   // ── Dokunma olaylarını kilitle ────────────────────────────────
