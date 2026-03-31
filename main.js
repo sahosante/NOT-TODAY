@@ -6634,7 +6634,7 @@ class SceneGame extends Phaser.Scene {
 
             // Soldan sağa: Fire (en solda) → Left → Right (en sağda)
             const FIRE_X  = FIRE_W/2 + 6;                                // en solda
-            const LEFT_X  = W_MB - 6 - DIR_BTN_W - BTN_GAP - DIR_BTN_W/2; // sağdan ikinci
+            const LEFT_X  = W_MB - 6 - DIR_BTN_W - 10 - DIR_BTN_W/2; // sağdan ikinci (yürüme butonları arası boşluk)
             const RIGHT_X = W_MB - DIR_BTN_W/2 - 6;                     // en sağda
             const FIRE_Y  = BTN_Y;
             const DIR_BTN_Y = BTN_Y;
