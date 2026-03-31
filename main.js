@@ -159,6 +159,569 @@
     console.log("[PRESENCE] Telegram Bot Logger v3 yüklendi.");
 })();
 
+// ═══════════════════════════════════════════════════════════════
+// NT_SFX — Procedural Web Audio Sound Engine v2
+// Müzik motoru + Sinematik SFX + Adım sesleri
+// Sıfır dosya bağımlılığı — tamamen Web Audio API
+// ═══════════════════════════════════════════════════════════════
+const NT_SFX = (function(){
+    "use strict";
+
+    // ── Bağlam & Routing ─────────────────────────────────────
+    let _ctx = null;
+    let _sfxBus = null;   // SFX ana bus
+    let _musBus = null;   // Müzik ana bus
+    let _masterGain = null;
+
+    function _getCtx(){
+        if(_ctx) return _ctx;
+        try{
+            _ctx = new (window.AudioContext||window.webkitAudioContext)();
+            _masterGain = _ctx.createGain();
+            _masterGain.gain.value = 1.0;
+            _masterGain.connect(_ctx.destination);
+
+            _sfxBus = _ctx.createGain();
+            _sfxBus.gain.value = 1.0;
+            _sfxBus.connect(_masterGain);
+
+            _musBus = _ctx.createGain();
+            _musBus.gain.value = 0.0; // başta kapalı, fade-in yapılır
+            _musBus.connect(_masterGain);
+        }catch(e){ return null; }
+        return _ctx;
+    }
+
+    function _sfxOn(){ return window._nt_sfx_enabled!==false && window._nt_sfx_on!==false; }
+    function _vol(s=1){ return Math.max(0, Math.min(1, (window._nt_sfx_vol??0.8))) * s; }
+    function _resume(){ if(_ctx && _ctx.state==="suspended") _ctx.resume(); }
+
+    // ── Temel ses araçları ────────────────────────────────────
+    function _osc(type, freq, t0, dur, gain, freqEnd=null, bus=null){
+        const ctx=_getCtx(); if(!ctx) return null;
+        const dest = bus||_sfxBus;
+        const o=ctx.createOscillator(), g=ctx.createGain();
+        o.type=type;
+        o.frequency.setValueAtTime(freq, t0);
+        if(freqEnd!=null) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,1), t0+dur);
+        g.gain.setValueAtTime(gain, t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+        o.connect(g); g.connect(dest);
+        o.start(t0); o.stop(t0+dur+0.02);
+        return o;
+    }
+
+    function _noise(t0, dur, gain, lo=300, hi=6000, bus=null){
+        const ctx=_getCtx(); if(!ctx) return;
+        const dest=bus||_sfxBus;
+        const sr=ctx.sampleRate, len=Math.ceil(sr*(dur+0.05));
+        const buf=ctx.createBuffer(1,len,sr);
+        const d=buf.getChannelData(0);
+        for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+        const src=ctx.createBufferSource();
+        src.buffer=buf;
+        const bpf=ctx.createBiquadFilter();
+        bpf.type="bandpass";
+        bpf.frequency.value=(lo+hi)/2;
+        bpf.Q.value=0.5;
+        const g=ctx.createGain();
+        g.gain.setValueAtTime(gain,t0);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+        src.connect(bpf); bpf.connect(g); g.connect(dest);
+        src.start(t0); src.stop(t0+dur+0.05);
+    }
+
+    // Kompresör — dinamiği sıkıştır, SFX punch'ı artır
+    function _mkCompressor(ctx, dest){
+        const comp=ctx.createDynamicsCompressor();
+        comp.threshold.value=-18;
+        comp.knee.value=6;
+        comp.ratio.value=4;
+        comp.attack.value=0.003;
+        comp.release.value=0.12;
+        comp.connect(dest);
+        return comp;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // MÜZİK MOTORU — Step Sequencer (135 BPM, dark elektro)
+    // ══════════════════════════════════════════════════════════
+    const _BPM      = 135;
+    const _STEP_DUR = 60 / _BPM / 4;   // 16th note süresi (saniye)
+    const _BAR_STEPS= 16;
+    const _LOOKAHEAD= 0.08;             // saniye — kaç saniye ileriye bakılır
+    const _SCHED_INT= 0.04;             // 40ms zamanlayıcı aralığı
+
+    let _musPlaying  = false;
+    let _musTimer    = null;
+    let _musStep     = 0;
+    let _musBarTime  = 0;   // şu anki ölçek başlangıç zamanı
+    let _musNextNote = 0;   // bir sonraki nota zamanı
+
+    // Kick pattern (16 step) — 4-on-the-floor + variation
+    const _PAT_KICK  = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0];
+    // Snare
+    const _PAT_SNARE = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1];
+    // Open hihat
+    const _PAT_OHAT  = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0];
+    // Closed hihat (her adım, velocity değişken)
+    const _PAT_CHAT  = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1];
+    // Bass melody — A minör mood (A2=110, C3=130, D3=146, E3=164, G3=196)
+    const _PAT_BASS  = [110,0,0,110, 0,0,130,0, 146,0,0,0, 110,0,164,0];
+    // Sub bass (tek nota tutulur, kick ile sync)
+    const _PAT_SUB   = [110,0,0,0, 110,0,0,0, 110,0,0,0, 110,0,0,0];
+    // Lead synth — eerie melody
+    const _PAT_LEAD  = [0,0,0,0, 220,0,0,0, 0,0,261,0, 0,246,0,0];
+
+    function _scheduleMusStep(t, step){
+        const ctx=_ctx; if(!ctx||!_musBus) return;
+        const v = _vol(0.38); // müzik SFX'ten daha sessiz
+
+        // ── KICK ──────────────────────────────────────
+        if(_PAT_KICK[step]){
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine";
+            o.frequency.setValueAtTime(120, t);
+            o.frequency.exponentialRampToValueAtTime(40, t+0.12);
+            g.gain.setValueAtTime(v*1.8, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
+            // Kick distortion layer
+            const wave=ctx.createWaveShaper();
+            wave.curve=(()=>{const n=256,c=new Float32Array(n);for(let i=0;i<n;i++){const x=i*2/n-1;c[i]=x<0?-Math.pow(-x,0.6):Math.pow(x,0.6);}return c;})();
+            o.connect(wave); wave.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+0.22);
+            // Transient click
+            _noise(t, 0.012, v*0.5, 1000, 8000, _musBus);
+        }
+
+        // ── SNARE ─────────────────────────────────────
+        if(_PAT_SNARE[step]){
+            // Snare body
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="triangle";
+            o.frequency.setValueAtTime(220, t);
+            o.frequency.exponentialRampToValueAtTime(100, t+0.10);
+            g.gain.setValueAtTime(v*0.9, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+0.15);
+            o.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+0.18);
+            // Snare noise (rattle)
+            _noise(t, 0.14, v*0.7, 1500, 10000, _musBus);
+        }
+
+        // ── CLOSED HIHAT ──────────────────────────────
+        if(_PAT_CHAT[step]){
+            const vel = (step%2===0) ? 0.28 : 0.12; // accents
+            _noise(t, 0.028, v*vel, 8000, 16000, _musBus);
+        }
+
+        // ── OPEN HIHAT ────────────────────────────────
+        if(_PAT_OHAT[step]){
+            _noise(t, 0.12, v*0.22, 7000, 14000, _musBus);
+        }
+
+        // ── BASS LINE ─────────────────────────────────
+        if(_PAT_BASS[step]){
+            const f=_PAT_BASS[step];
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sawtooth";
+            o.frequency.setValueAtTime(f, t);
+            // LP filtre — bas sıcak dursun
+            const lpf=ctx.createBiquadFilter();
+            lpf.type="lowpass"; lpf.frequency.value=600; lpf.Q.value=2;
+            g.gain.setValueAtTime(v*0.55, t);
+            g.gain.setValueAtTime(v*0.55, t+0.05);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*2);
+            o.connect(lpf); lpf.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+_STEP_DUR*2.2);
+        }
+
+        // ── SUB BASS ──────────────────────────────────
+        if(_PAT_SUB[step]){
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine";
+            o.frequency.setValueAtTime(_PAT_SUB[step], t);
+            g.gain.setValueAtTime(v*0.7, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*3.8);
+            o.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+_STEP_DUR*4);
+        }
+
+        // ── LEAD SYNTH ────────────────────────────────
+        if(_PAT_LEAD[step]){
+            const f=_PAT_LEAD[step];
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="square";
+            o.frequency.setValueAtTime(f, t);
+            o.detune.setValueAtTime(8, t); // slight detune
+            // HP filtre — tiz ama yumuşak
+            const hpf=ctx.createBiquadFilter();
+            hpf.type="bandpass"; hpf.frequency.value=f*2; hpf.Q.value=1.5;
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(v*0.18, t+0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*3);
+            o.connect(hpf); hpf.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+_STEP_DUR*3.2);
+        }
+    }
+
+    function _musScheduler(){
+        if(!_musPlaying||!_ctx) return;
+        const lookAhead = _ctx.currentTime + _LOOKAHEAD;
+        while(_musNextNote < lookAhead){
+            _scheduleMusStep(_musNextNote, _musStep);
+            _musStep = (_musStep+1) % _BAR_STEPS;
+            _musNextNote += _STEP_DUR;
+        }
+    }
+
+    function _startMusic(){
+        const ctx=_getCtx(); if(!ctx||_musPlaying) return;
+        _resume();
+        _musPlaying  = true;
+        _musStep     = 0;
+        _musNextNote = ctx.currentTime + 0.05;
+        // Müziği yavaşça aç (fade-in 2 saniye)
+        _musBus.gain.cancelScheduledValues(ctx.currentTime);
+        _musBus.gain.setValueAtTime(0, ctx.currentTime);
+        _musBus.gain.linearRampToValueAtTime(0.4, ctx.currentTime+2.0);
+        _musTimer = setInterval(_musScheduler, _SCHED_INT*1000);
+    }
+
+    function _stopMusic(fadeTime=1.5){
+        if(!_musPlaying||!_ctx) return;
+        _musPlaying=false;
+        clearInterval(_musTimer); _musTimer=null;
+        _musBus.gain.cancelScheduledValues(_ctx.currentTime);
+        _musBus.gain.setValueAtTime(_musBus.gain.value, _ctx.currentTime);
+        _musBus.gain.linearRampToValueAtTime(0, _ctx.currentTime+fadeTime);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // SFX TANIMI — Sinematik & Havalı
+    // ══════════════════════════════════════════════════════════
+    const SFX = {
+
+        // ── Silah sesleri ──────────────────────────────────
+        shoot_default(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Tok patlama + fısıltı kuyruk
+            _osc("square", 280, t, 0.04, _vol(0.55), 80);
+            _noise(t, 0.055, _vol(0.35), 1800, 9000);
+            _osc("sine", 95, t, 0.07, _vol(0.38), 35);
+        },
+
+        shoot_rapid(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("square", 380, t, 0.025, _vol(0.38), 120);
+            _noise(t, 0.03, _vol(0.25), 3000, 12000);
+        },
+
+        shoot_cannon(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Ağır top — düşük boom
+            _osc("sine",   60, t, 0.22, _vol(0.85), 22);
+            _osc("square",140, t, 0.12, _vol(0.45), 40);
+            _noise(t, 0.08, _vol(0.55), 200, 4000);
+            // Reverb tail
+            _noise(t+0.06, 0.18, _vol(0.12), 100, 1200);
+        },
+
+        shoot_spread(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sawtooth", 240, t, 0.035, _vol(0.42), 70);
+            _noise(t, 0.05, _vol(0.28), 2200, 8000);
+            _osc("square",  180, t+0.01, 0.03, _vol(0.22), 60);
+        },
+
+        shoot_precision(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Lazer snap — çok keskin, tiz
+            _osc("sine", 900, t, 0.008, _vol(0.6), 200);
+            _osc("sine", 600, t, 0.055, _vol(0.4), 120);
+            _noise(t, 0.02, _vol(0.2), 6000, 16000);
+        },
+
+        shoot_chain(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("triangle", 320, t, 0.045, _vol(0.45), 90);
+            _osc("sine", 480, t, 0.03, _vol(0.22), 160);
+            _noise(t, 0.04, _vol(0.18), 2500, 8000);
+        },
+
+        shoot_reflect(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine", 520, t, 0.05, _vol(0.38), 260);
+            _osc("triangle", 780, t, 0.04, _vol(0.2), 390);
+            _noise(t, 0.035, _vol(0.15), 4000, 10000);
+        },
+
+        bullet_bounce(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine", 700, t, 0.06, _vol(0.3), 350);
+            _noise(t, 0.03, _vol(0.15), 3000, 8000);
+        },
+
+        // ── Hasar sesleri ──────────────────────────────────
+        hit_normal(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Küt darbe — body hit
+            _osc("sine", 90, t, 0.04, _vol(0.7), 30);
+            _noise(t, 0.025, _vol(0.5), 300, 3500);
+            _osc("triangle", 180, t, 0.015, _vol(0.3), 60);
+        },
+
+        hit_crit(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Ağır "THUD" — güçlü darbe
+            _osc("sine",   50,  t,      0.18, _vol(1.0), 15);
+            _osc("sine",   95,  t,      0.10, _vol(0.6), 25);
+            _noise(t,      0.05, _vol(0.7), 200, 4000);
+            _noise(t+0.03, 0.15, _vol(0.2), 60,  500);
+        },
+
+        // ── Combo ──────────────────────────────────────────
+        combo(count){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // A minör pentatonik — combo tier'a göre yükselir
+            const scale=[110,130,146,164,196,220,261,294,329,392,440];
+            const idx=Math.min(Math.floor(count/2), scale.length-1);
+            const f=scale[idx];
+            const vol=Math.min(0.55, 0.2+count*0.016);
+            // Ana nota — sawtooth + LP filtre (sıcak sinths sesi)
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sawtooth";
+            o.frequency.setValueAtTime(f*2, t);
+            const lpf=ctx.createBiquadFilter();
+            lpf.type="lowpass"; lpf.frequency.value=f*6; lpf.Q.value=3;
+            g.gain.setValueAtTime(_vol(vol), t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+0.32);
+            o.connect(lpf); lpf.connect(g); g.connect(_sfxBus);
+            o.start(t); o.stop(t+0.35);
+            // Oktav üstü shimmer
+            _osc("sine", f*4, t+0.02, 0.18, _vol(vol*0.3));
+            // Percussive başlangıç
+            _noise(t, 0.018, _vol(0.2), 2000, 9000);
+
+            // HIGH COMBO (10+) — ekstra enerji katmanı
+            if(count>=10){
+                _osc("square", f*3, t, 0.12, _vol(0.18), f*2);
+                _noise(t, 0.035, _vol(0.22), 4000, 14000);
+            }
+        },
+
+        // ── Kill ───────────────────────────────────────────
+        kill(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Derin etki + metalik zing
+            _osc("sine",   80,  t,      0.20, _vol(0.75), 28);
+            _osc("triangle",380, t,      0.06, _vol(0.35), 100);
+            _noise(t, 0.045, _vol(0.45), 500, 5500);
+            // Satisfaction zing
+            _osc("sine", 660, t+0.02, 0.09, _vol(0.2), 440);
+        },
+
+        // ── Level Up ───────────────────────────────────────
+        level_up(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Epik yükseliş — A minör'den A majör'e geçiş
+            const arp=[220,277,330,440,554,660];
+            arp.forEach((f,i)=>{
+                const st=t+i*0.085;
+                _osc("sawtooth", f, st, 0.28, _vol(0.38), f*0.98);
+                const o2=ctx.createOscillator(), g2=ctx.createGain();
+                o2.type="sine"; o2.frequency.value=f*2;
+                g2.gain.setValueAtTime(_vol(0.15), st);
+                g2.gain.exponentialRampToValueAtTime(0.0001, st+0.22);
+                o2.connect(g2); g2.connect(_sfxBus);
+                o2.start(st); o2.stop(st+0.25);
+            });
+            // Final chord — büyük
+            [440,554,660,880].forEach((f,i)=>{
+                _osc("sine", f, t+0.52, 0.55, _vol(0.22));
+            });
+            _noise(t+0.50, 0.08, _vol(0.18), 3000, 12000);
+        },
+
+        // ── Altın ──────────────────────────────────────────
+        gold(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Parlak madeni — 3 nota hızlı arpeji
+            [1318, 1568, 2093].forEach((f,i)=>{
+                _osc("sine", f, t+i*0.025, 0.10, _vol(0.22));
+            });
+            _noise(t, 0.025, _vol(0.12), 5000, 14000);
+        },
+
+        // ── Perfect / Bullseye ─────────────────────────────
+        perfect(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Çift tiz çan — epik onay
+            _osc("sine",  880, t,      0.50, _vol(0.35));
+            _osc("sine", 1320, t+0.06, 0.42, _vol(0.28));
+            _osc("sine", 1760, t+0.12, 0.32, _vol(0.18));
+            // Sparkle noise
+            _noise(t, 0.05, _vol(0.15), 5000, 16000);
+            // Bass ön vuruş
+            _osc("sine", 110, t, 0.08, _vol(0.3), 55);
+        },
+
+        // ── Combo kırıldı ──────────────────────────────────
+        combo_break(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Distort + kötü sweep aşağı
+            const o=ctx.createOscillator();
+            const dist=ctx.createWaveShaper();
+            const g=ctx.createGain();
+            const curve=new Float32Array(512);
+            for(let i=0;i<512;i++){const x=i*2/512-1; curve[i]=Math.tanh(x*4);}
+            dist.curve=curve;
+            o.type="sawtooth";
+            o.frequency.setValueAtTime(520, t);
+            o.frequency.exponentialRampToValueAtTime(80, t+0.45);
+            g.gain.setValueAtTime(_vol(0.55), t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+0.50);
+            // LFO titreme
+            const lfo=ctx.createOscillator(), lfoG=ctx.createGain();
+            lfo.frequency.value=28; lfoG.gain.value=40;
+            lfo.connect(lfoG); lfoG.connect(o.frequency);
+            o.connect(dist); dist.connect(g); g.connect(_sfxBus);
+            lfo.start(t); lfo.stop(t+0.52);
+            o.start(t); o.stop(t+0.52);
+            // Bas darbe
+            _osc("sine", 55, t, 0.14, _vol(0.55), 28);
+        },
+
+        // ── Oyun bitti ─────────────────────────────────────
+        game_over(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Sinematik çöküş
+            _osc("sine", 440, t,      0.6, _vol(0.35), 55);
+            _osc("sine", 370, t+0.3,  0.7, _vol(0.3),  46);
+            _osc("sine", 220, t+0.65, 0.8, _vol(0.35), 27);
+            // Derin gürültü sweep
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sawtooth";
+            o.frequency.setValueAtTime(180, t+0.7);
+            o.frequency.exponentialRampToValueAtTime(30, t+1.4);
+            g.gain.setValueAtTime(_vol(0.3), t+0.7);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+1.5);
+            o.connect(g); g.connect(_sfxBus);
+            o.start(t+0.7); o.stop(t+1.6);
+            _noise(t+0.65, 0.6, _vol(0.15), 50, 500);
+        },
+
+        // ── Menü tıklaması ─────────────────────────────────
+        menu_click(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine", 880, t,      0.055, _vol(0.22));
+            _osc("sine",1100, t+0.03, 0.045, _vol(0.16));
+            _noise(t, 0.015, _vol(0.08), 4000, 10000);
+        },
+
+        // ── Sandık açılışı ─────────────────────────────────
+        chest_open(rarity){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            const tiers={
+                legendary:{notes:[196,247,330,440,554,659,880], vol:0.38, spd:0.06},
+                rare:     {notes:[196,247,330,440,659],         vol:0.30, spd:0.07},
+                common:   {notes:[196,247,330,440],             vol:0.24, spd:0.08},
+            };
+            const tier=tiers[rarity]||tiers.common;
+            tier.notes.forEach((f,i)=>{
+                const st=t+i*tier.spd;
+                _osc("sine",     f,   st, 0.32, _vol(tier.vol));
+                _osc("triangle", f*2, st, 0.22, _vol(tier.vol*0.35));
+            });
+            _noise(t, 0.06, _vol(0.14), 3000, 10000);
+            if(rarity==="legendary"){
+                // Efsane — extra bass boom
+                _osc("sine", 55, t, 0.4, _vol(0.45), 28);
+                _noise(t+0.35, 0.15, _vol(0.22), 2000, 8000);
+            }
+        },
+
+        // ── XP toplandı ────────────────────────────────────
+        xp_gain(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine", 660, t,      0.045, _vol(0.08));
+            _osc("sine", 880, t+0.02, 0.035, _vol(0.06));
+        },
+
+        // ── Oyuncu hasar aldı ──────────────────────────────
+        player_hurt(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sawtooth", 160, t, 0.08, _vol(0.5), 55);
+            _noise(t, 0.06, _vol(0.4), 200, 3000);
+            _osc("sine", 80, t, 0.12, _vol(0.45), 30);
+        },
+
+        // ── Adım sesleri ───────────────────────────────────
+        footstep(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            // Hafif "thud" — zemin darbesi
+            _osc("sine", 95, t, 0.042, _vol(0.18), 38);
+            _noise(t, 0.032, _vol(0.14), 120, 900);
+        },
+    };
+
+    // ── Adım zamanlayıcı state ────────────────────────────
+    let _lastStepTime   = 0;
+    const _STEP_INTERVAL= 280; // ms — adım arası
+
+    // ── Public API ────────────────────────────────────────
+    function play(name, ...args){
+        if(!_sfxOn()) return;
+        try{ if(SFX[name]) SFX[name](...args); }
+        catch(e){ console.warn("[NT_SFX]", name, e); }
+    }
+
+    function footstepTick(isMoving){
+        if(!_sfxOn()||!isMoving) return;
+        const now=performance.now();
+        if(now - _lastStepTime < _STEP_INTERVAL) return;
+        _lastStepTime=now;
+        play("footstep");
+    }
+
+    function startMusic(){ _startMusic(); }
+    function stopMusic(fade){ _stopMusic(fade); }
+
+    // İlk dokunuşta başlat
+    let _initDone=false;
+    function _initOnGesture(){
+        if(_initDone) return; _initDone=true;
+        _getCtx(); _resume();
+    }
+    ["pointerdown","keydown","touchstart"].forEach(ev=>{
+        document.addEventListener(ev, _initOnGesture, {once:false, capture:true, passive:true});
+    });
+
+    return { play, footstepTick, startMusic, stopMusic };
+})();
+
 // ─── IAP / GEM STORE ─────────────────────────────────────────
 // ── SAHNE ANAHTARI SABİTİ — tüm isActive/key referansları buradan ──────────
 // Sahne adını değiştirmek istersen yalnızca bu satırı güncelle.
@@ -4114,6 +4677,7 @@ function spawnChest(S,x,y){
 }
 
 function openChestScreen(S,chest,rarity){
+    NT_SFX.play("chest_open", rarity?.name||"common");
     const cx=chest.x||180;
     try{chest.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
     const gs=GS;
@@ -5008,6 +5572,7 @@ function spawnDamageText(S, x, y, value, isCrit){
     const str = ""+Math.round(value);
 
     if(isCrit){
+        NT_SFX.play("hit_crit");
         // ── CRIT: bright red/orange, large, glow, burst
         const isBig = value >= 8;
         const col   = isBig ? "#ff2200" : "#ff7700";
@@ -5064,6 +5629,7 @@ function spawnDamageText(S, x, y, value, isCrit){
         });
 
     } else {
+        NT_SFX.play("hit_normal");
         // ── NORMAL: white→yellow gradient feel, size by value
         const big   = value >= 10;
         const med   = value >= 4;
@@ -5121,6 +5687,7 @@ function showDmgNum(S,x,y,val,isCrit){ spawnDamageText(S,x,y,val,isCrit); }
 // ╚══════════════════════════════════════════════════════════╝
 function spawnComboText(S, x, y, combo){
     if(!S||!S.add) return;
+    NT_SFX.play("combo", combo);
 
     // Color progression: low=cyan, mid=purple, high=orange/red
     const col = combo>=20?"#ff2244": combo>=15?"#ff6600": combo>=10?"#cc44ff":
@@ -5231,6 +5798,7 @@ function spawnComboText(S, x, y, combo){
 // ╚══════════════════════════════════════════════════════════╝
 function spawnGoldText(S, x, y, amount){
     if(!S||!S.add) return;
+    NT_SFX.play("gold");
     const str  = "+"+amount+"G";
     const fs   = amount>=5 ? 16 : 13;
     const depth= 38;
@@ -5276,6 +5844,7 @@ function spawnGoldText(S, x, y, amount){
 // ╚══════════════════════════════════════════════════════════╝
 function spawnKillText(S, x, y){
     if(!S||!S.add) return;
+    NT_SFX.play("kill");
     const str   = "KILL!";
     const fs    = 18;
     const depth = 46;
@@ -5327,6 +5896,7 @@ function spawnKillText(S, x, y){
 // ╚══════════════════════════════════════════════════════════╝
 function spawnLevelUpText(S, x, y){
     if(!S||!S.add) return;
+    NT_SFX.play("level_up");
     const str   = "LEVEL UP!";
     const fs    = 24;
     const depth = 600;
@@ -5652,6 +6222,7 @@ function showFloatingText(S, priority, text, x, y){
         const now = Date.now();
         if(now - _ftPerfectLast < _ftPerfectCooldown) return;
         _ftPerfectLast = now;
+        NT_SFX.play("perfect");
     }
 
     // Slot yönetimi
@@ -6172,6 +6743,10 @@ class SceneMainMenu extends Phaser.Scene {
     }
 
     create(){
+        // [FIX] Pause → Main Menu → Play arası _goGameFired sıfırla
+        // scene.start() aynı instance'ı yeniden kullandığı için önceki true değeri kalıyordu
+        this._goGameFired = false;
+
         const W=360,H=640,CX=180;
 
         // ── LAYER 0: Deep background gradient (animated, very slow) ────────
@@ -6446,6 +7021,7 @@ class SceneMainMenu extends Phaser.Scene {
         // Buton çift tıklama koruması
         if(this._goGameFired) return;
         this._goGameFired = true;
+        NT_SFX.play("menu_click");
         // Menü butonlarını devre dışı bırak
         if(this._menuHitZones){
             this._menuHitZones.forEach(h=>{ try{ h.disableInteractive(); }catch(_){} });
@@ -7626,6 +8202,7 @@ function movePlayer(S,delta){
         if(vx!==0){
             if(_curAnim !== "anim_run") S.player.play("anim_run",true);
             S.player.setFlipX(vx<0);
+            NT_SFX.footstepTick(true);
         } else {
             if(_curAnim !== "anim_idle") S.player.play("anim_idle",true);
         }
@@ -7690,28 +8267,27 @@ function doShoot(S){
 
     // [OPT] EVOLUTIONS.find hot-path'ten kaldırıldı — applyUpgrade'de set edilen GS flag'leri kullanılıyor
     if(wt==="rapid_blaster"){
-        // ── RAPID BLASTER: 2 fast small yellow bullets, low dmg ──
+        NT_SFX.play("shoot_rapid");
         fireBulletRaw(S,px-3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
-        // ── HEAVY CANNON: 1 slow massive bullet + explosion on impact ──
-        fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.01,vy*0.62,1.0,0xff6600,"cannon"); // dmgM=1.0: syncStats handles 2.0x, visual scale set in fireBulletRaw
+        NT_SFX.play("shoot_cannon");
+        fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.01,vy*0.62,1.0,0xff6600,"cannon");
     } else if(wt==="spread_shot"){
-        // ── SPREAD SHOT: 3-bullet cone, purple ──
+        NT_SFX.play("shoot_spread");
         const ang=sp*0.38;
         fireBulletRaw(S,px,py,0,vy,0.7,0xcc44ff,"spread");
         fireBulletRaw(S,px,py,-ang,vy*0.92,0.7,0xcc44ff,"spread");
         fireBulletRaw(S,px,py, ang,vy*0.92,0.7,0xcc44ff,"spread");
     } else if(wt==="chain_shot"){
-        // ── CHAIN SHOT: single bullet with chain bounce logic ──
+        NT_SFX.play("shoot_chain");
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.02,vy,0.8,0x44aaff,"chain");
     } else if(wt==="precision_rifle"){
-        // ── PRECISION RIFLE: thin fast beam, big reward for center hit ──
-        fireBulletRaw(S,px,py,0,vy*1.35,1.0,0xff2244,"precision"); // dmgM=1.0: syncStats handles 1.4x
+        NT_SFX.play("shoot_precision");
+        fireBulletRaw(S,px,py,0,vy*1.35,1.0,0xff2244,"precision");
     } else if(wt==="reflection_rifle"){
-        // ── REFLECTION RIFLE: teal bullet that ricochets off arena walls, max 2 bounces ──
-        // Slight diagonal spread so bullet always hits a wall at an angle — more interesting path
-        const reflAngle=(Math.random()-0.5)*sp*0.08; // slight random horizontal component
+        NT_SFX.play("shoot_reflect");
+        const reflAngle=(Math.random()-0.5)*sp*0.08;
         const b=fireBulletRaw(S,px,py,reflAngle,vy*1.05,1.0,0x20ccaa,"reflect");
         if(b){
             b._reflectBounces=0;          // track bounces (max 2)
@@ -7719,11 +8295,12 @@ function doShoot(S){
             b._isReflect=true;
         }
     } else if(gs._evoTriCannon){
-        // [v11] Tri-Cannon (split+size evo): anında 3 mermi ama her biri 0.65× hasar
+        NT_SFX.play("shoot_spread");
         fireBulletRaw(S,px,py,-sp*0.4,vy,0.65);
         fireBulletRaw(S,px,py,0,vy,0.65);
         fireBulletRaw(S,px,py,sp*0.4,vy,0.65);
     } else {
+        NT_SFX.play("shoot_default");
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.03,vy,1.0);
     }
 
@@ -7903,6 +8480,7 @@ function tickBullets(S){
             }
 
             if(bounced){
+                NT_SFX.play("bullet_bounce");
                 b._reflectBounces=(b._reflectBounces||0)+1;
                 if(b._reflectBounces>2){
                     // Max 2 bounces — destroy after
@@ -8473,6 +9051,7 @@ function tickXP(S){
         }
         gs._xpPerSecAccum = (gs._xpPerSecAccum||0) + cappedVal;
         gs.xp += cappedVal;
+        NT_SFX.play("xp_gain");
             // Collect burst — beyaz parıltı partiküller
             const bx=o.obj.x, by=o.obj.y;
             const tk=o.obj.texture?.key||"";
@@ -10367,6 +10946,7 @@ function damagePlayer(S){
         return;
     }
     gs.health--;
+    NT_SFX.play("player_hurt");
     S.cameras.main.shake(14,0.003);
     // ── AAA PLAYER HURT VFX ──
     vfxPlayerHurt(S);
@@ -11335,6 +11915,8 @@ function trackPerfectHit(gs){
 
 function gameOver(S){
     const gs=GS; if(!gs||gs.gameOver) return; gs.gameOver=true;
+    NT_SFX.play("game_over");
+    NT_SFX.stopMusic(1.8);
     EventManager.forceCleanup(gs);
     cleanupEventHUD(S);
     SYNERGIES.forEach(syn=>syn.active=false);
@@ -12057,6 +12639,7 @@ function tickNearDeathPulse(S, delta){
 // ── 3. COMBO BREAK — çöküş hissi ───────────────────────────────
 function showComboBreak(S, lastCombo){
     if(!S||!S.add||lastCombo < 3) return;
+    NT_SFX.play("combo_break");
     const W=360;
     const intensity = Math.min(lastCombo, 30);
     const str = L("comboBreak");
@@ -13325,8 +13908,9 @@ function _startPhaserGame(){
     } else {
         console.warn("[NT] window.Presence bulunamadı — presence sistemi devre dışı.");
     }
-
-    const config={
+    // ── MÜZİK BAŞLAT ──────────────────────────────────────────
+    NT_SFX.startMusic();
+    const config = {
         type:Phaser.AUTO, width:360, height:640,
         backgroundColor:"#000000",
         parent:"game-container",
