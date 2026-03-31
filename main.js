@@ -6215,42 +6215,72 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
 
-        // ── HIGH SCORE — panel üstünde ortada göster ──
+        // ── HIGH SCORE — panel üstünde, animasyonlu glow ──
         const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
         if(hs > 0){
-            const hsY = pTop - 28;
-            // Arka plan kapsül
-            const hsBg = this.add.graphics().setDepth(5);
-            hsBg.fillStyle(0x000000,0.45); hsBg.fillRoundedRect(CX-80,hsY-14,160,28,14);
-            hsBg.lineStyle(1.5,0xffcc00,0.55); hsBg.strokeRoundedRect(CX-80,hsY-14,160,28,14);
-            // Yıldız + skor yazısı
-            this.add.text(CX,hsY,"🏆  BEST: "+hs.toLocaleString(),{
+            const hsY = pTop - 30;
+
+            // Glow halkası (arkada, depth 4)
+            const hsGlow = this.add.graphics().setDepth(4).setAlpha(0);
+
+            // Kapsül çerçevesi (depth 5)
+            const hsBg = this.add.graphics().setDepth(5).setAlpha(0);
+            const _drawHsBg = (glowA) => {
+                hsBg.clear();
+                // Hafif altın iç dolgu
+                hsBg.fillStyle(0xffaa00, 0.12);
+                hsBg.fillRoundedRect(CX-88, hsY-15, 176, 30, 15);
+                // Altın çerçeve
+                hsBg.lineStyle(1.8, 0xffcc00, 0.85);
+                hsBg.strokeRoundedRect(CX-88, hsY-15, 176, 30, 15);
+                // Üst shine
+                hsBg.fillStyle(0xffffff, 0.10);
+                hsBg.fillRoundedRect(CX-80, hsY-13, 160, 8, {tl:12,tr:12,bl:0,br:0});
+            };
+            _drawHsBg(0);
+
+            // Yazı (depth 6)
+            const hsTxt = this.add.text(CX, hsY, "🏆  BEST: " + hs.toLocaleString(), {
                 fontFamily:"LilitaOne, Arial, sans-serif",
                 fontSize:"15px",
                 color:"#FFD700",
                 stroke:"#000000",
                 strokeThickness:2
-            }).setOrigin(0.5).setDepth(6);
-            // Hafif fade-in
-            hsBg.setAlpha(0);
-            this.tweens.add({targets:hsBg,alpha:1,duration:300,delay:350});
+            }).setOrigin(0.5).setDepth(6).setAlpha(0);
+
+            // Fade-in
+            this.tweens.add({targets:[hsBg, hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
+            this.tweens.add({targets:hsGlow, alpha:1, duration:600, delay:420});
+
+            // Nefes alma animasyonu — glow halkası + yazı scale
+            const _glowDummy = {v:0};
+            this.tweens.add({
+                targets: _glowDummy, v:1,
+                duration: 1600, ease:"Sine.easeInOut",
+                yoyo:true, repeat:-1, delay:900,
+                onUpdate: () => {
+                    const v = _glowDummy.v;
+                    hsGlow.clear();
+                    // Dış yumuşak halo
+                    hsGlow.fillStyle(0xffcc00, 0.04 + v * 0.10);
+                    hsGlow.fillRoundedRect(CX-100, hsY-24, 200, 48, 24);
+                    hsGlow.fillStyle(0xffaa00, 0.03 + v * 0.07);
+                    hsGlow.fillRoundedRect(CX-112, hsY-30, 224, 60, 30);
+                    // İç parıltı
+                    hsGlow.fillStyle(0xffffff, 0.0 + v * 0.06);
+                    hsGlow.fillRoundedRect(CX-78, hsY-11, 156, 7, {tl:12,tr:12,bl:0,br:0});
+                }
+            });
+
+            // Yazı rengi titreşimi (gold → white → gold)
+            this.tweens.add({
+                targets: hsTxt, alpha: { from:0.85, to:1 },
+                duration:1600, ease:"Sine.easeInOut",
+                yoyo:true, repeat:-1, delay:900
+            });
         }
 
-        // ── VIGNETTE — darkens edges for premium depth feel ────────────────
-        const vigG=this.add.graphics().setDepth(20);
-        // Top vignette
-        vigG.fillStyle(0x000000,0.35); vigG.fillRect(0,0,W,55);
-        vigG.fillStyle(0x000000,0.20); vigG.fillRect(0,0,W,110);
-        // Bottom vignette
-        vigG.fillStyle(0x000000,0.35); vigG.fillRect(0,H-55,W,55);
-        vigG.fillStyle(0x000000,0.20); vigG.fillRect(0,H-110,W,55);
-        // Left/right edge darkening
-        vigG.fillStyle(0x000000,0.15); vigG.fillRect(0,0,30,H);
-        vigG.fillStyle(0x000000,0.15); vigG.fillRect(W-30,0,30,H);
-
-        // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
-        this.cameras.main.setAlpha(0);
-        this.tweens.add({targets:this.cameras.main,alpha:1,duration:280,ease:"Quad.easeOut"});
+        // ── ENTRANCE: panel pop-in + staggered button drop-in ─────
         panel.setScale(m.sc*0.04).setAlpha(0);
         title.setAlpha(0);
         titleGlow.setAlpha(0);
@@ -6274,6 +6304,9 @@ class SceneMainMenu extends Phaser.Scene {
                 });
             }
         });
+
+        // Loading screen'i kapat — sahne render edildi, görsel hazır
+        if(window._ntHideLoading) window._ntHideLoading();
     }
 
     _smooth(){
