@@ -5924,33 +5924,118 @@ function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth){
     return {A,close,objs,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW:targetW,CX,depth};
 }
 
-// ── Menu button (Graphics, world coords) ─────────────────────────────
+// ── Menu button (Graphics, world coords) — PREMIUM v2 ────────────────
 function NT_MenuBtn(scene,cx,cy,iconKey,label,callback){
     const BW=268,BH=70,BR=16;
+
+    // ── Shadow layer (depth 4) — subtle drop shadow for depth
+    const shadow=scene.add.graphics().setDepth(4);
+    shadow.fillStyle(0x000000,0.28);
+    shadow.fillRoundedRect(cx-BW/2+4,cy-BH/2+6,BW,BH,BR);
+
+    // ── Main button graphics (depth 5)
     const g=scene.add.graphics().setDepth(5);
-    const drawFace=(hov)=>{
+
+    // sc: 1.0 = normal, 1.04 = hover — koordinatlar merkez(cx,cy)'den hesaplanır, kayma olmaz
+    const drawFace=(hov, sc=1.0)=>{
         g.clear();
-        g.fillStyle(0xaa6600,1); g.fillRoundedRect(cx-BW/2+2,cy+BH/2-6,BW,8,{bl:BR,br:BR,tl:2,tr:2});
-        g.fillStyle(hov?0xffe84d:0xffdd00,1); g.fillRoundedRect(cx-BW/2,cy-BH/2,BW,BH,BR);
-        g.fillStyle(0xffffff,hov?0.22:0.11); g.fillRoundedRect(cx-BW/2+8,cy-BH/2+6,BW-16,BH/2-8,BR*0.6);
-        g.lineStyle(2,0xcc8800,0.80); g.strokeRoundedRect(cx-BW/2,cy-BH/2,BW,BH,BR);
+        const bw=BW*sc, bh=BH*sc;
+        // Bottom edge — 3D depth illusion
+        g.fillStyle(0x8a4e00,1);
+        g.fillRoundedRect(cx-bw/2+2,cy+bh/2-8*sc,bw,10*sc,{bl:BR,br:BR,tl:2,tr:2});
+        // Main body top band
+        g.fillStyle(hov?0xffe060:0xffd84a,1);
+        g.fillRoundedRect(cx-bw/2,cy-bh/2,bw,bh*0.52,{tl:BR,tr:BR,bl:0,br:0});
+        // Main body bottom band
+        g.fillStyle(hov?0xf5b800:0xe8a800,1);
+        g.fillRoundedRect(cx-bw/2,cy,bw,bh*0.50,{tl:0,tr:0,bl:BR,br:BR});
+        // Border
+        g.lineStyle(hov?2.5:1.8,hov?0xffe080:0xd4900a,hov?0.95:0.75);
+        g.strokeRoundedRect(cx-bw/2,cy-bh/2,bw,bh,BR);
+        // Top shine highlight
+        g.fillStyle(0xffffff,hov?0.28:0.16);
+        g.fillRoundedRect(cx-bw/2+8*sc,cy-bh/2+5*sc,bw-16*sc,bh*0.32,{tl:BR*0.6,tr:BR*0.6,bl:0,br:0});
+        // Inner border glow (hov only)
+        if(hov){
+            g.lineStyle(1,0xffffff,0.18);
+            g.strokeRoundedRect(cx-bw/2+2,cy-bh/2+2,bw-4,bh-4,BR-1);
+        }
     };
-    drawFace(false);
+    drawFace(false, 1.0);
+
+    // ── Icon + label
     const ic=scene.add.image(cx-BW/2+38,cy,iconKey).setDepth(6);
     ic.setScale(54/Math.max(ic.width,ic.height,1));
     const tx=scene.add.text(cx+16,cy,label,NT_STYLE.label(24)).setOrigin(0.5).setDepth(6);
-    const hit=scene.add.rectangle(cx,cy,BW,BH,0xffffff,0.001).setDepth(7).setInteractive({useHandCursor:true});
+
+    // ── Shine sweep graphics (depth 8) — light stripe crosses button
+    const shineG=scene.add.graphics().setDepth(8);
+
+    // ── Shine sweep animation — runs every ~4s per button
+    let _shineRunning=false;
+    function _runShine(){
+        if(_shineRunning) return;
+        _shineRunning=true;
+        const dummy={x:cx-BW/2-30};
+        scene.tweens.add({
+            targets:dummy, x:cx+BW/2+30,
+            duration:540, ease:"Quad.easeInOut",
+            onUpdate:()=>{
+                shineG.clear();
+                const sw=32, sx=dummy.x;
+                // Clamp to button bounds using fillRect inside rounded area
+                // We fake it with alpha: draw a slanted gradient stripe
+                shineG.fillStyle(0xffffff,0.18);
+                shineG.fillRect(sx-sw*0.5,cy-BH/2+4,sw*0.7,BH-8);
+                shineG.fillStyle(0xffffff,0.10);
+                shineG.fillRect(sx-sw*0.8,cy-BH/2+4,sw*0.5,BH-8);
+            },
+            onComplete:()=>{
+                shineG.clear();
+                _shineRunning=false;
+            }
+        });
+    }
+    // Staggered first delay per button so they don't all fire together
+    const _shineDelay=3500+Math.random()*2000;
+    scene.time.delayedCall(_shineDelay,function _schedShine(){
+        _runShine();
+        scene.time.delayedCall(4000+Math.random()*1500,_schedShine);
+    });
+
+    // ── Hit zone
+    const hit=scene.add.rectangle(cx,cy,BW,BH,0xffffff,0.001).setDepth(9).setInteractive({useHandCursor:true});
     let hov=false;
-    hit.on("pointerover", ()=>{ hov=true;  drawFace(true);  });
-    hit.on("pointerout",  ()=>{ hov=false; drawFace(false); });
+
+    hit.on("pointerover", ()=>{
+        hov=true;
+        const d={sc:1.0};
+        scene.tweens.add({targets:d, sc:1.04, duration:130, ease:"Sine.easeOut",
+            onUpdate:()=>drawFace(true, d.sc)});
+    });
+    hit.on("pointerout", ()=>{
+        hov=false;
+        const d={sc:1.04};
+        scene.tweens.add({targets:d, sc:1.0, duration:160, ease:"Sine.easeOut",
+            onUpdate:()=>drawFace(false, d.sc)});
+    });
     hit.on("pointerdown", ()=>{
-        // Sadece renk flash — scale yok, Graphics origin sorunu yok
-        drawFace(false);
-        scene.tweens.add({targets:[g],alpha:0.7,duration:60,yoyo:true,
-            onComplete:()=>{ drawFace(false); window.setTimeout(callback,40); }
+        const d={sc:1.0};
+        // Kısa press-down efekti — callback hemen tetiklenir, animasyon arka planda biter
+        scene.tweens.add({
+            targets:d, sc:0.96, duration:50, ease:"Quad.easeOut",
+            onUpdate:()=>drawFace(false, d.sc),
+            onComplete:()=>{
+                callback(); // animasyon bitmeden hemen çağır
+                scene.tweens.add({
+                    targets:d, sc:1.0, duration:120, ease:"Back.easeOut",
+                    onUpdate:()=>drawFace(false, d.sc)
+                });
+            }
         });
     });
-    return {g,ic,tx,hit};
+
+    return {g,ic,tx,hit,shadow,shineG};
 }
 
 // ── SceneMainMenu ─────────────────────────────────────────────────────
@@ -5971,9 +6056,78 @@ class SceneMainMenu extends Phaser.Scene {
     create(){
         const W=360,H=640,CX=180;
 
-        // Background — turuncu solid fallback + görsel üstüne
+        // ── LAYER 0: Deep background gradient (animated, very slow) ────────
+        const bgGrad=this.add.graphics().setDepth(-2);
+        const _bgDummy={v:0};
+        const _drawBgGrad=(v)=>{
+            bgGrad.clear();
+            // Slow oscillating gradient — two bands blending
+            const t1=Phaser.Math.Linear(0x0a1a3a,0x0d2248,v);
+            const t2=Phaser.Math.Linear(0x1a0e2e,0x240c44,v);
+            bgGrad.fillStyle(0x0d1f3a,1); bgGrad.fillRect(0,0,W,H);
+            // Warm accent glow at bottom (very faint)
+            bgGrad.fillStyle(0x3a1400, 0.25+v*0.12); bgGrad.fillRect(0,H*0.6,W,H*0.4);
+            // Top cool accent
+            bgGrad.fillStyle(0x001440, 0.18+v*0.08); bgGrad.fillRect(0,0,W,H*0.35);
+        };
+        _drawBgGrad(0);
+        this.tweens.add({targets:_bgDummy,v:1,duration:6000,ease:"Sine.easeInOut",yoyo:true,repeat:-1,
+            onUpdate:()=>_drawBgGrad(_bgDummy.v)});
+
+        // ── LAYER 0.5: Static background image (original) ──────────────────
         this.add.rectangle(CX,H/2,W,H,0xC85A00,1).setDepth(-1);
-        this.add.image(CX,H/2,"mm_bg").setDepth(0);
+        const bgImg=this.add.image(CX,H/2,"mm_bg").setDepth(0).setAlpha(0.85);
+
+        // ── LAYER 1: Parallax ambient glow orbs (behind panel) ─────────────
+        const paralaxG=this.add.graphics().setDepth(1);
+        const _orbDummy={t:0};
+        const ORBS=[
+            {x:60,  y:160, r:80, col:0x3355ff, a:0.07},
+            {x:300, y:420, r:70, col:0xff6600, a:0.08},
+            {x:180, y:300, r:110,col:0x8822ff, a:0.05},
+            {x:40,  y:520, r:55, col:0x00aaff, a:0.06},
+            {x:330, y:100, r:65, col:0xffaa00, a:0.06},
+        ];
+        this.tweens.add({targets:_orbDummy,t:Math.PI*2,duration:12000,ease:"Linear",repeat:-1,
+            onUpdate:()=>{
+                paralaxG.clear();
+                ORBS.forEach((o,i)=>{
+                    const px=o.x+Math.sin(_orbDummy.t*0.4+i*1.3)*12;
+                    const py=o.y+Math.cos(_orbDummy.t*0.3+i*0.9)*9;
+                    paralaxG.fillStyle(o.col,o.a);
+                    paralaxG.fillCircle(px,py,o.r);
+                });
+            }
+        });
+
+        // ── LAYER 1.5: Floating dust particles (very subtle) ───────────────
+        const PARTICLE_COUNT=18;
+        const particles=[];
+        const particleG=this.add.graphics().setDepth(1);
+        for(let i=0;i<PARTICLE_COUNT;i++){
+            particles.push({
+                x:Math.random()*W,
+                y:Math.random()*H,
+                vy:-0.18-Math.random()*0.25,
+                vx:(Math.random()-0.5)*0.12,
+                r:1+Math.random()*2,
+                a:0.04+Math.random()*0.12,
+                col:Math.random()<0.5?0xffd080:0x88ccff,
+                phase:Math.random()*Math.PI*2,
+                speed:0.4+Math.random()*0.6
+            });
+        }
+        this.time.addEvent({delay:33,loop:true,callback:()=>{
+            particleG.clear();
+            particles.forEach(p=>{
+                p.y+=p.vy;
+                p.x+=p.vx+Math.sin(p.phase)*0.08;
+                p.phase+=0.025;
+                if(p.y<-10){ p.y=H+5; p.x=Math.random()*W; }
+                particleG.fillStyle(p.col, p.a);
+                particleG.fillCircle(p.x,p.y,p.r);
+            });
+        }});
 
         // Panel sprite — measure EXACT dimensions at runtime
         const m = NT_Measure(this,"mm_panel",340);
@@ -5984,8 +6138,22 @@ class SceneMainMenu extends Phaser.Scene {
         const pBot    = panelCY + m.H/2;
         const stripCY = pTop + m.stripH/2;   // center of orange strip (world y)
 
-        // Title — exactly in strip center
+        // ── TITLE with glow pulse + breathing effect ───────────────────────
         const title = this.add.text(CX, stripCY, "NOT TODAY", NT_STYLE.title(40)).setOrigin(0.5).setDepth(6);
+        // Outer glow halo behind title
+        const titleGlow=this.add.graphics().setDepth(5);
+        const _titleGlowDummy={v:0};
+        this.tweens.add({targets:_titleGlowDummy,v:1,duration:1800,ease:"Sine.easeInOut",yoyo:true,repeat:-1,
+            onUpdate:()=>{
+                const v=_titleGlowDummy.v;
+                titleGlow.clear();
+                titleGlow.fillStyle(0xff8800, 0.06+v*0.10);
+                titleGlow.fillEllipse(CX,stripCY,260,55);
+                titleGlow.fillStyle(0xffdd00, 0.04+v*0.07);
+                titleGlow.fillEllipse(CX,stripCY,200,38);
+            }
+        });
+        // Breathing scale kaldırıldı — title sabit durur
 
         // Buttons — divide teal content area into 4 equal slots
         const aTop  = pTop + m.stripH + 8;
@@ -6011,7 +6179,7 @@ class SceneMainMenu extends Phaser.Scene {
 
         const btns=DEFS.map((d,i)=>NT_MenuBtn(this,CX,aTop+slot*i+slot/2,d.icon,d.label,d.cb));
 
-        // ── BUTON GLOW ANİMASYONU — her butona bağımsız altın parlaması ──
+        // ── IDLE BUTTON AMBIENT GLOW — per-button pulsing outline ─────────
         const _BW=268,_BH=70,_BR=16;
         DEFS.forEach((_d,i)=>{
             const bcy=aTop+slot*i+slot/2;
@@ -6019,22 +6187,23 @@ class SceneMainMenu extends Phaser.Scene {
             const dummy={v:0};
             this.tweens.add({
                 targets:dummy, v:1,
-                duration:1600+i*180,
-                delay:i*320,
+                duration:1800+i*220,
+                delay:i*350,
                 ease:"Sine.easeInOut",
                 yoyo:true, repeat:-1,
                 onUpdate:()=>{
                     const v=dummy.v;
                     glowG.clear();
-                    // Dış parlama halkası
-                    glowG.lineStyle(3+v*4, 0xffdd00, 0.07+v*0.22);
-                    glowG.strokeRoundedRect(CX-_BW/2-4,bcy-_BH/2-4,_BW+8,_BH+8,_BR+4);
-                    // Üst shine flash
-                    glowG.fillStyle(0xffffff, v*0.08);
-                    glowG.fillRoundedRect(CX-_BW/2+6,bcy-_BH/2+4,_BW-12,_BH*0.38,_BR*0.6);
+                    // Outer aura
+                    glowG.lineStyle(4+v*5, 0xffcc00, 0.06+v*0.18);
+                    glowG.strokeRoundedRect(CX-_BW/2-5,bcy-_BH/2-5,_BW+10,_BH+10,_BR+5);
+                    // Softer second ring
+                    glowG.lineStyle(2, 0xffee88, 0.03+v*0.08);
+                    glowG.strokeRoundedRect(CX-_BW/2-10,bcy-_BH/2-10,_BW+20,_BH+20,_BR+10);
                 }
             });
         });
+
         // Hit zone'ları sakla — popup açılınca devre dışı bırakmak için
         this._menuHitZones = btns.map(b=>b.hit);
         // Buton label text'lerini başta gizle — warm-up bittikten sonra göster (PC siyah kutu fix)
@@ -6066,17 +6235,42 @@ class SceneMainMenu extends Phaser.Scene {
             this.tweens.add({targets:hsBg,alpha:1,duration:300,delay:350});
         }
 
-        // Entrance: camera fade + panel pop-in
-        // Buttons are immediately visible — no alpha trickery
+        // ── VIGNETTE — darkens edges for premium depth feel ────────────────
+        const vigG=this.add.graphics().setDepth(20);
+        // Top vignette
+        vigG.fillStyle(0x000000,0.35); vigG.fillRect(0,0,W,55);
+        vigG.fillStyle(0x000000,0.20); vigG.fillRect(0,0,W,110);
+        // Bottom vignette
+        vigG.fillStyle(0x000000,0.35); vigG.fillRect(0,H-55,W,55);
+        vigG.fillStyle(0x000000,0.20); vigG.fillRect(0,H-110,W,55);
+        // Left/right edge darkening
+        vigG.fillStyle(0x000000,0.15); vigG.fillRect(0,0,30,H);
+        vigG.fillStyle(0x000000,0.15); vigG.fillRect(W-30,0,30,H);
+
+        // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
         this.cameras.main.setAlpha(0);
-        this.tweens.add({targets:this.cameras.main,alpha:1,duration:240,ease:"Quad.easeOut"});
+        this.tweens.add({targets:this.cameras.main,alpha:1,duration:280,ease:"Quad.easeOut"});
         panel.setScale(m.sc*0.04).setAlpha(0);
         title.setAlpha(0);
+        titleGlow.setAlpha(0);
+        // Also hide btn parts for stagger entrance
+        btns.forEach(b=>{
+            [b.g,b.shadow,b.ic,b.shineG].forEach(o=>{ if(o) o.setAlpha(0); });
+        });
         this.tweens.add({
             targets:panel, scaleX:m.sc, scaleY:m.sc, alpha:1,
-            duration:210, ease:"Back.easeOut",
+            duration:220, ease:"Back.easeOut",
             onComplete:()=>{
-                this.tweens.add({targets:title,alpha:1,duration:160,ease:"Quad.easeOut"});
+                this.tweens.add({targets:title,alpha:1,duration:180,ease:"Quad.easeOut"});
+                this.tweens.add({targets:titleGlow,alpha:1,duration:280,ease:"Quad.easeOut"});
+                // Stagger each button in — sadece alpha, scale yok
+                btns.forEach((b,i)=>{
+                    const parts=[b.g,b.shadow,b.ic,b.shineG].filter(Boolean);
+                    this.time.delayedCall(80+i*65,()=>{
+                        parts.forEach(o=>{ if(o&&!o.destroyed) o.setAlpha(0); });
+                        this.tweens.add({targets:parts,alpha:1,duration:200,ease:"Quad.easeOut"});
+                    });
+                });
             }
         });
     }
@@ -6255,6 +6449,9 @@ class SceneGame extends Phaser.Scene {
         this.load.spritesheet("exp1", "assets/exp1.png", {frameWidth:32, frameHeight:32}); // 352x32 → 11 kare
         this.load.spritesheet("exp2", "assets/exp2.png", {frameWidth:32, frameHeight:32}); // 192x32 → 6 kare
         this.load.spritesheet("exp3", "assets/exp3.png", {frameWidth:72, frameHeight:72}); // 1152x72 → 16 kare
+        // ── HIT SMOKE — bullet impact duman animasyonları ──
+        this.load.spritesheet("smoke",  "assets/smoke.png",  {frameWidth:64, frameHeight:60});  // 768x60  → 12 kare
+        this.load.spritesheet("smoke2", "assets/smoke2.png", {frameWidth:64, frameHeight:64});  // 768x329 → 5×12 grid
 
 
         // ── FONT PRELOAD — Phaser text render edilmeden önce LilitaOne yüklü olmalı ──
@@ -6446,6 +6643,19 @@ class SceneGame extends Phaser.Scene {
         if(!this.anims.exists("anim_exp2"))  this.anims.create({key:"anim_exp2",  frames:this.anims.generateFrameNumbers("exp2", {start:0,end:5}),  frameRate:14, repeat:0});
         if(!this.anims.exists("anim_exp3"))  this.anims.create({key:"anim_exp3",  frames:this.anims.generateFrameNumbers("exp3", {start:0,end:15}), frameRate:18, repeat:0});
         if(!this.anims.exists("anim_break")) this.anims.create({key:"anim_break", frames:this.anims.generateFrameNumbers("pyramid_break",{start:0,end:2}),frameRate:10,repeat:0});
+        // ── HIT SMOKE ANİMASYONLARI — mermi çarpma efekti (6 varyant) ──
+        // smoke.png: 12 kare tek satır
+        if(this.textures.exists("smoke")){
+            if(!this.anims.exists("anim_smoke")) this.anims.create({key:"anim_smoke", frames:this.anims.generateFrameNumbers("smoke",{start:0,end:11}), frameRate:36, repeat:0});
+        }
+        // smoke2.png: 5 satır × 12 sütun → 5 farklı animasyon tipi
+        if(this.textures.exists("smoke2")){
+            if(!this.anims.exists("anim_smoke2a")) this.anims.create({key:"anim_smoke2a", frames:this.anims.generateFrameNumbers("smoke2",{start:0, end:11}), frameRate:34, repeat:0}); // yıldız/spark
+            if(!this.anims.exists("anim_smoke2b")) this.anims.create({key:"anim_smoke2b", frames:this.anims.generateFrameNumbers("smoke2",{start:12,end:23}), frameRate:32, repeat:0}); // blob/nokta
+            if(!this.anims.exists("anim_smoke2c")) this.anims.create({key:"anim_smoke2c", frames:this.anims.generateFrameNumbers("smoke2",{start:24,end:35}), frameRate:32, repeat:0}); // swirl 1
+            if(!this.anims.exists("anim_smoke2d")) this.anims.create({key:"anim_smoke2d", frames:this.anims.generateFrameNumbers("smoke2",{start:36,end:47}), frameRate:32, repeat:0}); // swirl 2
+            if(!this.anims.exists("anim_smoke2e")) this.anims.create({key:"anim_smoke2e", frames:this.anims.generateFrameNumbers("smoke2",{start:48,end:59}), frameRate:32, repeat:0}); // swirl 3
+        }
 
         // Yeni piramit tipleri pyramid_break animasyonunu kullanir
 
@@ -6911,7 +7121,8 @@ class SceneGame extends Phaser.Scene {
                 }
                 // ── AAA NORMAL HIT VFX v2 — directional + squash ──
                 const _bAng=Math.atan2(b.body.velocity.y,b.body.velocity.x);
-                vfxNormalHit(_S,enemy.x,enemy.y,isCrit,_bAng);
+                // mermi tam çarpma noktası: b.x,b.y (enemy merkezi değil)
+                vfxNormalHit(_S,b.x,b.y,isCrit,_bAng);
                 // [BUG FIX] Jelly sistemi aktifken vfxEnemySquash çağırma — iki tween çakışınca şekil bozulur
                 if(!enemy._staggering) vfxEnemySquash(_S,enemy);
             }
@@ -12321,6 +12532,39 @@ function vfxPerfectHit(S,ex,ey,combo){
 }
 
 // ── NORMAL HIT VFX v2 — layered impact + directional sparks ──
+// ── HIT SMOKE animasyon varyantları — her vuruşta farklı gösterir ──
+const _SMOKE_ANIMS = ["anim_smoke","anim_smoke2a","anim_smoke2b","anim_smoke2c","anim_smoke2d","anim_smoke2e"];
+let _smokeIdx = 0; // round-robin sayacı
+
+function vfxSmokeHit(S, ex, ey){
+    // Texture yüklü değilse sessizce çık
+    if(!S || (!S.textures.exists("smoke") && !S.textures.exists("smoke2"))) return;
+    try{
+        // Round-robin ile her vuruşta farklı animasyon
+        const animKey = _SMOKE_ANIMS[_smokeIdx % _SMOKE_ANIMS.length];
+        _smokeIdx++;
+        // Sadece ilgili texture yüklüyse kullan
+        const texKey = animKey === "anim_smoke" ? "smoke" : "smoke2";
+        if(!S.textures.exists(texKey)) return;
+        if(!S.anims.exists(animKey)) return;
+
+        const sp = S.add.sprite(ex, ey - 14, texKey);
+        // Küçük boyut: 0.55–0.70 arası rastgele scale
+        const sc = 0.55 + Math.random() * 0.15;
+        sp.setScale(sc)
+          .setDepth(28)
+          .setAlpha(0.82)
+          .setBlendMode(Phaser.BlendModes.ADD); // parlak beyaz texture için ADD blend
+        sp.play(animKey);
+        sp.on("animationcomplete", () => {
+            S.tweens.add({
+                targets: sp, alpha: 0, duration: 80,
+                onComplete: () => { try{ sp.destroy(); }catch(_){} }
+            });
+        });
+    }catch(e){ console.warn("[NT] vfxSmokeHit hata:", e); }
+}
+
 function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
     if(!S||!_POOL) return;
     ex=_snap(ex); ey=_snap(ey);
@@ -12364,6 +12608,9 @@ function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
                 duration:210,ease:"Quad.easeOut"});
         }
     }
+
+    // Layer 4 — smoke sprite hit effect (her vuruşta farklı animasyon)
+    vfxSmokeHit(S, ex, ey);
 }
 
 // ── Enemy squash micro-animation on hit ─────────────────────────
