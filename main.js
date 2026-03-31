@@ -6099,7 +6099,18 @@ class SceneMainMenu extends Phaser.Scene {
     }
 
     _goGame(){
-        this.scene.start("SceneGame");
+        // Buton çift tıklama koruması
+        if(this._goGameFired) return;
+        this._goGameFired = true;
+        // Menü butonlarını devre dışı bırak
+        if(this._menuHitZones){
+            this._menuHitZones.forEach(h=>{ try{ h.disableInteractive(); }catch(_){} });
+        }
+        // Hafif fade-out (300ms) sonra sahneyi başlat
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once("camerafadeoutcomplete", ()=>{
+            this.scene.start("SceneGame");
+        });
     }
 
     // ── Settings — use mm_panel (large) for more room ─────────────────
@@ -12873,8 +12884,8 @@ function _ensureFontLoaded(callback){
         tryLoad();
     } else {
         window.addEventListener("load", tryLoad, {once: true});
-        // Güvenlik: 2sn sonra her halükarda başlat — _safeCallback tekrar çağrılmaz
-        setTimeout(()=>{ if(!_fontCallbackFired) _safeCallback(); }, 2000);
+        // Güvenlik: 800ms sonra her halükarda başlat — Telegram'da 2sn bekleme siyah ekrana yol açar
+        setTimeout(()=>{ if(!_fontCallbackFired) _safeCallback(); }, 800);
     }
 }
 
@@ -12896,6 +12907,16 @@ function _ensureFontLoaded(callback){
 })();
 
 function _startPhaserGame(){
+    // ── TELEGRAM WEBAPP HAZIRLIK — siyah ekran önleme ─────────────────────────
+    // Telegram Mini App ortamındaysa WebApp.ready() çağrılmalı.
+    // Bu çağrı yapılmadan Telegram loading overlay kapanmaz → siyah ekran.
+    try{
+        if(window.Telegram && window.Telegram.WebApp){
+            window.Telegram.WebApp.ready();   // Telegram'a "uygulama hazır" sinyali gönder
+            window.Telegram.WebApp.expand();  // Tam ekran aç — viewport sorunlarını önle
+        }
+    }catch(e){ console.warn("[NT] Telegram WebApp init hatası:", e); }
+
     // ── PRESENCE: otomatik başlatma (window.Presence yoksa sessizce geç) ─────
     if (window.Presence) {
         (async () => {
