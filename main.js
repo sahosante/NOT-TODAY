@@ -5154,31 +5154,71 @@ function spawnComboText(S, x, y, combo){
     const burstCol = combo>=20?0xff2244: combo>=10?0xff6600: combo>=5?0xaa44ff: 0x44ccff;
     _jtBurst(S, x, y, burstCol, Math.min(8, 3+Math.floor(combo/4)), depth+1);
 
-    // Elastic bounce in
+    const allC = [t, glow].filter(Boolean);
+
+    // Giriş: squash → elastic pop → settle
     S.tweens.add({
-        targets: [t, glow].filter(Boolean),
-        scaleX: baseScale * 1.15,
-        scaleY: baseScale * 1.15,
+        targets: allC,
+        scaleX: baseScale * 0.6,
+        scaleY: baseScale * 1.4,
         angle: 0,
-        duration: 320,
-        ease: "Elastic.easeOut",
+        duration: 80,
+        ease: "Quad.easeOut",
         onComplete: ()=>{
             S.tweens.add({
-                targets: [t, glow].filter(Boolean),
-                scaleX: baseScale,
-                scaleY: baseScale,
-                duration: 120,
-                ease: "Quad.easeOut",
+                targets: allC,
+                scaleX: baseScale * 1.22,
+                scaleY: baseScale * 0.88,
+                duration: 180,
+                ease: "Back.easeOut",
                 onComplete: ()=>{
-                    // Subtle alpha pulse then fade
                     S.tweens.add({
-                        targets: [t, glow].filter(Boolean),
-                        alpha: { from:1, to:0 },
-                        y: y - 28,
-                        duration: 420,
-                        delay: 400,
-                        ease: "Quad.easeIn",
-                        onComplete: ()=>{ _jtDestroy([t, glow]); }
+                        targets: allC,
+                        scaleX: baseScale,
+                        scaleY: baseScale,
+                        duration: 100,
+                        ease: "Quad.easeOut",
+                        onComplete: ()=>{
+
+                            // Nefes alma
+                            const breath = S.tweens.add({
+                                targets: allC,
+                                scaleX: { from: baseScale, to: baseScale * 1.09 },
+                                scaleY: { from: baseScale, to: baseScale * 1.09 },
+                                duration: 300,
+                                ease: "Sine.easeInOut",
+                                yoyo: true,
+                                repeat: -1
+                            });
+
+                            // Sağ-sol sallama
+                            const swing = S.tweens.add({
+                                targets: allC,
+                                angle: { from: -4, to: 4 },
+                                duration: 220,
+                                ease: "Sine.easeInOut",
+                                yoyo: true,
+                                repeat: -1
+                            });
+
+                            // Fade out
+                            S.tweens.add({
+                                targets: allC,
+                                alpha: 0,
+                                y: y - 38,
+                                scaleX: 0.5,
+                                scaleY: 0.5,
+                                angle: 0,
+                                duration: 380,
+                                delay: 520,
+                                ease: "Quad.easeIn",
+                                onStart: ()=>{
+                                    breath.stop();
+                                    swing.stop();
+                                },
+                                onComplete: ()=>{ _jtDestroy([t, glow]); }
+                            });
+                        }
                     });
                 }
             });
@@ -5684,22 +5724,99 @@ function showFloatingText(S, priority, text, x, y){
     }
 
     // ── Entry animation ─────────────────────────────────────────
-    S.tweens.add({targets:allObjs, alpha:1, scaleX:scaleIn, scaleY:scaleIn, y:ty - riseY*0.3,
-        duration: priority===FT_CRITICAL?120:70, ease:"Back.easeOut",
-        onComplete:()=>{
-            S.tweens.add({targets:allObjs, scaleX:scaleIn*0.9, scaleY:scaleIn*0.9,
-                duration:90, ease:"Quad.easeOut",
-                onComplete:()=>{
-                    const tw = S.tweens.add({targets:allObjs, alpha:0, y:ty-riseY,
-                        scaleX:0.6, scaleY:0.6,
-                        duration:fadeDur, ease:"Quad.easeIn", delay:stayDur,
-                        onComplete:()=>{
-                            const idx = _ftActive.indexOf(entry);
-                            if(idx !== -1) _ftActive.splice(idx, 1);
-                            _jtDestroy(allObjs);
+    // Giriş açısı: hafif eğik başla, dik gel
+    const entryAngle = Phaser.Math.Between(-8, 8);
+    allObjs.forEach(o=>{ if(o) o.setAngle(entryAngle); });
+
+    S.tweens.add({
+        targets: allObjs,
+        alpha: 1,
+        scaleX: scaleIn * 1.18,
+        scaleY: scaleIn * 1.18,
+        angle: 0,
+        y: ty - riseY * 0.3,
+        duration: priority === FT_CRITICAL ? 140 : 85,
+        ease: "Back.easeOut",
+        onComplete: () => {
+            // Settle: hafif squash
+            S.tweens.add({
+                targets: allObjs,
+                scaleX: scaleIn * 0.92,
+                scaleY: scaleIn * 1.06,
+                duration: 70,
+                ease: "Quad.easeOut",
+                onComplete: () => {
+                    S.tweens.add({
+                        targets: allObjs,
+                        scaleX: scaleIn,
+                        scaleY: scaleIn,
+                        duration: 55,
+                        ease: "Quad.easeOut",
+                        onComplete: () => {
+
+                            // ── NEFES ALMA (breathing) ─────────────────
+                            // Sadece CRITICAL ve IMPORTANT metinlerde + isPerfect
+                            let breathTween = null;
+                            if((priority === FT_CRITICAL || priority === FT_IMPORTANT || isPerfect) && _perfMode !== "low"){
+                                breathTween = S.tweens.add({
+                                    targets: allObjs,
+                                    scaleX: { from: scaleIn, to: scaleIn * 1.08 },
+                                    scaleY: { from: scaleIn, to: scaleIn * 1.08 },
+                                    duration: 260,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            }
+
+                            // ── SAĞ-SOL SALLAMA (swing) ────────────────
+                            // CRITICAL ve IMPORTANT + perfect için sağ-sol titre
+                            let swingTween = null;
+                            if((priority === FT_CRITICAL || isPerfect) && _perfMode !== "low"){
+                                const swingAmp = priority === FT_CRITICAL ? 5 : 3;
+                                swingTween = S.tweens.add({
+                                    targets: allObjs,
+                                    angle: { from: -swingAmp, to: swingAmp },
+                                    duration: 180,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            } else if(priority === FT_IMPORTANT && _perfMode !== "low"){
+                                swingTween = S.tweens.add({
+                                    targets: allObjs,
+                                    x: { from: tx - 2, to: tx + 2 },
+                                    duration: 200,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            }
+
+                            // ── FADE OUT ───────────────────────────────
+                            const tw = S.tweens.add({
+                                targets: allObjs,
+                                alpha: 0,
+                                y: ty - riseY,
+                                scaleX: 0.6,
+                                scaleY: 0.6,
+                                angle: 0,
+                                duration: fadeDur,
+                                ease: "Quad.easeIn",
+                                delay: stayDur,
+                                onStart: () => {
+                                    if(breathTween) breathTween.stop();
+                                    if(swingTween)  swingTween.stop();
+                                },
+                                onComplete: () => {
+                                    const idx = _ftActive.indexOf(entry);
+                                    if(idx !== -1) _ftActive.splice(idx, 1);
+                                    _jtDestroy(allObjs);
+                                }
+                            });
+                            entry.tween = tw;
                         }
                     });
-                    entry.tween = tw;
                 }
             });
         }
