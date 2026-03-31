@@ -2164,6 +2164,28 @@ function buildTextures(S){
     g.fillStyle(0xcc0022,0.7); g.fillRect(7,3,2,4);
     g.generateTexture("tex_heart",16,16); g.clear();
 
+    // ── ALTIN İKONU — canvas API ile, ortası gerçekten transparan ──
+    // (Phaser Graphics destination-out desteklemez, canvas kullanıyoruz)
+    if(!S.textures.exists("tex_gold_icon")){
+        const _gc=document.createElement("canvas");
+        _gc.width=14; _gc.height=14;
+        const _gctx=_gc.getContext("2d");
+        // Dış sarı kare (1px boşluk bırak kenarlarda)
+        _gctx.fillStyle="#FFD700";
+        _gctx.fillRect(1,1,12,12);
+        // Üst parlaması
+        _gctx.fillStyle="rgba(255,242,120,0.55)";
+        _gctx.fillRect(2,2,10,3);
+        // Alt gölge
+        _gctx.fillStyle="rgba(140,90,0,0.40)";
+        _gctx.fillRect(2,11,10,2);
+        // Ortası transparan — destination-out ile deli
+        _gctx.globalCompositeOperation="destination-out";
+        _gctx.fillRect(4,4,6,6);
+        _gctx.globalCompositeOperation="source-over";
+        S.textures.addCanvas("tex_gold_icon",_gc);
+    }
+
 
     // Efekt partikülleri
     g.fillStyle(0x003300);g.fillCircle(3,3,3);g.fillStyle(0x00aa44);g.fillCircle(3,3,2);g.fillStyle(0x66ff88);g.fillCircle(2,2,1);g.generateTexture("tex_poison_p",6,6);g.clear();
@@ -4485,13 +4507,19 @@ function buildUI(S){
 
     S.killText=null; // [REMOVED] kill counter display removed
 
-    S.goldText=S.add.text(W-8,26,"G 0",{
+    // ── ALTIN — ikon (sol) + sayı (sağ)
+    S.goldText=S.add.text(W-8,26,"0",{
         fontFamily:"LilitaOne",
         fontSize:"14px",
         color:"#FFD700",
         stroke:"#000000",
         strokeThickness:2
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
+
+    // Altın ikonu — goldText'in soluna dinamik olarak yerleştirilir (renderUI'da güncellenir)
+    S.goldIcon=S.add.image(W-50,33,"tex_gold_icon")
+        .setDisplaySize(12,12).setOrigin(0.5,0.5)
+        .setScrollFactor(0).setDepth(D+5);
 
     S._crystalHudText=null; // HUD crystal display removed
 
@@ -4569,7 +4597,9 @@ function renderUI(S){
     // Altın — yavaş sayaç
     if(!S._goldDisplay) S._goldDisplay=0;
     S._goldDisplay=Math.floor(S._goldDisplay+(gs.gold-S._goldDisplay)*0.08);
-    S.goldText.setText("G "+S._goldDisplay);
+    S.goldText.setText(""+S._goldDisplay);
+    // Altın ikonu — sayının hemen soluna hizala
+    if(S.goldIcon && S.goldText) S.goldIcon.setX(360 - 8 - S.goldText.width - 8);
     // Kristal — statik (değişmez sık sık)
     if(S._crystalHudText) S._crystalHudText.setText("GEM "+PLAYER_CRYSTAL);
 
@@ -5320,13 +5350,47 @@ function spawnLevelUpText(S, x, y){
         }
     });
 }
-// ══════════════════════════════════════════════════════════════
-// ★ PATLAMA EFEKTİ — debris + halka + parçalar
-// ══════════════════════════════════════════════════════════════
+// ── Nadir patlama sayacı — her ~4. patlamada exp1/exp2/exp3'ten biri çıkar
+let _rareExplCounter = 0;
 function doExplodeVFX(S,x,y,col,sizeScale){
     if(!S||!_POOL) return;
     x=_snap(x); y=_snap(y);
     const sz=Math.min(sizeScale||1,1.8), col2=col||0xffcc55;
+
+    // ── EXPLOSION SPRITE — Explosion2 genel, exp1/2/3 her ~4.'de nadir ──
+    _rareExplCounter++;
+    const useRare = (_rareExplCounter % 4 === 0);
+    if(useRare){
+        const rareKeys  = ["anim_exp1","anim_exp2","anim_exp3"];
+        const texKeys   = ["exp1","exp2","exp3"];
+        // Üçgen ~78x64px. exp1/exp2: 32px kare → ~100px için scale ~3.2+
+        // exp3: 72px kare → ~100px için scale ~1.4+. sz ile büyük düşmanlarda ölçeklenir.
+        const rareScales= [
+            Math.max(3.2, sz * 7.5),  // exp1 — 32px frame → ~102px görsel
+            Math.max(3.2, sz * 7.5),  // exp2 — 32px frame → ~102px görsel
+            Math.max(1.4, sz * 3.3),  // exp3 — 72px frame → ~101px görsel
+        ];
+        // Ağırlıklı seçim: exp3 %50, exp1 %25, exp2 %25
+        const rnd = Math.random();
+        const ri = rnd < 0.25 ? 0 : rnd < 0.50 ? 1 : 2;
+        if(S.anims && S.anims.exists(rareKeys[ri])){
+            try{
+                const es=S.add.sprite(x,y,texKeys[ri]).setDepth(26).setScale(rareScales[ri]).setAlpha(0.97);
+                es.play(rareKeys[ri]);
+                es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
+            }catch(_){}
+        }
+    } else {
+        // Normal Explosion 2 sprite (ana patlama)
+        if(S.anims && S.anims.exists("anim_expl")){
+            try{
+                const expScale = Math.max(2.8, Math.min(sz * 4.0, 6.0));
+                const es=S.add.sprite(x,y,"explosion").setDepth(24).setScale(expScale).setAlpha(0.95);
+                es.play("anim_expl");
+                es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
+            }catch(_){}
+        }
+    }
 
     // Inner flash burst
     const inner=_POOL.get(23); if(inner){
@@ -5509,7 +5573,13 @@ function _ftEvict(){
         if(idx !== -1){
             const e = _ftActive.splice(idx, 1)[0];
             try{ if(e.tween) e.tween.stop(); }catch(ex){}
-            try{ e.obj.destroy(); }catch(ex){}
+            // [BUG FIX] allObjs içindeki tüm objeleri (glow dahil) destroy et
+            // Sadece e.obj destroy edilirse glow ekranda sonsuza kalır
+            if(e.allObjs && e.allObjs.length > 0){
+                _jtDestroy(e.allObjs);
+            } else {
+                try{ e.obj.destroy(); }catch(ex){}
+            }
             return true;
         }
     }
@@ -5586,7 +5656,8 @@ function showFloatingText(S, priority, text, x, y){
         .setOrigin(0.5).setDepth(depth).setAlpha(0).setScale(0.3);
 
     const allObjs = [t, glow].filter(Boolean);
-    const entry = { obj: t, priority, tween: null };
+    // [BUG FIX] allObjs'u entry'de sakla — _ftEvict glow dahil hepsini destroy edebilsin
+    const entry = { obj: t, priority, tween: null, allObjs };
     _ftActive.push(entry);
 
     // ── Ghost trail (CRITICAL/IMPORTANT) ───────────────────────
@@ -6107,8 +6178,15 @@ class SceneGame extends Phaser.Scene {
         });
         this.load.spritesheet("pyramid_break", "assets/pyramid_break.png", {frameWidth:183, frameHeight:112});
         this.load.spritesheet("zigzag_break",  "assets/zigzag_break.png",  {frameWidth:177, frameHeight:115});
-        this.load.spritesheet("idle","assets/player_idle.png",{frameWidth:32,frameHeight:32});
-        this.load.spritesheet("run", "assets/player_run.png", {frameWidth:31,frameHeight:30});
+        // ── OYUNCU SPRITE SHEETS ──
+        this.load.spritesheet("idle",  "assets/Idle.png",  {frameWidth:32, frameHeight:34});  // 200x34 → 6 kare (32px aralıklı)
+        this.load.spritesheet("run",   "assets/Run.png",   {frameWidth:32, frameHeight:32});  // 320x32 → 10 kare
+        this.load.spritesheet("death", "assets/Death.png", {frameWidth:40, frameHeight:40});  // 320x40 → 8 kare
+        // ── PATLAMA SPRITE SHEET ──
+        this.load.spritesheet("explosion",  "assets/Explosion.png", {frameWidth:64, frameHeight:64});  // 256x256 → 4x4=16 kare
+        this.load.spritesheet("exp1", "assets/exp1.png", {frameWidth:32, frameHeight:32}); // 352x32 → 11 kare
+        this.load.spritesheet("exp2", "assets/exp2.png", {frameWidth:32, frameHeight:32}); // 192x32 → 6 kare
+        this.load.spritesheet("exp3", "assets/exp3.png", {frameWidth:72, frameHeight:72}); // 1152x72 → 16 kare
 
 
         // ── FONT PRELOAD — Phaser text render edilmeden önce LilitaOne yüklü olmalı ──
@@ -6223,7 +6301,7 @@ class SceneGame extends Phaser.Scene {
                 if(!gl) return;
                 this.textures.getTextureKeys().forEach(k=>{
                     if(k==='__DEFAULT'||k==='__MISSING') return;
-                    const isCharacter    = (k==='idle' || k==='run');
+                    const isCharacter    = (k==='idle' || k==='run' || k==='death');
                     const isUpicon       = k.startsWith('upicon_');
                     try{
                         const t = this.textures.get(k);
@@ -6289,9 +6367,14 @@ class SceneGame extends Phaser.Scene {
         };
 
         // Animasyonlar
-        if(!this.anims.exists("anim_idle")) this.anims.create({key:"anim_idle",frames:this.anims.generateFrameNumbers("idle",{start:0,end:3}),frameRate:7,repeat:-1});
-        if(!this.anims.exists("anim_run"))  this.anims.create({key:"anim_run", frames:this.anims.generateFrameNumbers("run", {start:0,end:7}),frameRate:16,repeat:-1});
-        if(!this.anims.exists("anim_break"))this.anims.create({key:"anim_break",frames:this.anims.generateFrameNumbers("pyramid_break",{start:0,end:2}),frameRate:10,repeat:0});
+        if(!this.anims.exists("anim_idle"))  this.anims.create({key:"anim_idle",  frames:this.anims.generateFrameNumbers("idle",  {start:0,end:5}),  frameRate:8,  repeat:-1});
+        if(!this.anims.exists("anim_run"))   this.anims.create({key:"anim_run",   frames:this.anims.generateFrameNumbers("run",   {start:0,end:7}),  frameRate:14, repeat:-1});
+        if(!this.anims.exists("anim_death")) this.anims.create({key:"anim_death", frames:this.anims.generateFrameNumbers("death", {start:0,end:7}),  frameRate:12, repeat:0});
+        if(!this.anims.exists("anim_expl"))  this.anims.create({key:"anim_expl",  frames:this.anims.generateFrameNumbers("explosion", {start:0,end:15}), frameRate:18, repeat:0});
+        if(!this.anims.exists("anim_exp1"))  this.anims.create({key:"anim_exp1",  frames:this.anims.generateFrameNumbers("exp1", {start:0,end:10}), frameRate:16, repeat:0});
+        if(!this.anims.exists("anim_exp2"))  this.anims.create({key:"anim_exp2",  frames:this.anims.generateFrameNumbers("exp2", {start:0,end:5}),  frameRate:14, repeat:0});
+        if(!this.anims.exists("anim_exp3"))  this.anims.create({key:"anim_exp3",  frames:this.anims.generateFrameNumbers("exp3", {start:0,end:15}), frameRate:18, repeat:0});
+        if(!this.anims.exists("anim_break")) this.anims.create({key:"anim_break", frames:this.anims.generateFrameNumbers("pyramid_break",{start:0,end:2}),frameRate:10,repeat:0});
 
         // Yeni piramit tipleri pyramid_break animasyonunu kullanir
 
@@ -6427,13 +6510,12 @@ class SceneGame extends Phaser.Scene {
         // Zemin şeridi kaldırıldı
 
         // ── OYUNCU — tam önceki kodla aynı yere basıyor ──
-        this.player=this.physics.add.sprite(W/2,GROUND_Y-32,"idle");
+        this.player=this.physics.add.sprite(W/2,GROUND_Y-24,"idle");
         this.player.setDepth(20).setScale(2.0);
         // Texture filter: postBoot callback'te renderer patch'lendi.
-        // idle/run texture'ları upload anında NEAREST aldı — bulanıklık yok.
-        // [HİTBOX FIX] Önceki 20x26 çok küçüktü — düşmanlar içinden geçiyordu
-        // Scale 2.0 ile sprite 64x64 — body 36x44 daha gerçekçi
-        this.player.body.setSize(32,38).setOffset(0,2);
+        // idle/run/death texture'ları upload anında NEAREST aldı — bulanıklık yok.
+        // Idle: 40x34 px → scale 2 = 80x68 görsel; hitbox oyuna uygun
+        this.player.body.setSize(30,30).setOffset(5,4);
         this.player.body.setAllowGravity(false);
         this.player.play("anim_idle");
 
@@ -6479,11 +6561,12 @@ class SceneGame extends Phaser.Scene {
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
-            const BTN_Y = H_MB - 52;
+            // Ateş butonu: biraz aşağı ve ince
+            const BTN_Y = H_MB - 38;
             this.input.addPointer(3);
 
-            // ── ATEŞ BUTONU — sol alt, minimal, boş içerik ──────────
-            const FIRE_X = 54, FIRE_W = 88, FIRE_H = 56, FIRE_R = 10;
+            // ── ATEŞ BUTONU — sol alt, biraz daha ince ve aşağı ──────────
+            const FIRE_X = 54, FIRE_W = 88, FIRE_H = 44, FIRE_R = 10;
             const FIRE_Y = BTN_Y;
             const fireG = this.add.graphics().setDepth(800).setScrollFactor(0);
             let _firePressing = false;
@@ -6530,15 +6613,16 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── DİNAMİK JOYSTICK — ekranın sağ yarısında, parmak bastığında çıkar ──
+            // ── DİNAMİK JOYSTICK — yatay uzunlamasına, parmak bastığında çıkar ──
             const JS_ZONE_X = FIRE_X + FIRE_W/2 + 4; // ateş butonunun sağından itibaren
-            const JS_ZONE_Y = H_MB - 120;             // alt 120px zone
+            const JS_ZONE_Y = H_MB - 110;             // alt 110px zone
             const JS_ZONE_W = W_MB - JS_ZONE_X;
-            const JS_ZONE_H = 120;
-            const JS_R_OUTER = 32;  // dış halka yarıçapı
+            const JS_ZONE_H = 110;
+            const JS_RX = 52;   // yatay yarıçap (geniş)
+            const JS_RY = 22;   // dikey yarıçap (ince)
             const JS_R_INNER = 16;  // iç top yarıçapı
             const JS_DEAD = 6;      // dead zone px
-            const JS_MAX  = JS_R_OUTER - JS_R_INNER; // max sürükleme
+            const JS_MAX  = JS_RX - JS_R_INNER; // max yatay sürükleme
 
             // Joystick grafik objeleri
             const jsOuterG = this.add.graphics().setDepth(800).setScrollFactor(0).setAlpha(0);
@@ -6549,8 +6633,7 @@ class SceneGame extends Phaser.Scene {
             let _jsOriginX = 0, _jsOriginY = 0;
             let _jsKnobX = 0, _jsKnobY = 0;
             let _jsTargetLeft = false, _jsTargetRight = false;
-            // Smooth interpolation için
-            let _jsSmooth = 0; // -1 sol, 0 nötr, +1 sağ
+            let _jsSmooth = 0;
 
             const drawJoystick = (ox, oy, kx, ky, alpha) => {
                 jsOuterG.clear();
@@ -6558,15 +6641,19 @@ class SceneGame extends Phaser.Scene {
                 if(alpha <= 0) return;
                 jsOuterG.setAlpha(alpha);
                 jsInnerG.setAlpha(alpha);
-                // Dış halka
+                // Dış yatay elips halka
                 jsOuterG.lineStyle(2, 0x88aaff, 0.65);
-                jsOuterG.strokeCircle(ox, oy, JS_R_OUTER);
+                jsOuterG.strokeEllipse(ox, oy, JS_RX*2, JS_RY*2);
                 jsOuterG.fillStyle(0x1122aa, 0.18);
-                jsOuterG.fillCircle(ox, oy, JS_R_OUTER);
-                // İç glow halkası
-                jsOuterG.lineStyle(1, 0xaaccff, 0.25);
-                jsOuterG.strokeCircle(ox, oy, JS_R_OUTER - 4);
-                // Knob
+                jsOuterG.fillEllipse(ox, oy, JS_RX*2, JS_RY*2);
+                // İç glow çizgisi
+                jsOuterG.lineStyle(1, 0xaaccff, 0.22);
+                jsOuterG.strokeEllipse(ox, oy, (JS_RX-4)*2, (JS_RY-3)*2);
+                // Yön ok ipucu (sol/sağ küçük üçgenler)
+                jsOuterG.fillStyle(0x88aaff, 0.35);
+                jsOuterG.fillTriangle(ox-JS_RX+10,oy, ox-JS_RX+16,oy-5, ox-JS_RX+16,oy+5);
+                jsOuterG.fillTriangle(ox+JS_RX-10,oy, ox+JS_RX-16,oy-5, ox+JS_RX-16,oy+5);
+                // Knob — daire
                 jsInnerG.fillStyle(0x4488ff, 0.92);
                 jsInnerG.fillCircle(kx, ky, JS_R_INNER);
                 jsInnerG.fillStyle(0xffffff, 0.22);
@@ -7107,7 +7194,7 @@ class SceneGame extends Phaser.Scene {
 
         // Player sınır
         this.player.x=_snap(Phaser.Math.Clamp(this.player.x,14,346));
-        this.player.y=_snap(Phaser.Math.Clamp(this.player.y,60,GROUND_Y-32));
+        this.player.y=_snap(Phaser.Math.Clamp(this.player.y,60,GROUND_Y-24));
     }
 }
 
@@ -7141,16 +7228,19 @@ function movePlayer(S,delta){
         S.player.body.velocity.y=0;
     }
 
-    // Y zemine sabit — 3px yukarı alındı
-    S.player.y=GROUND_Y-32;
+    // Y zemine sabit — idle/run frame yüksekliği 34px, scale 2 → origin 0.5 → alt kenar GROUND_Y
+    S.player.y=GROUND_Y-24;
     S.player.body.velocity.y=0;
 
-    // Animasyon
-    if(vx!==0){
-        if(S.player.anims.currentAnim?.key!=="anim_run") S.player.play("anim_run",true);
-        S.player.setFlipX(vx<0);
-    } else {
-        if(S.player.anims.currentAnim?.key!=="anim_idle") S.player.play("anim_idle",true);
+    // Animasyon — death oynuyorsa kesme
+    const _curAnim = S.player.anims.currentAnim?.key;
+    if(_curAnim !== "anim_death"){
+        if(vx!==0){
+            if(_curAnim !== "anim_run") S.player.play("anim_run",true);
+            S.player.setFlipX(vx<0);
+        } else {
+            if(_curAnim !== "anim_idle") S.player.play("anim_idle",true);
+        }
     }
 }
 
@@ -10870,12 +10960,12 @@ function gameOver(S){
     const W=360, H=640, CX=W/2;
     S.cameras.main.shake(200,0.018);
 
-    // Koyu overlay
+    // Koyu overlay — hafif fade ile hemen başlasın ama yavaş dolsun
     const ov=S.add.rectangle(CX,H/2,W,H,0x000000,0).setDepth(900).setInteractive();
-    S.tweens.add({targets:ov,fillAlpha:0.85,duration:400});
+    S.tweens.add({targets:ov, fillAlpha:0.82, duration:800, delay:350});
 
-    // Kırmızı parçacık yağmuru
-    S.time.delayedCall(200,()=>{
+    // Kırmızı parçacık yağmuru — animasyon bittikten sonra başlasın
+    S.time.delayedCall(680,()=>{
         for(let i=0;i<20;i++){
             S.time.delayedCall(i*50,()=>{
                 const rx=Phaser.Math.Between(20,340);
@@ -10888,11 +10978,13 @@ function gameOver(S){
         }
     });
 
-    // Panel — overlay soluklaştıktan sonra aç
-    S.time.delayedCall(380,()=>{
-        const objs=[]; const A=o=>{if(o)objs.push(o);return o;};
+    // ── ÖLÜM ANİMASYONU — ayrı sprite kullan (player idle texture ile uyum sorunu önle) ──
+    let _panelShown = false;
+    function _showPanel(){
+        if(_panelShown) return;
+        _panelShown = true;
 
-        // Panel sprite
+        const objs=[]; const A=o=>{if(o)objs.push(o);return o;};
         const pm=NT_Measure(S,"ui_pause_win",300);
         const panelCY=H/2;
         const sprite=A(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc).setDepth(902));
@@ -10904,38 +10996,31 @@ function gameOver(S){
         const TX=CX-128, VX=CX+128;
         const D=903;
 
-        // Panel pop-in
         sprite.setScale(pm.sc*0.05).setAlpha(0);
         S.tweens.add({targets:sprite,scaleX:pm.sc,scaleY:pm.sc,alpha:1,duration:220,ease:"Back.easeOut"});
 
-        // Başlık — orange strip içinde
         A(S.add.text(CX,stripCY,"💀  "+L("gameOver"),
             NT_STYLE.title(24,"#ffffff","#5a0000")).setOrigin(0.5).setDepth(D));
 
-        // Highscore kontrolü
         const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
         const isNew=gs.score>prevHs;
 
         let cy=contentTop+10;
 
-        // Büyük skor
         A(S.add.text(CX,cy,gs.score.toLocaleString(),
             NT_STYLE.title(36,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
         cy+=50;
 
-        // Highscore / yeni rekor
         const hsColor=isNew?"#ffcc00":"#8899aa";
         const hsLabel=isNew?L("goNewRecord"):("BEST: "+prevHs.toLocaleString());
         A(S.add.text(CX,cy,hsLabel,NT_STYLE.accent(13,hsColor)).setOrigin(0.5,0).setDepth(D));
         cy+=28;
 
-        // Ayırıcı çizgi
         const dg=A(S.add.graphics().setDepth(902));
         dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy+4,VX,cy+4);
         cy+=18;
 
-        // Stat satırları
         const _row=(lbl,val,col)=>{
             if(cy+22>contentBot-38) return;
             A(S.add.text(TX,cy,lbl,NT_STYLE.stat(14,"#88aacc")).setOrigin(0,0.5).setDepth(D));
@@ -10949,7 +11034,6 @@ function gameOver(S){
         _row(lLbl, "Lv "+gs.level,  "#88ddff");
         _row(gLbl, gs.gold+" ⬡",    "#ffcc44");
 
-        // Paylaş butonu — yer varsa göster
         if(cy+34<contentBot-10){
             cy+=4;
             const shBg=A(S.add.graphics().setDepth(902));
@@ -10969,7 +11053,6 @@ function gameOver(S){
                 .on("pointerdown",()=>shareTelegramScore(gs.score,gs.kills,gs.level)));
         }
 
-        // Footer butonları — altın şerit içinde yan yana
         const resetFn=()=>{
             Object.keys(UPGRADES).forEach(k=>UPGRADES[k].level=0);
             EVOLUTIONS.forEach(e=>e.active=false);
@@ -10983,12 +11066,39 @@ function gameOver(S){
         NT_YellowBtn(S,BRX,btnCY,BW,BH,L("mainMenu"),D,
             ()=>{ resetFn(); S.scene.manager.keys["SceneMainMenu"]?S.scene.start("SceneMainMenu"):S.scene.restart(); }).forEach(o=>A(o));
 
-        // İçerikleri fade-in (sprite kendi pop-in animasyonuna sahip)
         objs.forEach(o=>{
             if(o===sprite) return;
             try{ o.setAlpha(0); S.tweens.add({targets:o,alpha:1,duration:200,delay:130}); }catch(_){}
         });
-    });
+    }
+
+    // Ölüm animasyonu — player sprite'ı gizle, "death" textureli ayrı sprite oynat
+    if(S.player && S.player.active && S.anims.exists("anim_death")){
+        try{
+            const _px=S.player.x, _py=S.player.y;
+            const _psc=S.player.scaleX||2.0;
+            const _pfl=S.player.flipX||false;
+            S.player.setVisible(false); // player'ı gizle — death sprite üstüne binmesin
+            const ds=S.add.sprite(_px, _py, "death")
+                .setDepth(S.player.depth)
+                .setScale(_psc)
+                .setFlipX(_pfl)
+                .setOrigin(0.5, 1); // player ile aynı origin
+            ds.play("anim_death");
+            // Animasyon bitince panel aç (+ 280ms küçük bekleme)
+            ds.once("animationcomplete", ()=>{
+                try{ ds.setAlpha(0); }catch(_){}
+                S.time.delayedCall(280, _showPanel);
+            });
+        }catch(e){
+            console.warn("[NT] Death anim sprite hatası:", e);
+            S.time.delayedCall(400, _showPanel); // hata varsa normal gecikme
+        }
+    } else {
+        S.time.delayedCall(400, _showPanel);
+    }
+    // Güvenlik: animasyon herhangi bir nedenle bitmediyse 1.1sn sonra her halükarda aç
+    S.time.delayedCall(1100, _showPanel);
 }
 
 // ── ELMAS İLE DİRİLİŞ — 3 saniye geri sayım + Bitir butonu ─────
@@ -11211,6 +11321,15 @@ function triggerResonance(S,src,depth){
 }
 function doExplosion(S,x,y){
     const gs=GS, lv=UPGRADES.explosive.level, r=44+lv*12;
+    // u2500u2500 EXPLOSION SPRITE ANu0130MASYONU (yeni PNG) u2500u2500
+    if(S.anims && S.anims.exists("anim_expl")){
+        try{
+            const sc=4.5+(lv*0.4);
+            const es=S.add.sprite(x,y,"explosion").setDepth(25).setScale(sc).setAlpha(0.95);
+            es.play("anim_expl");
+            es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
+        }catch(_){}
+    }
     // [VFX OPT] İç parlama — daha küçük
     const inner=S.add.graphics().setDepth(22);
     inner.x=x; inner.y=y;
@@ -11846,6 +11965,14 @@ function getSpawnDifficultyMultiplier(gs){
 // ── OYUNCU ÇARPIŞMA PATLAMASI ──────────────────────────────────
 function playerCollisionExplosion(S, x, y, type){
     if(!S||!S.add) return;
+    // u2500u2500 EXPLOSION SPRITE (du00fcu015fman zemine u00e7arptu0131u011fu0131nda) u2500u2500
+    if(S.anims && S.anims.exists("anim_expl")){
+        try{
+            const es=S.add.sprite(x,y,"explosion").setDepth(23).setScale(3.2).setAlpha(0.92);
+            es.play("anim_expl");
+            es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
+        }catch(_){}
+    }
     const typeC={normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,kamikaze:0xFFBB55,ghost:0xDDBBFF,
         split:0xFFEE44,swarm:0xFFBB66,elder:0xFFCC44,spinner:0xFF55DD,armored:0x9977FF,bomber:0xFF9966,
         stealth:0x44FFDD,healer:0x66FFAA,magnet:0xFFCC33,mirror:0xCCAAFF,berserker:0xFF7799,absorber:0x33EEFF,
@@ -12758,7 +12885,7 @@ function _startPhaserGame(){
                 ]);
 
                 game.textures.on("addtexture", (key)=>{
-                    const isChar   = (key === "idle" || key === "run");
+                    const isChar   = (key === "idle" || key === "run" || key === "death");
                     const isSmooth = SMOOTH_KEYS.has(key) || key.startsWith("upicon_");
                     const t = game.textures.get(key);
                     if(!t || !t.source) return;
