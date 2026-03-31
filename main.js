@@ -6173,6 +6173,26 @@ class SceneGame extends Phaser.Scene {
                 if(this.hpBarGfx) try{this.hpBarGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 if(this.xpBarBg) try{this.xpBarBg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 if(this.xpBarFill) try{this.xpBarFill.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                // [FIX] Sarı şerit kalıntıları — xpBar yardımcı nesneleri temizle
+                if(this.xpBarGlow) try{this.xpBarGlow.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                if(this._xpBarShine) try{this._xpBarShine.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                if(this._xpBarPulse) try{this._xpBarPulse.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                // [FIX] HUD yazıları temizle
+                if(this.levelText) try{this.levelText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                if(this.goldText) try{this.goldText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                // [FIX] Laser grafiği temizle
+                if(this.laserGfx) try{this.laserGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                // [FIX] Event HUD bar temizle
+                if(this._evHudBar) try{this._evHudBar.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                if(this._evHudBg) try{this._evHudBg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                this._evHudBar = null; this._evHudBg = null;
+                // [FIX] Slot UI grafikleri temizle
+                if(this.weaponSlots) this.weaponSlots.forEach(o=>{try{o.destroy();}catch(e){}});
+                if(this.passiveSlots) this.passiveSlots.forEach(o=>{try{o.destroy();}catch(e){}});
+                if(this.weaponSlotIcons) this.weaponSlotIcons.forEach(o=>{try{o.destroy();}catch(e){}});
+                if(this.passiveSlotIcons) this.passiveSlotIcons.forEach(o=>{try{o.destroy();}catch(e){}});
+                // [FIX] Açık panel varsa kapat (setter üzerinden — defineProperty ile tanımlı)
+                try{ this._openPanel = null; }catch(e){}
                 if(this.comboText) try{this.comboText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 if(this.scoreText) try{this.scoreText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 if(this._evoHintText) try{this._evoHintText.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
