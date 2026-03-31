@@ -6280,7 +6280,9 @@ class SceneMainMenu extends Phaser.Scene {
             });
         }
 
-        // ── ENTRANCE: panel pop-in + staggered button drop-in ─────
+        // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
+        this.cameras.main.setAlpha(0);
+        this.tweens.add({targets:this.cameras.main,alpha:1,duration:280,ease:"Quad.easeOut"});
         panel.setScale(m.sc*0.04).setAlpha(0);
         title.setAlpha(0);
         titleGlow.setAlpha(0);
@@ -6304,9 +6306,6 @@ class SceneMainMenu extends Phaser.Scene {
                 });
             }
         });
-
-        // Loading screen'i kapat — sahne render edildi, görsel hazır
-        if(window._ntHideLoading) window._ntHideLoading();
     }
 
     _smooth(){
