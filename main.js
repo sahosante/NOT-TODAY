@@ -5,133 +5,149 @@
 
 
 // ═══════════════════════════════════════════════════════════════
-// PRESENCE TRACKER  |  Telegram Bot Logger  [v3]
-// Sunucu yok — doğrudan Telegram Bot API'ye gönderir
+// PRESENCE TRACKER  [v5 — Zero-Secret]
+//
+// Auth flow:
+//   1. logJoin() → POST /auth  (sends Telegram's initData)
+//      Server verifies Telegram's HMAC-SHA256 signature, returns JWT
+//   2. All /track calls carry JWT in Authorization header
+//      (or body._token for sendBeacon which can't set headers)
+//
+// ✅ NO token  ✅ NO API key  ✅ NO shared secret in this file.
 // ═══════════════════════════════════════════════════════════════
 (function () {
     "use strict";
 
-    // ── YAPILANDIRMA ─────────────────────────────────────────
-    const TG_TOKEN   = "8639916106:AAG_aT6s_jsXPg2IJMjPOnP6NqdWja5Bgog";
-    const TG_CHAT_ID = "5817646600";
-    const TG_API     = "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage";
+    // ── CONFIGURATION ─────────────────────────────────────────
+    // Only your server URL — zero secrets.
+    const BACKEND = "https://your-server.com"; // ← Railway/Render adresin
 
-    // ── KULLANICI BİLGİSİ ─────────────────────────────────────
-    function _resolveUser() {
+    // ── SESSION ───────────────────────────────────────────────
+    // JWT bellekte tutulur — localStorage değil, cookie değil.
+    // Başka script'ler okuyamaz, sayfa yenilenince sıfırlanır.
+    let _sessionToken = null;
+
+    // ── AUTHENTICATE ──────────────────────────────────────────
+    // Telegram'ın imzaladığı initData'yı sunucuya gönderir.
+    // Sunucu HMAC-SHA256 ile doğrular, JWT döner.
+    // Bu süreçte istemci tarafında sır açığa çıkmaz.
+    async function _authenticate() {
+        const initData = window.Telegram?.WebApp?.initData || "";
         try {
-            const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
-            if (tg?.id) return { id: String(tg.id), name: tg.first_name || tg.username || "Player" };
-        } catch (_) {}
-        let anonId = localStorage.getItem("_nt_anon_id");
-        if (!anonId) { anonId = "anon_" + Math.random().toString(36).slice(2, 10); localStorage.setItem("_nt_anon_id", anonId); }
-        return { id: anonId, name: "Guest" };
-    }
-
-    // ── SAAT FORMATI ─────────────────────────────────────────
-    function _time() {
-        return new Date().toLocaleTimeString("tr-TR", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-    }
-
-    // ── TELEGRAM MESAJ GÖNDER ────────────────────────────────
-    async function _sendTG(text) {
-        try {
-            await fetch(TG_API, {
+            const res = await fetch(`${BACKEND}/auth`, {
                 method:  "POST",
                 headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ chat_id: TG_CHAT_ID, text, parse_mode: "HTML" }),
+                body:    JSON.stringify({ initData }),
             });
+            if (!res.ok) { console.warn("[PRESENCE] Auth başarısız:", res.status); return false; }
+            const { token } = await res.json();
+            _sessionToken = token;
+            console.log("[PRESENCE] Oturum açıldı.");
+            return true;
         } catch (err) {
-            console.warn("[PRESENCE] Telegram mesajı gönderilemedi:", err.message);
+            console.warn("[PRESENCE] Auth hatası:", err.message);
+            return false;
         }
     }
 
+    // ── SEND EVENT TO BACKEND ─────────────────────────────────
+    // JWT → Authorization header (veya sendBeacon için body._token).
+    // JWT bir sır değil, imzalı bir kimlik belgesidir.
+    async function _track(event, extra = {}, beacon = false) {
+        if (!_sessionToken) { console.warn("[PRESENCE] Oturum yok, event atlandı:", event); return; }
+
+        const url     = `${BACKEND}/track`;
+        const payload = { event, ...extra };
+
+        // sendBeacon: header desteği yok → token body'e gömülür
+        if (beacon && navigator.sendBeacon) {
+            const sent = navigator.sendBeacon(
+                url,
+                new Blob([JSON.stringify({ ...payload, _token: _sessionToken })], { type: "application/json" })
+            );
+            if (sent) return;
+        }
+
+        try {
+            const res = await fetch(url, {
+                method:    "POST",
+                keepalive: true,
+                headers: {
+                    "Content-Type":  "application/json",
+                    "Authorization": `Bearer ${_sessionToken}`,
+                },
+                body: JSON.stringify(payload),
+            });
+            // Token süresi dolmuşsa → yeniden auth + tek tekrar
+            if (res.status === 401) {
+                const body = await res.json().catch(() => ({}));
+                if (body.expired) {
+                    console.log("[PRESENCE] Token süresi doldu, yenileniyor...");
+                    const ok = await _authenticate();
+                    if (ok) await _track(event, extra, beacon);
+                }
+            }
+        } catch (err) {
+            console.warn("[PRESENCE] Track hatası:", err.message);
+        }
+    }
+
+    // ── DISPLAY NAME ──────────────────────────────────────────
+    // Sadece console log için — Telegram kimliği JWT içinde taşınır.
+    function _displayName() {
+        try {
+            const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            if (tg?.id) return tg.first_name || tg.username || "Player";
+        } catch (_) {}
+        return "Guest";
+    }
+
     // ── STATE ─────────────────────────────────────────────────
-    let _user       = null;
-    let _pingTimer  = null;
-    let _joined     = false;
-    let _left       = false;
-    let _joinTime   = null;   // oturum süresi hesabı için
+    let _pingTimer = null;
+    let _pingCount = 0;
+    let _joined    = false;
+    let _left      = false;
+    let _joinTime  = null;
+    let _authReady = false;
 
     // ── logJoin ───────────────────────────────────────────────
     async function logJoin() {
         if (_joined) return;
+        if (!_sessionToken) {
+            _authReady = false;
+            const ok = await _authenticate();
+            _authReady = ok;
+            if (!ok) return;
+        }
         _joined   = true;
         _left     = false;
         _joinTime = Date.now();
-        _user     = _resolveUser();
-
-        console.log("[PRESENCE] USER JOINED →", _user.name, "(" + _user.id + ")");
-
-        await _sendTG(
-            "🟢 <b>OYUNA GİRDİ</b>\n" +
-            "👤 " + _user.name + "\n" +
-            "🆔 " + _user.id + "\n" +
-            "🕐 " + _time()
-        );
+        console.log("[PRESENCE] JOIN →", _displayName());
+        await _track("join");
     }
 
     // ── logLeave ──────────────────────────────────────────────
     function logLeave({ permanent = false } = {}) {
-        if (_left || !_user) return;
+        if (_left || !_authReady) return;
         if (permanent) _left = true;
-
         stopPing();
         _joined = false;
-
-        // Oturum süresi hesapla
         const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
-        const dk = Math.floor(duration / 60);
-        const sn = duration % 60;
-        const sureTxt = dk > 0 ? dk + " dk " + sn + " sn" : sn + " sn";
-
-        console.log("[PRESENCE] USER LEFT →", _user.name, permanent ? "(kalıcı)" : "(geçici)");
-
-        // sendBeacon ile gönder (sayfa kapanırken bile çalışır)
-        const body = JSON.stringify({
-            chat_id:    TG_CHAT_ID,
-            text:       "🔴 <b>OYUNDAN ÇIKTI</b>\n" +
-                        "👤 " + _user.name + "\n" +
-                        "🆔 " + _user.id + "\n" +
-                        "⏱ Süre: " + sureTxt + "\n" +
-                        "🕐 " + _time(),
-            parse_mode: "HTML",
-        });
-
-        const beaconOk = navigator.sendBeacon
-            ? navigator.sendBeacon(TG_API, new Blob([body], { type: "application/json" }))
-            : false;
-
-        if (!beaconOk) {
-            fetch(TG_API, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body,
-                keepalive: true,
-            }).catch(() => {});
-        }
+        console.log("[PRESENCE] LEAVE →", _displayName(), permanent ? "(kalıcı)" : "(geçici)");
+        _track("leave", { duration }, true); // beacon ile — sayfa kapanırken bile çalışır
     }
 
     // ── startPing / stopPing ──────────────────────────────────
-    // Ping Telegram'a mesaj ATMAZ — sadece konsola yazar (spam olmasın)
-    // Online takibi için 5 dakikada bir özet mesaj atar
-    let _pingCount = 0;
     function startPing() {
         if (_pingTimer) return;
         _pingTimer = setInterval(async () => {
-            if (!_user || _left) return;
+            if (!_authReady || _left) return;
             _pingCount++;
-            console.log("[PRESENCE] PING →", _user.name, "(" + _pingCount + ")");
-
-            // Her 5 dakikada bir (20 ping = 20×15sn = 5dk) özet gönder
+            console.log("[PRESENCE] PING →", _displayName(), `(#${_pingCount})`);
+            // Her 20 tick × 15sn = 5 dakika → özet gönder
             if (_pingCount % 20 === 0) {
                 const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
-                const dk = Math.floor(duration / 60);
-                await _sendTG(
-                    "📊 <b>AKTİF OYUNCU</b>\n" +
-                    "👤 " + _user.name + "\n" +
-                    "⏱ " + dk + " dk süredir online\n" +
-                    "🕐 " + _time()
-                );
+                await _track("ping", { duration, pingCount: _pingCount });
             }
         }, 15_000);
     }
@@ -140,11 +156,7 @@
     }
 
     // ── OTOMATİK EVENTLER ────────────────────────────────────
-
-    // Kalıcı çıkış
     window.addEventListener("beforeunload", () => logLeave({ permanent: true }), { once: true });
-
-    // Sekme gizlendi / geri döndü
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
             logLeave({ permanent: false });
@@ -154,9 +166,10 @@
     });
 
     // ── GLOBAL EXPORT ─────────────────────────────────────────
+    // _startPhaserGame() içindeki Presence.logJoin() / startPing() çağrıları değişmez.
     window.Presence = { logJoin, logLeave, startPing, stopPing };
 
-    console.log("[PRESENCE] Telegram Bot Logger v3 yüklendi.");
+    console.log("[PRESENCE] Zero-Secret Tracker v5 yüklendi.");
 })();
 
 // ═══════════════════════════════════════════════════════════════
