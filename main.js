@@ -160,548 +160,994 @@
 })();
 
 // ═══════════════════════════════════════════════════════════════
-// NT_SFX — Procedural Web Audio Sound Engine v2
-// Müzik motoru + Sinematik SFX + Adım sesleri
-// Sıfır dosya bağımlılığı — tamamen Web Audio API
+// NT_SFX — AAA Web Audio Engine v3
+// Master Bus → SFX / Music / UI / Ambience buses
+// Compressor + Limiter on every bus — clipping impossible
+// State-based music, layered SFX, dynamic systems
+// Zero external dependencies — pure Web Audio API
 // ═══════════════════════════════════════════════════════════════
 const NT_SFX = (function(){
     "use strict";
 
-    // ── Bağlam & Routing ─────────────────────────────────────
-    let _ctx = null;
-    let _sfxBus = null;   // SFX ana bus
-    let _musBus = null;   // Müzik ana bus
-    let _masterGain = null;
+    // ── Context & Bus references ──────────────────────────────────
+    let _ctx        = null;
+    let _masterGain = null;   // Master volume
+    let _masterLim  = null;   // Master hard limiter (anti-clip)
+    let _sfxBus     = null;   // SFX gain node
+    let _sfxComp    = null;   // SFX compressor
+    let _musBus     = null;   // Music gain node
+    let _musComp    = null;   // Music compressor
+    let _uiBus      = null;   // UI sounds gain node
+    let _uiComp     = null;   // UI compressor
+    let _ambBus     = null;   // Ambience gain node
+    let _ambComp    = null;   // Ambience compressor
 
+    // ── Volume state (overridable) ────────────────────────────────
+    let _sfxVol  = 0.85;
+    let _uiVol   = 0.70;
+    let _ambVol  = 0.50;
+
+    // ── Pause state ───────────────────────────────────────────────
+    let _paused  = false;
+
+    // ── Voice pool — prevents simultaneous voice overload ─────────
+    const _MAX_VOICES = 40;
+    let   _activeVoices = 0;
+    function _acquireVoice(){ if(_activeVoices>=_MAX_VOICES)return false; _activeVoices++; return true; }
+    function _releaseVoice(){ _activeVoices=Math.max(0,_activeVoices-1); }
+
+    // ── AudioContext bootstrap ────────────────────────────────────
     function _getCtx(){
         if(_ctx) return _ctx;
         try{
             _ctx = new (window.AudioContext||window.webkitAudioContext)();
+
+            // Master chain: masterGain → limiter (hard) → destination
             _masterGain = _ctx.createGain();
             _masterGain.gain.value = 1.0;
-            _masterGain.connect(_ctx.destination);
+            _masterLim  = _ctx.createDynamicsCompressor();
+            _masterLim.threshold.value = -1.0;
+            _masterLim.knee.value      =  0.0;
+            _masterLim.ratio.value     = 20.0;
+            _masterLim.attack.value    =  0.001;
+            _masterLim.release.value   =  0.05;
+            _masterGain.connect(_masterLim);
+            _masterLim.connect(_ctx.destination);
 
-            _sfxBus = _ctx.createGain();
-            _sfxBus.gain.value = 1.0;
-            _sfxBus.connect(_masterGain);
+            // SFX bus
+            _sfxComp = _mkComp(_ctx,-20,5,4,0.003,0.15);
+            _sfxBus  = _ctx.createGain(); _sfxBus.gain.value = _sfxVol;
+            _sfxBus.connect(_sfxComp); _sfxComp.connect(_masterGain);
 
-            _musBus = _ctx.createGain();
-            _musBus.gain.value = 0.0; // başta kapalı, fade-in yapılır
-            _musBus.connect(_masterGain);
+            // Music bus (starts silent, faded in)
+            _musComp = _mkComp(_ctx,-22,8,3,0.008,0.25);
+            _musBus  = _ctx.createGain(); _musBus.gain.value = 0;
+            _musBus.connect(_musComp); _musComp.connect(_masterGain);
+
+            // UI bus
+            _uiComp = _mkComp(_ctx,-15,4,3,0.001,0.08);
+            _uiBus  = _ctx.createGain(); _uiBus.gain.value = _uiVol;
+            _uiBus.connect(_uiComp); _uiComp.connect(_masterGain);
+
+            // Ambience bus
+            _ambComp = _mkComp(_ctx,-25,10,2,0.02,0.5);
+            _ambBus  = _ctx.createGain(); _ambBus.gain.value = 0;
+            _ambBus.connect(_ambComp); _ambComp.connect(_masterGain);
+
         }catch(e){ return null; }
         return _ctx;
     }
 
-    function _sfxOn(){ return window._nt_sfx_enabled!==false && window._nt_sfx_on!==false; }
-    function _vol(s=1){ return Math.max(0, Math.min(1, (window._nt_sfx_vol??0.8))) * s; }
-    function _resume(){ if(_ctx && _ctx.state==="suspended") _ctx.resume(); }
+    function _mkComp(ctx,threshold,knee,ratio,attack,release){
+        const c=ctx.createDynamicsCompressor();
+        c.threshold.value=threshold; c.knee.value=knee;
+        c.ratio.value=ratio; c.attack.value=attack; c.release.value=release;
+        return c;
+    }
 
-    // ── Temel ses araçları ────────────────────────────────────
-    function _osc(type, freq, t0, dur, gain, freqEnd=null, bus=null){
+    function _sfxOn(){ return window._nt_sfx_enabled!==false && window._nt_sfx_on!==false && !_paused; }
+    function _resume(){ if(_ctx&&_ctx.state==="suspended") _ctx.resume(); }
+    function _vol(s=1){ return Math.max(0,Math.min(1,(window._nt_sfx_vol??0.8)))*Math.max(0,s); }
+    function _mVol(s=1){ return Math.max(0,Math.min(1,(window._nt_mus_vol??0.6)))*Math.max(0,s); }
+
+    // ── Micro-variation helpers ───────────────────────────────────
+    function _vary(base,range=0.05){ return base*(1+(Math.random()*2-1)*range); }
+    function _varyC(cents=12){ return (Math.random()*2-1)*cents; }
+
+    // ── Stereo panner ─────────────────────────────────────────────
+    function _mkPan(ctx,val){
+        try{
+            if(ctx.createStereoPanner){ const p=ctx.createStereoPanner(); p.pan.value=Math.max(-1,Math.min(1,val)); return p; }
+        }catch(e){}
+        return null;
+    }
+
+    // ── Waveshaper curve ─────────────────────────────────────────
+    function _distCurve(amount=3){
+        const n=256,c=new Float32Array(n);
+        for(let i=0;i<n;i++){ const x=i*2/n-1; c[i]=Math.tanh(x*amount); }
+        return c;
+    }
+
+    // ── Core OSC primitive ────────────────────────────────────────
+    function _osc(type,freq,t0,dur,gain,freqEnd=null,bus=null,panVal=0,detuneC=0){
         const ctx=_getCtx(); if(!ctx) return null;
-        const dest = bus||_sfxBus;
+        if(!_acquireVoice()) return null;
+        const dest=bus||_sfxBus;
         const o=ctx.createOscillator(), g=ctx.createGain();
         o.type=type;
-        o.frequency.setValueAtTime(freq, t0);
-        if(freqEnd!=null) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,1), t0+dur);
-        g.gain.setValueAtTime(gain, t0);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+        o.frequency.setValueAtTime(Math.max(freq,1),t0);
+        if(detuneC) o.detune.setValueAtTime(detuneC,t0);
+        if(freqEnd!=null) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,1),t0+dur);
+        g.gain.setValueAtTime(gain,t0);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+        if(panVal!==0){ const p=_mkPan(ctx,panVal); if(p){ o.connect(g); g.connect(p); p.connect(dest); o.start(t0); o.stop(t0+dur+0.02); try{o.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);} return o; } }
         o.connect(g); g.connect(dest);
         o.start(t0); o.stop(t0+dur+0.02);
+        try{o.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);}
         return o;
     }
 
-    function _noise(t0, dur, gain, lo=300, hi=6000, bus=null){
+    // ── Core NOISE primitive ──────────────────────────────────────
+    function _noise(t0,dur,gain,lo=300,hi=6000,bus=null,panVal=0){
         const ctx=_getCtx(); if(!ctx) return;
+        if(!_acquireVoice()) return;
         const dest=bus||_sfxBus;
         const sr=ctx.sampleRate, len=Math.ceil(sr*(dur+0.05));
         const buf=ctx.createBuffer(1,len,sr);
         const d=buf.getChannelData(0);
         for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
-        const src=ctx.createBufferSource();
-        src.buffer=buf;
-        const bpf=ctx.createBiquadFilter();
-        bpf.type="bandpass";
-        bpf.frequency.value=(lo+hi)/2;
-        bpf.Q.value=0.5;
+        const src=ctx.createBufferSource(); src.buffer=buf;
+        const bpf=ctx.createBiquadFilter(); bpf.type="bandpass";
+        bpf.frequency.value=(lo+hi)/2; bpf.Q.value=0.8;
         const g=ctx.createGain();
         g.gain.setValueAtTime(gain,t0);
         g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-        src.connect(bpf); bpf.connect(g); g.connect(dest);
+        src.connect(bpf); bpf.connect(g);
+        if(panVal!==0){ const p=_mkPan(ctx,panVal); if(p){ g.connect(p); p.connect(dest); src.start(t0); src.stop(t0+dur+0.05); try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);} return; } }
+        g.connect(dest);
         src.start(t0); src.stop(t0+dur+0.05);
+        try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);}
     }
 
-    // Kompresör — dinamiği sıkıştır, SFX punch'ı artır
-    function _mkCompressor(ctx, dest){
-        const comp=ctx.createDynamicsCompressor();
-        comp.threshold.value=-18;
-        comp.knee.value=6;
-        comp.ratio.value=4;
-        comp.attack.value=0.003;
-        comp.release.value=0.12;
-        comp.connect(dest);
-        return comp;
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // MÜZİK MOTORU — Step Sequencer (135 BPM, dark elektro)
-    // ══════════════════════════════════════════════════════════
-    const _BPM      = 135;
-    const _STEP_DUR = 60 / _BPM / 4;   // 16th note süresi (saniye)
-    const _BAR_STEPS= 16;
-    const _LOOKAHEAD= 0.08;             // saniye — kaç saniye ileriye bakılır
-    const _SCHED_INT= 0.04;             // 40ms zamanlayıcı aralığı
+    // ══════════════════════════════════════════════════════════════
+    // MUSIC ENGINE — State-based Multi-layer Step Sequencer
+    // ══════════════════════════════════════════════════════════════
+    const _BPM      = 138;
+    const _STEP     = 60/_BPM/4;       // 16th note duration (seconds)
+    const _BAR      = 16;              // steps per bar
+    const _LOOKAHEAD= 0.10;
+    const _SCHED_INT= 0.040;           // 40ms scheduler interval
 
     let _musPlaying  = false;
     let _musTimer    = null;
     let _musStep     = 0;
-    let _musBarTime  = 0;   // şu anki ölçek başlangıç zamanı
-    let _musNextNote = 0;   // bir sonraki nota zamanı
+    let _musNextNote = 0;
+    let _musBar      = 0;              // bar counter (for pattern variation)
+    let _musState    = "menu";         // menu | gameplay | high_combo | boss | outro
 
-    // Kick pattern (16 step) — 4-on-the-floor + variation
-    const _PAT_KICK  = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0];
-    // Snare
-    const _PAT_SNARE = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1];
-    // Open hihat
-    const _PAT_OHAT  = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0];
-    // Closed hihat (her adım, velocity değişken)
-    const _PAT_CHAT  = [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1];
-    // Bass melody — A minör mood (A2=110, C3=130, D3=146, E3=164, G3=196)
-    const _PAT_BASS  = [110,0,0,110, 0,0,130,0, 146,0,0,0, 110,0,164,0];
-    // Sub bass (tek nota tutulur, kick ile sync)
-    const _PAT_SUB   = [110,0,0,0, 110,0,0,0, 110,0,0,0, 110,0,0,0];
-    // Lead synth — eerie melody
-    const _PAT_LEAD  = [0,0,0,0, 220,0,0,0, 0,0,261,0, 0,246,0,0];
+    // ── Drum patterns per state ───────────────────────────────────
+    const _PAT_KICK = {
+        menu:       [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+        gameplay:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        high_combo: [1,0,1,0, 1,0,0,0, 1,0,1,0, 1,0,0,1],
+        boss:       [1,0,1,0, 1,0,0,1, 1,0,1,0, 1,1,0,1],
+    };
+    const _PAT_SNARE = {
+        menu:       [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+        gameplay:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+        high_combo: [0,0,0,0, 1,0,0,1, 0,0,1,0, 1,0,0,1],
+        boss:       [0,0,1,0, 1,0,1,0, 0,0,1,0, 1,0,1,1],
+    };
+    const _PAT_OHAT = {
+        menu:       [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        gameplay:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        high_combo: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+        boss:       [0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1],
+    };
 
-    function _scheduleMusStep(t, step){
+    // ── Bass & lead melody patterns (A minor) ─────────────────────
+    // A2=110 C3=130 D3=146 E3=164 G3=196 A3=220
+    const _BASS_A    = [110,0,0,110, 0,0,130,0, 146,0,0,0, 110,0,164,0];
+    const _BASS_B    = [110,0,0,0,   130,0,0,0, 110,0,146,0, 164,0,0,0];
+    const _BASS_BOSS = [55, 0,0,55,  0, 0,82, 0, 73, 0,0,0, 55, 0,82, 55];
+    const _LEAD_A    = [0,0,0,0,  220,0,0,0,   0,0,261,0,  0,246,0,0];
+    const _LEAD_B    = [0,0,330,0, 0,0,0,0,  294,0,0,261,  0,0,0,0];
+    const _LEAD_HC   = [440,0,0,330, 0,392,0,0, 330,0,0,294, 0,0,440,0]; // high combo lead
+
+    // ── Pad chord progressions (played on beat 1 and 9) ──────────
+    const _PAD_CHORDS = [
+        [110,164,220],  // Am
+        [130,164,196],  // C
+        [146,196,220],  // Dm
+        [164,220,261],  // Em
+        [110,146,220],  // Am7
+    ];
+
+    // ── Sidechain gain node (kick ducks this) ─────────────────────
+    let _sidechainG = null;
+
+    function _scheduleStep(t,step){
         const ctx=_ctx; if(!ctx||!_musBus) return;
-        const v = _vol(0.38); // müzik SFX'ten daha sessiz
+        const st = _musState;
+        const v  = _mVol(0.45);
+        const bar= _musBar;
 
-        // ── KICK ──────────────────────────────────────
-        if(_PAT_KICK[step]){
+        const kickPat  = _PAT_KICK[st]  || _PAT_KICK.gameplay;
+        const snarePat = _PAT_SNARE[st] || _PAT_SNARE.gameplay;
+        const ohatPat  = _PAT_OHAT[st]  || _PAT_OHAT.gameplay;
+
+        // ── KICK ─────────────────────────────────────────────
+        if(kickPat[step]){
+            // Body sine sweep
             const o=ctx.createOscillator(), g=ctx.createGain();
+            const wave=ctx.createWaveShaper(); wave.curve=_distCurve(0.7);
             o.type="sine";
-            o.frequency.setValueAtTime(120, t);
-            o.frequency.exponentialRampToValueAtTime(40, t+0.12);
-            g.gain.setValueAtTime(v*1.8, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
-            // Kick distortion layer
-            const wave=ctx.createWaveShaper();
-            wave.curve=(()=>{const n=256,c=new Float32Array(n);for(let i=0;i<n;i++){const x=i*2/n-1;c[i]=x<0?-Math.pow(-x,0.6):Math.pow(x,0.6);}return c;})();
+            o.frequency.setValueAtTime(st==="boss"?165:132,t);
+            o.frequency.exponentialRampToValueAtTime(30,t+0.19);
+            g.gain.setValueAtTime(v*2.4,t);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
             o.connect(wave); wave.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+0.22);
+            o.start(t); o.stop(t+0.25);
             // Transient click
-            _noise(t, 0.012, v*0.5, 1000, 8000, _musBus);
+            _noise(t,0.009,v*0.65,700,10000,_musBus);
+            // Sub thump
+            const sub=ctx.createOscillator(), subG=ctx.createGain();
+            sub.type="sine"; sub.frequency.value=58;
+            subG.gain.setValueAtTime(v*1.0,t);
+            subG.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+            sub.connect(subG); subG.connect(_musBus);
+            sub.start(t); sub.stop(t+0.12);
+            // Sidechain duck — other layers pump on kick
+            if(_sidechainG){
+                _sidechainG.gain.cancelScheduledValues(t);
+                _sidechainG.gain.setValueAtTime(0.50,t);
+                _sidechainG.gain.linearRampToValueAtTime(1.0,t+0.13);
+            }
         }
 
-        // ── SNARE ─────────────────────────────────────
-        if(_PAT_SNARE[step]){
-            // Snare body
+        // ── SNARE ─────────────────────────────────────────────
+        if(snarePat[step]){
             const o=ctx.createOscillator(), g=ctx.createGain();
             o.type="triangle";
-            o.frequency.setValueAtTime(220, t);
-            o.frequency.exponentialRampToValueAtTime(100, t+0.10);
-            g.gain.setValueAtTime(v*0.9, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+0.15);
+            o.frequency.setValueAtTime(st==="boss"?265:224,t);
+            o.frequency.exponentialRampToValueAtTime(100,t+0.13);
+            g.gain.setValueAtTime(v*1.05,t);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
             o.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+0.18);
-            // Snare noise (rattle)
-            _noise(t, 0.14, v*0.7, 1500, 10000, _musBus);
+            o.start(t); o.stop(t+0.22);
+            _noise(t,0.17,v*(st==="boss"?0.92:0.78),1500,13000,_musBus);
+            if(st==="boss") _noise(t,0.05,v*0.42,4000,18000,_musBus);
         }
 
-        // ── CLOSED HIHAT ──────────────────────────────
-        if(_PAT_CHAT[step]){
-            const vel = (step%2===0) ? 0.28 : 0.12; // accents
-            _noise(t, 0.028, v*vel, 8000, 16000, _musBus);
+        // ── CLOSED HIHAT (random pan for width) ───────────────
+        const chatVel=(step%2===0)?0.34:0.15;
+        _noise(t,0.020,v*chatVel,9000,20000,_musBus,(Math.random()-0.5)*0.45);
+
+        // ── OPEN HIHAT ────────────────────────────────────────
+        if(ohatPat[step]){
+            _noise(t,0.16,v*0.28,6500,15000,_musBus,(Math.random()-0.5)*0.3);
         }
 
-        // ── OPEN HIHAT ────────────────────────────────
-        if(_PAT_OHAT[step]){
-            _noise(t, 0.12, v*0.22, 7000, 14000, _musBus);
+        // ── RIMSHOT (occasional fills) ─────────────────────────
+        if((st==="high_combo"||st==="boss")&&step===14){
+            _noise(t,0.04,v*0.32,3000,11000,_musBus);
+            const rim=ctx.createOscillator(),rimG=ctx.createGain();
+            rim.type="triangle"; rim.frequency.value=420;
+            rimG.gain.setValueAtTime(v*0.30,t);
+            rimG.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
+            rim.connect(rimG); rimG.connect(_musBus);
+            rim.start(t); rim.stop(t+0.07);
         }
 
-        // ── BASS LINE ─────────────────────────────────
-        if(_PAT_BASS[step]){
-            const f=_PAT_BASS[step];
+        // ── BASS LINE ─────────────────────────────────────────
+        const bassPat = st==="boss"?_BASS_BOSS:(bar%2===0?_BASS_A:_BASS_B);
+        if(bassPat[step]){
+            const f=bassPat[step];
             const o=ctx.createOscillator(), g=ctx.createGain();
-            o.type="sawtooth";
-            o.frequency.setValueAtTime(f, t);
-            // LP filtre — bas sıcak dursun
+            o.type="sawtooth"; o.frequency.setValueAtTime(f,t);
             const lpf=ctx.createBiquadFilter();
-            lpf.type="lowpass"; lpf.frequency.value=600; lpf.Q.value=2;
-            g.gain.setValueAtTime(v*0.55, t);
-            g.gain.setValueAtTime(v*0.55, t+0.05);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*2);
+            lpf.type="lowpass"; lpf.frequency.value=st==="boss"?950:680; lpf.Q.value=2.8;
+            g.gain.setValueAtTime(v*0.68,t);
+            g.gain.setValueAtTime(v*0.68,t+0.04);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*2.3);
             o.connect(lpf); lpf.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+_STEP_DUR*2.2);
+            o.start(t); o.stop(t+_STEP*2.6);
+            // Sub octave
+            const sub2=ctx.createOscillator(), sub2G=ctx.createGain();
+            sub2.type="sine"; sub2.frequency.value=f/2;
+            sub2G.gain.setValueAtTime(v*0.58,t);
+            sub2G.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*4.2);
+            sub2.connect(sub2G); sub2G.connect(_musBus);
+            sub2.start(t); sub2.stop(t+_STEP*4.5);
         }
 
-        // ── SUB BASS ──────────────────────────────────
-        if(_PAT_SUB[step]){
+        // ── LEAD SYNTH ────────────────────────────────────────
+        if(st!=="menu"){
+            const leadPat=st==="high_combo"?_LEAD_HC:(bar%2===0?_LEAD_A:_LEAD_B);
+            if(leadPat[step]){
+                const f=leadPat[step];
+                const o=ctx.createOscillator(), g=ctx.createGain();
+                o.type="square"; o.frequency.setValueAtTime(f,t);
+                o.detune.setValueAtTime(_varyC(8),t);
+                const bpf=ctx.createBiquadFilter();
+                bpf.type="bandpass"; bpf.frequency.value=f*2; bpf.Q.value=2.0;
+                g.gain.setValueAtTime(0,t);
+                g.gain.linearRampToValueAtTime(v*(st==="boss"?0.30:0.22),t+0.016);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*3.8);
+                o.connect(bpf); bpf.connect(g); g.connect(_musBus);
+                o.start(t); o.stop(t+_STEP*4.1);
+                // Octave shimmer with slight pan
+                const shimG=ctx.createGain();
+                shimG.gain.setValueAtTime(v*0.08,t+0.02);
+                shimG.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*2.5);
+                const shimO=ctx.createOscillator(); shimO.type="sine"; shimO.frequency.value=f*2;
+                const shimP=_mkPan(ctx,(Math.random()-0.5)*0.5);
+                shimO.connect(shimG);
+                if(shimP){shimG.connect(shimP);shimP.connect(_musBus);}else{shimG.connect(_musBus);}
+                shimO.start(t+0.02); shimO.stop(t+_STEP*2.8);
+            }
+        }
+
+        // ── PAD LAYER (slow attack, atmospheric, plays beats 1+9)─
+        if(step===0||step===8){
+            const padChord=_PAD_CHORDS[bar%_PAD_CHORDS.length];
+            const padVol=st==="menu"?v*0.38:(st==="boss"?v*0.16:v*0.24);
+            padChord.forEach((f,i)=>{
+                const o=ctx.createOscillator(), g=ctx.createGain();
+                o.type="sine"; o.frequency.setValueAtTime(f,t);
+                o.detune.setValueAtTime(_varyC(5),t);
+                const lpf=ctx.createBiquadFilter();
+                lpf.type="lowpass"; lpf.frequency.value=900; lpf.Q.value=0.5;
+                g.gain.setValueAtTime(0,t);
+                g.gain.linearRampToValueAtTime(padVol*(1-i*0.09),t+0.45);
+                g.gain.setValueAtTime(padVol*(1-i*0.09),t+_STEP*7.0);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*8.2);
+                o.connect(lpf); lpf.connect(g); g.connect(_musBus);
+                o.start(t); o.stop(t+_STEP*8.5);
+            });
+        }
+
+        // ── ATMOSPHERE NOISE (menu + boss only) ───────────────
+        if(step===0&&(st==="menu"||st==="boss")){
+            _noise(t,_STEP*8,v*(st==="boss"?0.16:0.11),
+                st==="boss"?70:180, st==="boss"?550:1100, _musBus);
+        }
+
+        // ── BOSS DISTORTED LAYER ──────────────────────────────
+        if(st==="boss"&&(step===0||step===8)){
+            const bf=[55,82,110][bar%3];
             const o=ctx.createOscillator(), g=ctx.createGain();
-            o.type="sine";
-            o.frequency.setValueAtTime(_PAT_SUB[step], t);
-            g.gain.setValueAtTime(v*0.7, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*3.8);
+            const dist=ctx.createWaveShaper(); dist.curve=_distCurve(7);
+            o.type="sawtooth"; o.frequency.setValueAtTime(bf,t);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(v*0.24,t+0.06);
+            g.gain.setValueAtTime(v*0.24,t+_STEP*3.5);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*4.2);
+            o.connect(dist); dist.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+_STEP*4.5);
+        }
+
+        // ── HIGH COMBO ARPEGGIO ───────────────────────────────
+        if(st==="high_combo"&&step%4===2){
+            const arpFreqs=[440,523,659,784];
+            const arpF=arpFreqs[Math.floor(step/4)%arpFreqs.length];
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="triangle"; o.frequency.setValueAtTime(arpF,t);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(v*0.14,t+0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*1.8);
             o.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+_STEP_DUR*4);
+            o.start(t); o.stop(t+_STEP*2.1);
         }
 
-        // ── LEAD SYNTH ────────────────────────────────
-        if(_PAT_LEAD[step]){
-            const f=_PAT_LEAD[step];
-            const o=ctx.createOscillator(), g=ctx.createGain();
-            o.type="square";
-            o.frequency.setValueAtTime(f, t);
-            o.detune.setValueAtTime(8, t); // slight detune
-            // HP filtre — tiz ama yumuşak
-            const hpf=ctx.createBiquadFilter();
-            hpf.type="bandpass"; hpf.frequency.value=f*2; hpf.Q.value=1.5;
-            g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(v*0.18, t+0.012);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+_STEP_DUR*3);
-            o.connect(hpf); hpf.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+_STEP_DUR*3.2);
-        }
+        // ── Bar counter ───────────────────────────────────────
+        if(step===_BAR-1) _musBar++;
     }
 
     function _musScheduler(){
         if(!_musPlaying||!_ctx) return;
-        const lookAhead = _ctx.currentTime + _LOOKAHEAD;
-        while(_musNextNote < lookAhead){
-            _scheduleMusStep(_musNextNote, _musStep);
-            _musStep = (_musStep+1) % _BAR_STEPS;
-            _musNextNote += _STEP_DUR;
+        const lookAhead=_ctx.currentTime+_LOOKAHEAD;
+        while(_musNextNote<lookAhead){
+            _scheduleStep(_musNextNote,_musStep);
+            _musStep=(_musStep+1)%_BAR;
+            _musNextNote+=_STEP;
         }
     }
 
     function _startMusic(){
         const ctx=_getCtx(); if(!ctx||_musPlaying) return;
         _resume();
-        _musPlaying  = true;
-        _musStep     = 0;
-        _musNextNote = ctx.currentTime + 0.05;
-        // Müziği yavaşça aç (fade-in 2 saniye)
+        _musPlaying  =true;
+        _musStep     =0;
+        _musBar      =0;
+        _musNextNote =ctx.currentTime+0.10;
+        // Setup sidechain gain (affects sfxBus indirectly for pump feel)
+        _sidechainG=ctx.createGain(); _sidechainG.gain.value=1.0;
+        // Fade in music bus
         _musBus.gain.cancelScheduledValues(ctx.currentTime);
-        _musBus.gain.setValueAtTime(0, ctx.currentTime);
-        _musBus.gain.linearRampToValueAtTime(0.4, ctx.currentTime+2.0);
-        _musTimer = setInterval(_musScheduler, _SCHED_INT*1000);
+        _musBus.gain.setValueAtTime(0,ctx.currentTime);
+        _musBus.gain.linearRampToValueAtTime(_mVol(0.88),ctx.currentTime+0.6);
+        _musTimer=setInterval(_musScheduler,_SCHED_INT*1000);
     }
 
-    function _stopMusic(fadeTime=1.5){
+    function _stopMusic(fadeTime=2.0){
         if(!_musPlaying||!_ctx) return;
         _musPlaying=false;
         clearInterval(_musTimer); _musTimer=null;
         _musBus.gain.cancelScheduledValues(_ctx.currentTime);
-        _musBus.gain.setValueAtTime(_musBus.gain.value, _ctx.currentTime);
-        _musBus.gain.linearRampToValueAtTime(0, _ctx.currentTime+fadeTime);
+        _musBus.gain.setValueAtTime(_musBus.gain.value,_ctx.currentTime);
+        _musBus.gain.linearRampToValueAtTime(0,_ctx.currentTime+fadeTime);
     }
 
-    // ══════════════════════════════════════════════════════════
-    // SFX TANIMI — Sinematik & Havalı
-    // ══════════════════════════════════════════════════════════
+    function _setMusicState(state,xfade=2.0){
+        if(!_ctx||state===_musState) return;
+        _musState=state;
+        if(_musBus&&_musPlaying){
+            const now=_ctx.currentTime;
+            _musBus.gain.cancelScheduledValues(now);
+            _musBus.gain.setValueAtTime(_musBus.gain.value,now);
+            // Brief dip + recover for smooth transition feel
+            _musBus.gain.linearRampToValueAtTime(_mVol(0.45),now+xfade*0.28);
+            _musBus.gain.linearRampToValueAtTime(_mVol(0.88),now+xfade);
+        }
+    }
+
+    // ── Low HP heartbeat ambience ─────────────────────────────────
+    let _heartbeatTimer=null;
+    function _startHeartbeat(){
+        if(_heartbeatTimer) return;
+        _heartbeatTimer=setInterval(()=>{
+            const ctx=_getCtx(); if(!ctx||!_ambBus) return;
+            const t=ctx.currentTime;
+            const o1=ctx.createOscillator(), g1=ctx.createGain();
+            o1.type="sine"; o1.frequency.setValueAtTime(62,t);
+            o1.frequency.exponentialRampToValueAtTime(46,t+0.09);
+            g1.gain.setValueAtTime(_mVol(0.75),t);
+            g1.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+            o1.connect(g1); g1.connect(_ambBus); o1.start(t); o1.stop(t+0.14);
+            const o2=ctx.createOscillator(), g2=ctx.createGain();
+            o2.type="sine"; o2.frequency.setValueAtTime(56,t+0.13);
+            o2.frequency.exponentialRampToValueAtTime(42,t+0.22);
+            g2.gain.setValueAtTime(_mVol(0.48),t+0.13);
+            g2.gain.exponentialRampToValueAtTime(0.0001,t+0.25);
+            o2.connect(g2); g2.connect(_ambBus); o2.start(t+0.13); o2.stop(t+0.27);
+        },880);
+        if(_ctx&&_ambBus){
+            const now=_ctx.currentTime;
+            _ambBus.gain.cancelScheduledValues(now);
+            _ambBus.gain.linearRampToValueAtTime(0.65,now+1.5);
+        }
+    }
+    function _stopHeartbeat(){
+        if(_heartbeatTimer){clearInterval(_heartbeatTimer);_heartbeatTimer=null;}
+        if(_ctx&&_ambBus){
+            const now=_ctx.currentTime;
+            _ambBus.gain.cancelScheduledValues(now);
+            _ambBus.gain.linearRampToValueAtTime(0,now+1.5);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // SFX LIBRARY — AAA Quality, 3-Layer per sound
+    // ══════════════════════════════════════════════════════════════
     const SFX = {
 
-        // ── Silah sesleri ──────────────────────────────────
+        // ── SHOOT DEFAULT (punch + click + air-tail) ─────────────
         shoot_default(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            // Tok patlama + fısıltı kuyruk
-            _osc("square", 280, t, 0.04, _vol(0.47), 80);
-            _noise(t, 0.055, _vol(0.30), 1800, 9000);
-            _osc("sine", 95, t, 0.07, _vol(0.32), 35);
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.28);
+            _osc("sine",  _vary(74),  t, _vary(0.07,0.1), _vol(0.38), _vary(27), null, pan);
+            _osc("square",_vary(265), t, _vary(0.036,0.1),_vol(0.44), _vary(74), null, pan);
+            _noise(t,  _vary(0.008,0.1), _vol(0.32), 2000,10000, null, pan);
+            _noise(t+0.024, _vary(0.06,0.1), _vol(0.12), 600,5000, null, pan);
         },
 
         shoot_rapid(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            _osc("square", 380, t, 0.025, _vol(0.32), 120);
-            _noise(t, 0.03, _vol(0.21), 3000, 12000);
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.22);
+            _osc("square",_vary(385), t, _vary(0.022,0.1), _vol(0.30),_vary(112), null, pan);
+            _noise(t, _vary(0.018,0.1), _vol(0.22), 2800,12000, null, pan);
+            _osc("sine",  _vary(88),  t, _vary(0.015,0.1), _vol(0.15), null,     null, pan);
         },
 
         shoot_cannon(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Ağır top — düşük boom
-            _osc("sine",   60, t, 0.22, _vol(0.72), 22);
-            _osc("square",140, t, 0.12, _vol(0.38), 40);
-            _noise(t, 0.08, _vol(0.47), 200, 4000);
-            // Reverb tail
-            _noise(t+0.06, 0.18, _vol(0.10), 100, 1200);
+            _osc("sine",  _vary(60),  t, _vary(0.22,0.05), _vol(0.72), _vary(22));
+            _osc("square",_vary(140), t, _vary(0.12,0.05), _vol(0.40), _vary(40));
+            _noise(t, _vary(0.09,0.05), _vol(0.48), 200,4500);
+            _noise(t+0.08, _vary(0.22,0.05), _vol(0.12), 80,1000);
+            _osc("sine",  _vary(34),  t, _vary(0.18,0.05), _vol(0.38), _vary(18));
         },
 
         shoot_spread(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sawtooth", 240, t, 0.035, _vol(0.36), 70);
-            _noise(t, 0.05, _vol(0.24), 2200, 8000);
-            _osc("square",  180, t+0.01, 0.03, _vol(0.19), 60);
+            _osc("sawtooth",_vary(240), t,       _vary(0.035,0.1), _vol(0.36), _vary(70));
+            _noise(t, _vary(0.05,0.1), _vol(0.25), 2200,9000);
+            _osc("square",  _vary(180), t+0.008, _vary(0.030,0.1), _vol(0.19), _vary(60));
+            _noise(t+0.012, 0.03, _vol(0.12), 4000,14000);
         },
 
         shoot_precision(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Lazer snap — çok keskin, tiz
-            _osc("sine", 900, t, 0.008, _vol(0.51), 200);
-            _osc("sine", 600, t, 0.055, _vol(0.34), 120);
-            _noise(t, 0.02, _vol(0.17), 6000, 16000);
+            _osc("sine",    _vary(1100), t, _vary(0.006,0.1), _vol(0.52), _vary(180));
+            _osc("sine",    _vary(650),  t, _vary(0.055,0.1), _vol(0.35), _vary(110));
+            _noise(t, _vary(0.018,0.1), _vol(0.20), 5000,18000);
+            _osc("triangle",_vary(2200), t+0.005, _vary(0.04,0.1), _vol(0.10));
         },
 
         shoot_chain(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("triangle", 320, t, 0.045, _vol(0.38), 90);
-            _osc("sine", 480, t, 0.03, _vol(0.19), 160);
-            _noise(t, 0.04, _vol(0.15), 2500, 8000);
+            _osc("triangle",_vary(320), t, _vary(0.045,0.1), _vol(0.38), _vary(90));
+            _osc("sine",    _vary(480), t, _vary(0.030,0.1), _vol(0.20), _vary(160));
+            _noise(t, _vary(0.04,0.1), _vol(0.16), 2500,9000);
+            _osc("sine",    _vary(880), t+0.015, _vary(0.025,0.1), _vol(0.09));
         },
 
         shoot_reflect(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sine", 520, t, 0.05, _vol(0.32), 260);
-            _osc("triangle", 780, t, 0.04, _vol(0.17), 390);
-            _noise(t, 0.035, _vol(0.13), 4000, 10000);
+            _osc("sine",    _vary(520), t, _vary(0.050,0.1), _vol(0.32), _vary(260));
+            _osc("triangle",_vary(780), t, _vary(0.040,0.1), _vol(0.18), _vary(390));
+            _noise(t, _vary(0.035,0.1), _vol(0.14), 4000,12000);
+            _osc("sine",   _vary(1400), t+0.02, _vary(0.06,0.1), _vol(0.08), _vary(700));
         },
 
         bullet_bounce(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            _osc("sine", 700, t, 0.06, _vol(0.3), 350);
-            _noise(t, 0.03, _vol(0.15), 3000, 8000);
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.55);
+            _osc("sine",    _vary(700),  t, _vary(0.065,0.1), _vol(0.32), _vary(350), null, pan);
+            _noise(t, _vary(0.028,0.1), _vol(0.16), 3000,9000, null, pan);
+            _osc("triangle",_vary(1200), t+0.01, _vary(0.04,0.1), _vol(0.09), null, null, pan);
         },
 
-        // ── Hasar sesleri ──────────────────────────────────
+        // ── HIT NORMAL (impact + bass + crunch) ──────────────────
         hit_normal(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Küt darbe — body hit
-            _osc("sine", 90, t, 0.04, _vol(0.7), 30);
-            _noise(t, 0.025, _vol(0.5), 300, 3500);
-            _osc("triangle", 180, t, 0.015, _vol(0.3), 60);
+            _osc("sine",    _vary(90),  t, _vary(0.042,0.1), _vol(0.72), _vary(28));
+            _noise(t, _vary(0.028,0.1), _vol(0.52), 300,4000);
+            _osc("triangle",_vary(180), t, _vary(0.015,0.1), _vol(0.30), _vary(60));
+            _noise(t+0.008, _vary(0.02,0.1), _vol(0.18), 1500,8000);
         },
 
+        // ── HIT CRIT (heavy THUD + crunch + shimmer) ─────────────
         hit_crit(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Ağır "THUD" — güçlü darbe
-            _osc("sine",   50,  t,      0.18, _vol(1.0), 15);
-            _osc("sine",   95,  t,      0.10, _vol(0.6), 25);
-            _noise(t,      0.05, _vol(0.7), 200, 4000);
-            _noise(t+0.03, 0.15, _vol(0.2), 60,  500);
+            _osc("sine",   _vary(52),  t, _vary(0.18,0.05), _vol(1.0),  _vary(14));
+            _osc("sine",   _vary(100), t, _vary(0.10,0.05), _vol(0.62), _vary(26));
+            _noise(t, _vary(0.06,0.05), _vol(0.70), 200,5000);
+            _noise(t+0.03, _vary(0.18,0.05), _vol(0.22), 50,450);
+            _osc("sine",   _vary(880), t+0.04, _vary(0.12,0.05), _vol(0.18), _vary(440));
+            _noise(t+0.05, 0.08, _vol(0.14), 4000,16000);
         },
 
-        // ── Combo ──────────────────────────────────────────
-        combo(count){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+        // ── COMBO (pitch + layers scale with count) ───────────────
+        combo(count=1){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // A minör pentatonik — combo tier'a göre yükselir
-            const scale=[110,130,146,164,196,220,261,294,329,392,440];
-            const idx=Math.min(Math.floor(count/2), scale.length-1);
+            const scale=[110,130,146,164,196,220,261,294,330,392,440,523,659];
+            const idx=Math.min(Math.floor(count/2),scale.length-1);
             const f=scale[idx];
-            const vol=Math.min(0.55, 0.2+count*0.016);
-            // Ana nota — sawtooth + LP filtre (sıcak sinths sesi)
+            const vol=Math.min(0.65, 0.22+count*0.018);
             const o=ctx.createOscillator(), g=ctx.createGain();
-            o.type="sawtooth";
-            o.frequency.setValueAtTime(f*2, t);
+            o.type="sawtooth"; o.frequency.setValueAtTime(f*2,t);
+            o.detune.setValueAtTime(_varyC(10),t);
             const lpf=ctx.createBiquadFilter();
-            lpf.type="lowpass"; lpf.frequency.value=f*6; lpf.Q.value=3;
-            g.gain.setValueAtTime(_vol(vol), t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+0.32);
+            lpf.type="lowpass"; lpf.frequency.value=f*(5+count*0.3); lpf.Q.value=3.5;
+            g.gain.setValueAtTime(_vol(vol),t);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.36);
             o.connect(lpf); lpf.connect(g); g.connect(_sfxBus);
-            o.start(t); o.stop(t+0.35);
-            // Oktav üstü shimmer
-            _osc("sine", f*4, t+0.02, 0.18, _vol(vol*0.3));
-            // Percussive başlangıç
-            _noise(t, 0.018, _vol(0.2), 2000, 9000);
-
-            // HIGH COMBO (10+) — ekstra enerji katmanı
+            o.start(t); o.stop(t+0.40);
+            _osc("sine",f*4,t+0.02,0.20,_vol(vol*0.28));
+            _noise(t,0.016,_vol(0.22),2000,10000);
             if(count>=10){
-                _osc("square", f*3, t, 0.12, _vol(0.18), f*2);
-                _noise(t, 0.035, _vol(0.22), 4000, 14000);
+                _osc("square",f*3,t,0.14,_vol(0.18),f*2);
+                _noise(t,0.035,_vol(0.24),4000,16000);
+                _osc("triangle",f*5,t+0.04,0.10,_vol(0.12),null,null,Math.sin(count*0.5)*0.62);
             }
         },
 
-        // ── Kill ───────────────────────────────────────────
-        kill(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            // Derin etki + metalik zing
-            _osc("sine",   80,  t,      0.20, _vol(0.75), 28);
-            _osc("triangle",380, t,      0.06, _vol(0.35), 100);
-            _noise(t, 0.045, _vol(0.45), 500, 5500);
-            // Satisfaction zing
-            _osc("sine", 660, t+0.02, 0.09, _vol(0.2), 440);
-        },
-
-        // ── Level Up ───────────────────────────────────────
-        level_up(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            // Epik yükseliş — A minör'den A majör'e geçiş
-            const arp=[220,277,330,440,554,660];
-            arp.forEach((f,i)=>{
-                const st=t+i*0.085;
-                _osc("sawtooth", f, st, 0.28, _vol(0.38), f*0.98);
-                const o2=ctx.createOscillator(), g2=ctx.createGain();
-                o2.type="sine"; o2.frequency.value=f*2;
-                g2.gain.setValueAtTime(_vol(0.15), st);
-                g2.gain.exponentialRampToValueAtTime(0.0001, st+0.22);
-                o2.connect(g2); g2.connect(_sfxBus);
-                o2.start(st); o2.stop(st+0.25);
-            });
-            // Final chord — büyük
-            [440,554,660,880].forEach((f,i)=>{
-                _osc("sine", f, t+0.52, 0.55, _vol(0.22));
-            });
-            _noise(t+0.50, 0.08, _vol(0.18), 3000, 12000);
-        },
-
-        // ── Altın ──────────────────────────────────────────
-        gold(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            // Parlak madeni — 3 nota hızlı arpeji
-            [1318, 1568, 2093].forEach((f,i)=>{
-                _osc("sine", f, t+i*0.025, 0.10, _vol(0.22));
-            });
-            _noise(t, 0.025, _vol(0.12), 5000, 14000);
-        },
-
-        // ── Perfect / Bullseye ─────────────────────────────
-        perfect(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
-            const t=ctx.currentTime;
-            // Çift tiz çan — epik onay
-            _osc("sine",  880, t,      0.50, _vol(0.35));
-            _osc("sine", 1320, t+0.06, 0.42, _vol(0.28));
-            _osc("sine", 1760, t+0.12, 0.32, _vol(0.18));
-            // Sparkle noise
-            _noise(t, 0.05, _vol(0.15), 5000, 16000);
-            // Bass ön vuruş
-            _osc("sine", 110, t, 0.08, _vol(0.3), 55);
-        },
-
-        // ── Combo kırıldı ──────────────────────────────────
+        // ── COMBO BREAK (distorted downward sweep) ───────────────
         combo_break(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Distort + kötü sweep aşağı
-            const o=ctx.createOscillator();
-            const dist=ctx.createWaveShaper();
-            const g=ctx.createGain();
-            const curve=new Float32Array(512);
-            for(let i=0;i<512;i++){const x=i*2/512-1; curve[i]=Math.tanh(x*4);}
-            dist.curve=curve;
-            o.type="sawtooth";
-            o.frequency.setValueAtTime(520, t);
-            o.frequency.exponentialRampToValueAtTime(80, t+0.45);
-            g.gain.setValueAtTime(_vol(0.55), t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+0.50);
-            // LFO titreme
+            const o=ctx.createOscillator(), dist=ctx.createWaveShaper(), g=ctx.createGain();
+            dist.curve=_distCurve(4);
             const lfo=ctx.createOscillator(), lfoG=ctx.createGain();
-            lfo.frequency.value=28; lfoG.gain.value=40;
+            lfo.frequency.value=25; lfoG.gain.value=52;
             lfo.connect(lfoG); lfoG.connect(o.frequency);
+            o.type="sawtooth";
+            o.frequency.setValueAtTime(510,t);
+            o.frequency.exponentialRampToValueAtTime(70,t+0.52);
+            g.gain.setValueAtTime(_vol(0.58),t);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.58);
             o.connect(dist); dist.connect(g); g.connect(_sfxBus);
-            lfo.start(t); lfo.stop(t+0.52);
-            o.start(t); o.stop(t+0.52);
-            // Bas darbe
-            _osc("sine", 55, t, 0.14, _vol(0.55), 28);
+            lfo.start(t); lfo.stop(t+0.58);
+            o.start(t); o.stop(t+0.58);
+            _osc("sine",_vary(50),t,0.16,_vol(0.58),_vary(24));
+            _noise(t,0.08,_vol(0.36),400,8000);
         },
 
-        // ── Oyun bitti ─────────────────────────────────────
+        // ── KILL (deep impact + metallic + satisfaction zing) ─────
+        kill(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",    _vary(80),  t,       _vary(0.22,0.05), _vol(0.78), _vary(28));
+            _osc("triangle",_vary(400), t,       _vary(0.06,0.05), _vol(0.38), _vary(100));
+            _noise(t, _vary(0.05,0.05), _vol(0.48), 500,6000);
+            _osc("sine",   _vary(660),  t+0.025, _vary(0.10,0.05), _vol(0.22), _vary(1000));
+            _noise(t+0.03, 0.08, _vol(0.14), 4000,16000);
+        },
+
+        // ── PYRAMID BREAK ─────────────────────────────────────────
+        pyramid_break(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",    _vary(120), t, _vary(0.026,0.1), _vol(0.66), _vary(38));
+            _noise(t, _vary(0.032,0.1), _vol(0.52), 400,4000);
+            _noise(t, _vary(0.014,0.1), _vol(0.25), 5000,14000);
+            _osc("triangle",_vary(78),  t+0.01, _vary(0.04,0.1), _vol(0.28), _vary(30));
+        },
+
+        // ── LEVEL UP (rising arp + final chord + sparkle) ─────────
+        level_up(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const arp=[220,277,330,440,554,660,880];
+            arp.forEach((f,i)=>{
+                const st=t+i*0.082;
+                _osc("sawtooth",f,st,0.30,_vol(0.40),f*0.98);
+                _osc("sine",f*2,st,0.22,_vol(0.16));
+            });
+            [440,554,660,880,1100].forEach(f=>{ _osc("sine",f,t+0.60,0.65,_vol(0.22)); });
+            _noise(t+0.58,0.10,_vol(0.22),3000,14000);
+            _osc("sine",55,t+0.56,0.45,_vol(0.44),28);
+        },
+
+        // ── GOLD PICKUP ───────────────────────────────────────────
+        gold(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            [1318,1568,2093].forEach((f,i)=>{
+                _osc("sine",    f,   t+i*0.024, _vary(0.09,0.1), _vol(0.24), null, null, _vary(0,0.45));
+                _osc("triangle",f*2, t+i*0.024, _vary(0.06,0.1), _vol(0.08));
+            });
+            _noise(t,0.022,_vol(0.13),5000,16000);
+        },
+
+        // ── XP PICKUP ─────────────────────────────────────────────
+        xp_gain(){
+            // Crystal sparkle XP — rising bell arpeggio + shimmer burst
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const root=_vary(880,40);
+            [1, 1.2599, 1.4983, 2.0].forEach((ratio,i)=>{
+                const st=t+i*0.038;
+                const o=ctx.createOscillator(), g=ctx.createGain(), pan=_mkPan(ctx,_vary(0,0.5));
+                o.type="sine"; o.frequency.value=root*ratio;
+                g.gain.setValueAtTime(0,st);
+                g.gain.linearRampToValueAtTime(_vol(0.22-i*0.025),st+0.008);
+                g.gain.exponentialRampToValueAtTime(0.0001,st+0.20-i*0.02);
+                o.connect(pan); pan.connect(g); g.connect(_sfxBus);
+                o.start(st); o.stop(st+0.24);
+            });
+            _noise(t+0.04, 0.085, _vol(0.14), 7000, 18000);
+            _osc("sine", root*0.5, t, 0.055, _vol(0.12), root*0.25);
+            _osc("sine", root*3.96, t+0.10, 0.09, _vol(0.07), null, null, _vary(0,0.6));
+        },
+
+
+
+        // ── PLAYER HURT ───────────────────────────────────────────
+        player_hurt(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sawtooth",_vary(155), t, _vary(0.085,0.1), _vol(0.52), _vary(50));
+            _osc("sine",    _vary(78),  t, _vary(0.125,0.1), _vol(0.48), _vary(28));
+            _noise(t, _vary(0.065,0.1), _vol(0.42), 200,3500);
+            _osc("sine",    _vary(900), t+0.03, _vary(0.06,0.1), _vol(0.14), _vary(200));
+        },
+
+        // ── GAME OVER (cinematic — NEVER abrupt) ─────────────────
         game_over(){
             const ctx=_getCtx(); if(!ctx) return; _resume();
             const t=ctx.currentTime;
-            // Sinematik çöküş
-            _osc("sine", 440, t,      0.6, _vol(0.35), 55);
-            _osc("sine", 370, t+0.3,  0.7, _vol(0.3),  46);
-            _osc("sine", 220, t+0.65, 0.8, _vol(0.35), 27);
-            // Derin gürültü sweep
+            _osc("sine",440, t,       0.70, _vol(0.38), 52);
+            _osc("sine",370, t+0.35,  0.80, _vol(0.32), 44);
+            _osc("sine",220, t+0.75,  0.90, _vol(0.38), 26);
             const o=ctx.createOscillator(), g=ctx.createGain();
             o.type="sawtooth";
-            o.frequency.setValueAtTime(180, t+0.7);
-            o.frequency.exponentialRampToValueAtTime(30, t+1.4);
-            g.gain.setValueAtTime(_vol(0.3), t+0.7);
-            g.gain.exponentialRampToValueAtTime(0.0001, t+1.5);
+            o.frequency.setValueAtTime(180,t+0.82);
+            o.frequency.exponentialRampToValueAtTime(26,t+1.90);
+            g.gain.setValueAtTime(_vol(0.35),t+0.82);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+2.30);
             o.connect(g); g.connect(_sfxBus);
-            o.start(t+0.7); o.stop(t+1.6);
-            _noise(t+0.65, 0.6, _vol(0.15), 50, 500);
+            o.start(t+0.82); o.stop(t+2.40);
+            _noise(t+0.72,1.5,_vol(0.16),40,650);
+            _osc("sine",32,t+0.55,1.9,_vol(0.32),18);
         },
 
-        // ── Menü tıklaması ─────────────────────────────────
+        // ── MENU CLICK ────────────────────────────────────────────
         menu_click(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            // Crisp menu click — two-tone sine blip + sharp noise
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sine", 880, t,      0.055, _vol(0.22));
-            _osc("sine",1100, t+0.03, 0.045, _vol(0.16));
-            _noise(t, 0.015, _vol(0.08), 4000, 10000);
+            const o=ctx.createOscillator(), g=ctx.createGain(), p=_mkPan(ctx,_vary(0,0.15));
+            o.type="sine"; o.frequency.setValueAtTime(_vary(1100,60),t);
+            o.frequency.exponentialRampToValueAtTime(_vary(780,40),t+0.040);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(0.26),t+0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
+            o.connect(p); p.connect(g); g.connect(_uiBus);
+            o.start(t); o.stop(t+0.065);
+            // Second harmonic tail
+            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.14), null, _uiBus);
+            // Crisp click noise
+            _noise(t, 0.010, _vol(0.12), 4500, 14000, _uiBus);
         },
 
-        // ── Sandık açılışı ─────────────────────────────────
-        chest_open(rarity){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+        // ── MENU HOVER ────────────────────────────────────────────
+        menu_hover(){
+            // Dry, precise UI tick — subtle stereo whisper
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const pan=_vary(0,0.25);
+            const o=ctx.createOscillator(), g=ctx.createGain(), p=_mkPan(ctx,pan);
+            o.type="sine"; o.frequency.setValueAtTime(_vary(1400,80),t);
+            o.frequency.exponentialRampToValueAtTime(_vary(880,40),t+0.018);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(0.15),t+0.003);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.030);
+            o.connect(p); p.connect(g); g.connect(_uiBus);
+            o.start(t); o.stop(t+0.038);
+            _noise(t, 0.008, _vol(0.07), 6500, 16000, _uiBus);
+        },
+
+        // ── BUTTON CONFIRM ────────────────────────────────────────
+        button_confirm(){
+            // Punchy confirm — tri-chord stab + snappy noise + low thud
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Chord stab: minor third stack — dark but satisfying
+            [[392,0],[494,0.028],[587,0.052]].forEach(([f,dt])=>{
+                const o=ctx.createOscillator(), g=ctx.createGain(), p=_mkPan(ctx,_vary(0,0.2));
+                o.type="square"; o.frequency.value=f;
+                g.gain.setValueAtTime(0,t+dt);
+                g.gain.linearRampToValueAtTime(_vol(0.20),t+dt+0.006);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+dt+0.13);
+                o.connect(p); p.connect(g); g.connect(_uiBus);
+                o.start(t+dt); o.stop(t+dt+0.16);
+            });
+            // Snappy transient crack
+            _noise(t, 0.012, _vol(0.18), 2500, 11000, _uiBus);
+            // Low thud for weight
+            _osc("sine",_vary(160), t, 0.06, _vol(0.28), _vary(60), _uiBus);
+        },
+
+        // ── UPGRADE SELECT ────────────────────────────────────────
+        upgrade_select(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sawtooth",_vary(330), t,      _vary(0.05,0.1), _vol(0.28), _vary(165), _uiBus);
+            _osc("sine",    _vary(660), t+0.04, _vary(0.08,0.05),_vol(0.22), null, _uiBus);
+            _noise(t,0.018,_vol(0.14),2000,10000,_uiBus);
+        },
+
+        // ── LEVEL UP SCREEN OPEN ──────────────────────────────────
+        levelup_open(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",_vary(440), t,      _vary(0.12,0.05), _vol(0.32), _vary(880), _uiBus);
+            _osc("sine",_vary(660), t+0.06, _vary(0.10,0.05), _vol(0.25), null, _uiBus);
+            _noise(t,0.025,_vol(0.16),2500,12000,_uiBus);
+        },
+
+        // ── LEVEL UP SCREEN CLOSE ─────────────────────────────────
+        levelup_close(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",_vary(880), t, _vary(0.08,0.05), _vol(0.18), _vary(440), _uiBus);
+            _noise(t,0.014,_vol(0.08),3000,10000,_uiBus);
+        },
+
+        // ── BOSS SPAWN (dramatic, alarming) ──────────────────────
+        boss_spawn(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",35, t, 0.80, _vol(0.92), 18);
+            _osc("sine",70, t, 0.50, _vol(0.68), 30);
+            const o=ctx.createOscillator(), g=ctx.createGain(), d=ctx.createWaveShaper();
+            d.curve=_distCurve(8);
+            o.type="sawtooth"; o.frequency.setValueAtTime(180,t);
+            o.frequency.exponentialRampToValueAtTime(42,t+1.3);
+            g.gain.setValueAtTime(_vol(0.56),t);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+1.6);
+            o.connect(d); d.connect(g); g.connect(_sfxBus);
+            o.start(t); o.stop(t+1.7);
+            _noise(t,0.85,_vol(0.40),80,2800);
+            _osc("square",440,t,      0.30,_vol(0.26),880);
+            _osc("square",880,t+0.30, 0.30,_vol(0.22),440);
+        },
+
+        // ── BOSS HIT ──────────────────────────────────────────────
+        boss_hit(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",  _vary(44),  t, _vary(0.18,0.05), _vol(0.88), _vary(18));
+            _osc("square",_vary(200), t, _vary(0.08,0.05), _vol(0.44), _vary(60));
+            _noise(t, _vary(0.07,0.05), _vol(0.60), 150,3200);
+            _noise(t+0.04, 0.12, _vol(0.24), 3000,13000);
+        },
+
+        // ── BOSS DEATH (massive cinematic) ────────────────────────
+        boss_death(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",40, t, 1.20, _vol(1.0),  18);
+            _osc("sine",80, t, 0.80, _vol(0.78), 26);
+            _noise(t,0.55,_vol(0.72),100,7000);
+            _noise(t+0.30,0.85,_vol(0.32),28,400);
+            _osc("sawtooth",300, t+0.50, 1.10, _vol(0.40), 28);
+            [880,1100,1320].forEach((f,i)=>{ _osc("sine",f,t+1.05+i*0.08,0.55,_vol(0.22)); });
+        },
+
+        // ── CHEST OPEN (rarity-aware layering) ───────────────────
+        chest_open(rarity="common"){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
             const tiers={
-                legendary:{notes:[196,247,330,440,554,659,880], vol:0.38, spd:0.06},
-                rare:     {notes:[196,247,330,440,659],         vol:0.30, spd:0.07},
-                common:   {notes:[196,247,330,440],             vol:0.24, spd:0.08},
+                legendary:{notes:[196,247,330,440,554,659,880,1100], vol:0.42, spd:0.054},
+                rare:     {notes:[196,247,330,440,659],              vol:0.33, spd:0.068},
+                common:   {notes:[196,247,330,440],                  vol:0.27, spd:0.080},
             };
             const tier=tiers[rarity]||tiers.common;
             tier.notes.forEach((f,i)=>{
                 const st=t+i*tier.spd;
-                _osc("sine",     f,   st, 0.32, _vol(tier.vol));
-                _osc("triangle", f*2, st, 0.22, _vol(tier.vol*0.35));
+                _osc("sine",    f,   st, 0.35, _vol(tier.vol),        null, null, _vary(0,0.35));
+                _osc("triangle",f*2, st, 0.25, _vol(tier.vol*0.35),   null, null, _vary(0,0.35));
             });
-            _noise(t, 0.06, _vol(0.14), 3000, 10000);
+            _noise(t,0.07,_vol(0.17),3000,12000);
             if(rarity==="legendary"){
-                // Efsane — extra bass boom
-                _osc("sine", 55, t, 0.4, _vol(0.45), 28);
-                _noise(t+0.35, 0.15, _vol(0.22), 2000, 8000);
+                _osc("sine",40,t,0.58,_vol(0.58),22);
+                _noise(t+0.40,0.22,_vol(0.30),1500,11000);
+                [1320,1568,1760].forEach((f,i)=>{ _osc("sine",f,t+0.36+i*0.055,0.28,_vol(0.20)); });
+            }else if(rarity==="rare"){
+                _osc("sine",55,t,0.36,_vol(0.40),28);
+                _noise(t+0.26,0.13,_vol(0.20),2000,9500);
             }
         },
 
-        // ── XP toplandı ────────────────────────────────────
-        xp_gain(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+        // ── REVIVE ────────────────────────────────────────────────
+        revive(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sine", 660, t,      0.045, _vol(0.08));
-            _osc("sine", 880, t+0.02, 0.035, _vol(0.06));
+            _osc("sine",220, t,       0.52, _vol(0.56), 880);
+            _osc("sine",440, t+0.15,  0.42, _vol(0.42), 1320);
+            _osc("sine",660, t+0.30,  0.36, _vol(0.34), 1760);
+            [880,1100,1320].forEach((f,i)=>{ _osc("sine",f,t+0.52+i*0.04,0.58,_vol(0.22)); });
+            _noise(t+0.50,0.20,_vol(0.30),3000,16000);
+            _osc("sine",55,t+0.46,0.44,_vol(0.50),28);
         },
 
-        // ── Oyuncu hasar aldı ──────────────────────────────
-        player_hurt(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+        // ── FOOTSTEP (natural, random pitch/vol/pan) ──────────────
+        // ── PIXEL / ENEMY EXPLODE ────────────────────────────────────
+        pixel_explode(){
+            // Tatlı pixel patlama — yumuşak "pop" + neşeli parçacık saçılması
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sawtooth", 160, t, 0.08, _vol(0.5), 55);
-            _noise(t, 0.06, _vol(0.4), 200, 3000);
-            _osc("sine", 80, t, 0.12, _vol(0.45), 30);
+            _osc("sine", _vary(320,15), t, _vary(0.09,0.04), _vol(0.58), _vary(80));
+            _osc("triangle", _vary(480,20), t, _vary(0.07,0.04), _vol(0.38), _vary(120));
+            const bo=ctx.createOscillator(), bg=ctx.createGain();
+            bo.type="sine";
+            bo.frequency.setValueAtTime(_vary(260,20),t);
+            bo.frequency.exponentialRampToValueAtTime(_vary(680,30),t+0.055);
+            bo.frequency.exponentialRampToValueAtTime(_vary(180,15),t+0.13);
+            bg.gain.setValueAtTime(0,t);
+            bg.gain.linearRampToValueAtTime(_vol(0.42),t+0.008);
+            bg.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+            bo.connect(bg); bg.connect(_sfxBus);
+            bo.start(t); bo.stop(t+0.18);
+            const sparkFreqs=[900,1200,1600,2100,1800,2500];
+            sparkFreqs.forEach((f,i)=>{
+                const dt=i*0.014+Math.random()*0.010;
+                const pan=_vary(0,0.75);
+                _osc("sine", _vary(f,0.12), t+dt, _vary(0.038,0.08), _vol(0.10+Math.random()*0.06), null, null, pan);
+            });
+            _noise(t, _vary(0.048,0.06), _vol(0.28), 800, 6000);
+            _noise(t+0.04, _vary(0.055,0.06), _vol(0.14), 3000, 11000);
+            [[1047,0.06],[1319,0.09],[1568,0.12]].forEach(([f,dt])=>{
+                _osc("sine",_vary(f,0.05), t+dt, 0.065, _vol(0.09), null, null, _vary(0,0.6));
+            });
         },
 
-        // ── Adım sesleri ───────────────────────────────────
         footstep(){
-            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Hafif "thud" — zemin darbesi
-            _osc("sine", 95, t, 0.042, _vol(0.32), 38);
-            _noise(t, 0.032, _vol(0.25), 120, 900);
+            const pV=_vary(1.0,0.16), vV=_vary(1.0,0.20), pan=_vary(0,0.40);
+            _osc("sine",90*pV, t, _vary(0.040,0.12), _vol(0.28*vV), 33, null, pan);
+            _noise(t, _vary(0.028,0.15), _vol(0.20*vV), 110,850, null, pan);
+            if(Math.random()<0.42) _noise(t,0.008,_vol(0.07*vV),2000,6000, null, pan);
         },
     };
 
-    // ── Adım zamanlayıcı state ────────────────────────────
-    let _lastStepTime   = 0;
-    const _STEP_INTERVAL= 280; // ms — adım arası
+    // ── Footstep timer state ──────────────────────────────────────
+    let _lastStepTime    = 0;
+    const _STEP_INTERVAL = 268; // ms between footsteps
 
-    // ── Public API ────────────────────────────────────────
+    // ── Triangle Wind Ambience ────────────────────────────────────
+    let _windNode   = null;
+    let _windGain   = null;
+    let _windActive = false;
+
+    function _startWindAmbience(){
+        if(_windActive) return;
+        const ctx=_getCtx(); if(!ctx) return;
+        _windActive=true;
+        // Pink noise source via AudioWorklet fallback: chained biquad-filtered white noise
+        const bufSec=2, sr=ctx.sampleRate;
+        const buf=ctx.createBuffer(1,Math.floor(sr*bufSec),sr);
+        const data=buf.getChannelData(0);
+        // Pink-ish noise: sum of 3 octave-spaced white noise streams
+        let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0;
+        for(let i=0;i<data.length;i++){
+            const white=(Math.random()*2-1);
+            b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759;
+            b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856;
+            b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980;
+            data[i]=(b0+b1+b2+b3+b4+b5+white*0.5362)*0.11;
+        }
+        _windNode=ctx.createBufferSource();
+        _windNode.buffer=buf; _windNode.loop=true;
+
+        // Band-pass around 200–900 Hz — classic wind rush
+        const lpf=ctx.createBiquadFilter(); lpf.type="lowpass";  lpf.frequency.value=900; lpf.Q.value=0.6;
+        const hpf=ctx.createBiquadFilter(); hpf.type="highpass"; hpf.frequency.value=180; hpf.Q.value=0.5;
+
+        // Slow LFO tremolo (0.12 Hz) — wind gusts
+        const lfoSrc=ctx.createOscillator(); lfoSrc.frequency.value=0.12;
+        const lfoGain=ctx.createGain(); lfoGain.gain.value=0.18;
+        lfoSrc.connect(lfoGain);
+
+        _windGain=ctx.createGain(); _windGain.gain.value=0;
+        lfoGain.connect(_windGain.gain); // AM modulation
+        _windNode.connect(hpf); hpf.connect(lpf); lpf.connect(_windGain);
+        _windGain.connect(_ambBus);
+        _windNode.start();
+        lfoSrc.start();
+        // Fade in over 1.8 s
+        const now=ctx.currentTime;
+        _windGain.gain.setValueAtTime(0,now);
+        _windGain.gain.linearRampToValueAtTime(0.28,now+1.8);
+    }
+
+    function _stopWindAmbience(fadeTime=1.5){
+        if(!_windActive||!_windGain||!_ctx) return;
+        _windActive=false;
+        const now=_ctx.currentTime;
+        _windGain.gain.cancelScheduledValues(now);
+        _windGain.gain.linearRampToValueAtTime(0,now+fadeTime);
+        const node=_windNode; _windNode=null;
+        setTimeout(()=>{ try{ node.stop(); }catch(_){} }, (fadeTime+0.1)*1000 );
+    }
+
+
+    // ── Public API ────────────────────────────────────────────────
     function play(name, ...args){
         if(!_sfxOn()) return;
         try{ if(SFX[name]) SFX[name](...args); }
-        catch(e){ console.warn("[NT_SFX]", name, e); }
+        catch(e){ console.warn("[NT_SFX]",name,e); }
     }
 
     function footstepTick(isMoving){
         if(!_sfxOn()||!isMoving) return;
         const now=performance.now();
-        if(now - _lastStepTime < _STEP_INTERVAL) return;
+        if(now-_lastStepTime<_STEP_INTERVAL) return;
         _lastStepTime=now;
         play("footstep");
     }
@@ -709,17 +1155,68 @@ const NT_SFX = (function(){
     function startMusic(){ _startMusic(); }
     function stopMusic(fade){ _stopMusic(fade); }
 
-    // İlk dokunuşta başlat
+    // State-based music transitions: "menu"|"gameplay"|"high_combo"|"boss"|"outro"
+    function setMusicState(state, xfadeTime=2.0){ _setMusicState(state, xfadeTime); }
+
+    function setMasterVolume(v){
+        if(!_ctx||!_masterGain) return;
+        const val=Math.max(0,Math.min(1,v));
+        _masterGain.gain.cancelScheduledValues(_ctx.currentTime);
+        _masterGain.gain.linearRampToValueAtTime(val,_ctx.currentTime+0.06);
+    }
+
+    function setSFXVolume(v){
+        _sfxVol=Math.max(0,Math.min(1,v));
+        if(_sfxBus&&_ctx) _sfxBus.gain.setValueAtTime(_sfxVol,_ctx.currentTime);
+    }
+
+    function setMusicVolume(v){
+        const val=Math.max(0,Math.min(1,v));
+        window._nt_mus_vol=val;
+        if(!_ctx||!_musBus) return;
+        _musBus.gain.cancelScheduledValues(_ctx.currentTime);
+        _musBus.gain.linearRampToValueAtTime(val*0.88, _ctx.currentTime+0.12);
+    }
+
+    // Smooth pause — fades music+SFX down, SFX stops scheduling
+    function pauseAudio(fadeTime=0.28){
+        if(_paused||!_ctx) return;
+        _paused=true;
+        const now=_ctx.currentTime;
+        if(_musBus){ _musBus.gain.cancelScheduledValues(now); _musBus.gain.linearRampToValueAtTime(0,now+fadeTime); }
+        if(_sfxBus){ _sfxBus.gain.cancelScheduledValues(now); _sfxBus.gain.linearRampToValueAtTime(0,now+fadeTime); }
+    }
+
+    // Resume from pause
+    function resumeAudio(fadeTime=0.28){
+        if(!_paused||!_ctx) return;
+        _paused=false;
+        const now=_ctx.currentTime;
+        if(_musBus){ _musBus.gain.cancelScheduledValues(now); _musBus.gain.linearRampToValueAtTime(_mVol(0.88),now+fadeTime); }
+        if(_sfxBus){ _sfxBus.gain.cancelScheduledValues(now); _sfxBus.gain.linearRampToValueAtTime(_sfxVol,now+fadeTime); }
+    }
+
+    // Low HP heartbeat mode
+    function setLowHPMode(active){ if(active) _startHeartbeat(); else _stopHeartbeat(); }
+
+    // ── Init on first user gesture ────────────────────────────────
     let _initDone=false;
     function _initOnGesture(){
         if(_initDone) return; _initDone=true;
         _getCtx(); _resume();
     }
     ["pointerdown","keydown","touchstart"].forEach(ev=>{
-        document.addEventListener(ev, _initOnGesture, {once:false, capture:true, passive:true});
+        document.addEventListener(ev,_initOnGesture,{once:false,capture:true,passive:true});
     });
 
-    return { play, footstepTick, startMusic, stopMusic };
+    return {
+        play, footstepTick,
+        startMusic, stopMusic, setMusicState,
+        setMasterVolume, setSFXVolume, setMusicVolume,
+        pauseAudio, resumeAudio, setLowHPMode,
+        startWindAmbience: _startWindAmbience,
+        stopWindAmbience:  _stopWindAmbience,
+    };
 })();
 
 // ─── IAP / GEM STORE ─────────────────────────────────────────
@@ -4081,6 +4578,7 @@ function tickEnemies(S){
                 phantom_tri:0xFF55FF,volt:0xFFFF66,obsidian:0xCC77FF};
             doExplodeVFX(S, p.x, GROUND_Y-8, _typeCol[p.type]||0xffcc55, p.scaleX||1);
             playerCollisionExplosion(S, p.x, GROUND_Y-8, p.type);
+        NT_SFX.play("pixel_explode");
             try{
                 if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.HapticFeedback){
                     window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
@@ -5320,6 +5818,8 @@ function showPause(S){
         }
     });
 
+    // Ses toggle'ları kaldırıldı — menüdeki Settings'ten kontrol edilir.
+
     // Animate in — sprite only; content visible immediately
     sprite.setScale(pm.sc*0.04).setAlpha(0);
     S.tweens.add({targets:sprite,scaleX:pm.sc,scaleY:pm.sc,alpha:1,duration:180,ease:"Back.easeOut"});
@@ -6222,7 +6722,6 @@ function showFloatingText(S, priority, text, x, y){
         const now = Date.now();
         if(now - _ftPerfectLast < _ftPerfectCooldown) return;
         _ftPerfectLast = now;
-        NT_SFX.play("perfect");
     }
 
     // Slot yönetimi
@@ -7048,9 +7547,61 @@ class SceneMainMenu extends Phaser.Scene {
             ly+=46;
         };
         _row("SFX",          ()=>window._nt_sfx_enabled!==false,   ()=>{window._nt_sfx_enabled  =window._nt_sfx_enabled===false;});
-        _row("MUSIC",        ()=>window._nt_music_enabled!==false, ()=>{window._nt_music_enabled=window._nt_music_enabled===false;});
+        _row("MUSIC",        ()=>window._nt_music_enabled!==false, ()=>{
+            window._nt_music_enabled=window._nt_music_enabled===false;
+            if(window._nt_music_enabled!==false){ NT_SFX.startMusic(); } else { NT_SFX.stopMusic(true); }
+        });
         _row("SCREEN SHAKE", ()=>window._nt_screen_shake!==false,  ()=>{window._nt_screen_shake =window._nt_screen_shake===false;});
-        ly+=8;
+        ly+=12;
+
+        // ── SFX / MUSIC VOLUME SLIDERS (compact, kutu içinde ortalı) ────
+        const _mkSlider=(lbl, getVal, setVal, onChange)=>{
+            A(this.add.text(TX,ly,lbl,NT_STYLE.body(13)).setOrigin(0,0.5).setDepth(depth+3));
+            const pct=()=>Math.round(getVal()*100);
+            const pctT=A(this.add.text(VX,ly,pct()+"%",NT_STYLE.accent(13,"#aaddff")).setOrigin(1,0.5).setDepth(depth+3));
+            const trackPad=4;
+            const trackW=VX-TX-trackPad*2;
+            const trackX=TX+trackPad;
+            const trackY=ly+18, trackH=6;
+            const trackBg=A(this.add.graphics().setDepth(depth+3));
+            trackBg.fillStyle(0x223344,1); trackBg.fillRoundedRect(trackX,trackY-trackH/2,trackW,trackH,3);
+            const fillGfx=A(this.add.graphics().setDepth(depth+4));
+            const _drawFill=()=>{
+                fillGfx.clear();
+                const fw=Math.max(3,trackW*getVal());
+                fillGfx.fillStyle(0x44aaff,1); fillGfx.fillRoundedRect(trackX,trackY-trackH/2,fw,trackH,3);
+            };
+            _drawFill();
+            const thumbR=8;
+            const thumbGfx=A(this.add.graphics().setDepth(depth+5));
+            const _drawThumb=()=>{
+                thumbGfx.clear();
+                const tx2=trackX+trackW*getVal();
+                thumbGfx.fillStyle(0xffffff,1); thumbGfx.fillCircle(tx2,trackY,thumbR);
+                thumbGfx.lineStyle(2,0x44aaff,1); thumbGfx.strokeCircle(tx2,trackY,thumbR);
+            };
+            _drawThumb();
+            const hitZone=A(this.add.rectangle(trackX+trackW/2,trackY,trackW+24,thumbR*2+8).setDepth(depth+6).setInteractive({useHandCursor:true}).setAlpha(0.001));
+            const _onDrag=(ptr)=>{
+                const rx=Phaser.Math.Clamp(ptr.x-this.cameras.main.worldView.x-trackX,0,trackW);
+                const v=rx/trackW;
+                setVal(v); onChange(v); pctT.setText(pct()+"%"); _drawFill(); _drawThumb();
+            };
+            hitZone.on("pointerdown",_onDrag).on("pointermove",(p)=>{ if(p.isDown) _onDrag(p); });
+            ly+=38;
+        };
+
+        _mkSlider("SFX VOL",
+            ()=>window._nt_sfx_vol??0.8,
+            v=>{ window._nt_sfx_vol=v; localStorage.setItem("nt_sfx_vol",v); },
+            v=>NT_SFX.setSFXVolume(v)
+        );
+        _mkSlider("MUSIC VOL",
+            ()=>window._nt_mus_vol??0.6,
+            v=>{ window._nt_mus_vol=v; localStorage.setItem("nt_mus_vol",v); },
+            v=>NT_SFX.setMusicVolume(v)
+        );
+        ly+=4;
         // LANGUAGE row — label left, buttons evenly inside panel
         A(this.add.text(TX,ly,"LANGUAGE",NT_STYLE.body(17)).setOrigin(0,0.5).setDepth(depth+3));
         // Lang buttons: centered in right half, safely inside panel
@@ -8014,6 +8565,7 @@ class SceneGame extends Phaser.Scene {
         // [Artifact trigger timer'ları kaldırıldı — v9.1]
 
         this.cameras.main.fadeIn(350,0,0,0);
+        NT_SFX.setMusicState("gameplay", 0.5);
 
         // Smooth filter — tüm silah mermi texture'ları
         this.time.delayedCall(150,()=>{
@@ -9051,7 +9603,6 @@ function tickXP(S){
         }
         gs._xpPerSecAccum = (gs._xpPerSecAccum||0) + cappedVal;
         gs.xp += cappedVal;
-        NT_SFX.play("xp_gain");
             // Collect burst — beyaz parıltı partiküller
             const bx=o.obj.x, by=o.obj.y;
             const tk=o.obj.texture?.key||"";
@@ -10365,6 +10916,7 @@ function killEnemy(S,p,giveXP){
     // _groundKill=true ise zemin çarpması zaten patlama yaptı — tekrar yapma
     if(!p.isBoss&&p.type!=="minion"&&!p._groundKill){
         try{
+            NT_SFX.play("pixel_explode");
             doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
             // ── VFX v2 kill reward ──
             vfxEnemyKillReward(S,px,py,p.type,p.elite,p.isBoss||false);
@@ -11917,6 +12469,7 @@ function gameOver(S){
     const gs=GS; if(!gs||gs.gameOver) return; gs.gameOver=true;
     NT_SFX.play("game_over");
     NT_SFX.stopMusic(1.8);
+    NT_SFX.stopWindAmbience(2.0);
     EventManager.forceCleanup(gs);
     cleanupEventHUD(S);
     SYNERGIES.forEach(syn=>syn.active=false);
@@ -13910,6 +14463,7 @@ function _startPhaserGame(){
     }
     // ── MÜZİK BAŞLAT ──────────────────────────────────────────
     NT_SFX.startMusic();
+    NT_SFX.startWindAmbience();
     const config = {
         type:Phaser.AUTO, width:360, height:640,
         backgroundColor:"#000000",
