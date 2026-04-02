@@ -439,6 +439,16 @@ const NT_SFX = (function(){
         // ix=1 → GAMEPLAY (dark, heavy, oppressive, tense)
         const ix = _musIntensity;
 
+        // ── Performans reaktifliği ────────────────────────────────
+        // Combo sayısını okuyarak davul hacmini ve bas filtresini canlı ayarlar.
+        // Combo 0→15 arasında _perfBoost 0→1'e çıkar:
+        //   kick   %35 daha güçlü (+güven hissi)
+        //   snare  %25 daha güçlü
+        //   hat    daha belirgin
+        //   bass filter daha açık (+enerji)
+        // Combo sıfırlandığında etki kaybolur — an anlık reaktif.
+        const _pb = Math.min(1.0, ((typeof GS!=="undefined"&&GS?.combo)||0) / 15.0);
+
         const kickPat  = _PAT_KICK[st]  || _PAT_KICK.gameplay;
         const snarePat = _PAT_SNARE[st] || _PAT_SNARE.gameplay;
         const ohatPat  = _PAT_OHAT[st]  || _PAT_OHAT.gameplay;
@@ -448,7 +458,7 @@ const NT_SFX = (function(){
         // GAMEPLAY: earth-shaking half-time stomp — deeper body, longer sub,
         //           heavier distortion. Hits less often but feels physical.
         if(kickPat[step]){
-            const kv       = _lerp(v*2.4,  v*3.2,  ix);
+            const kv       = _lerp(v*2.4,  v*3.2,  ix) * (1 + _pb * 0.35);
             const distAmt  = _lerp(0.70,   2.50,   ix);
             const kickFreq = _lerp(132,    108,    ix);
             const kickEnd  = _lerp(30,     22,     ix);
@@ -483,7 +493,7 @@ const NT_SFX = (function(){
         // MENU:     crisp crack on 2+4 — backbone of energetic groove
         // GAMEPLAY: deep heavy thud — more body, longer decay, low noise layer
         if(snarePat[step]){
-            const sv     = _lerp(v*1.05, v*1.40, ix);
+            const sv     = _lerp(v*1.05, v*1.40, ix) * (1 + _pb * 0.25);
             const snFreq = _lerp(224,    148,    ix);
             const snDur  = _lerp(0.18,   0.34,   ix);
             const o=ctx.createOscillator(), g=ctx.createGain();
@@ -506,7 +516,7 @@ const NT_SFX = (function(){
         // GAMEPLAY: off-beat accent dominant — inverted = anxious, unsettled
         {
             const onBeat  = step%2===0;
-            const chatVel = onBeat ? _lerp(0.34,0.12,ix) : _lerp(0.15,0.32,ix);
+            const chatVel = (onBeat ? _lerp(0.34,0.12,ix) : _lerp(0.15,0.32,ix)) * (1 + _pb * 0.20);
             _noise(t,0.018,v*chatVel,_lerp(9500,6800,ix),20000,_musBus,(Math.random()-0.5)*0.45);
         }
 
@@ -536,7 +546,7 @@ const NT_SFX = (function(){
                       :               (bar%2===0 ? _BASS_A      : _BASS_B);
         if(bassPat[step]){
             const f          = bassPat[step];
-            const bassFilter = _lerp(680, 170, ix);
+            const bassFilter = _lerp(680, 170, ix) * (1 + _pb * 0.45);
             const bassVol    = _lerp(v*0.68, v*0.95, ix);
             const bassQ      = _lerp(2.8, 5.2, ix);
             const bassNoteDur= _lerp(_STEP*2.3, _STEP*3.8, ix);
@@ -903,29 +913,89 @@ const NT_SFX = (function(){
             _noise(t+0.05, 0.08, _vol(0.14), 4000,16000);
         },
 
-        // ── COMBO (pitch + layers scale with count) ───────────────
+        // ── COMBO — combo'ya göre katmanlanan, pitch artan ses ────────
+        // Her combo milestone'da yeni ses katmanı açılır.
+        // Stereo genişlik ve harmonik zenginlik combo ile büyür.
         combo(count=1){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
             const scale=[110,130,146,164,196,220,261,294,330,392,440,523,659];
             const idx=Math.min(Math.floor(count/2),scale.length-1);
             const f=scale[idx];
-            const vol=Math.min(0.65, 0.22+count*0.018);
+            // Volume ve pitch birlikte yükselir — combo=20'de %45 daha yüksek
+            const vol=Math.min(0.70, 0.22+count*0.024);
+            // Pitch detune: combo arttıkça hafif yukarı kayar (perceptible ama subtle)
+            const detune=Math.min(count*3, 40); // max +40 cents @ combo 13+
+
+            // ── Ana ses katmanı ──────────────────────────────────
             const o=ctx.createOscillator(), g=ctx.createGain();
             o.type="sawtooth"; o.frequency.setValueAtTime(f*2,t);
-            o.detune.setValueAtTime(_varyC(10),t);
+            o.detune.setValueAtTime(detune+_varyC(8),t);
             const lpf=ctx.createBiquadFilter();
-            lpf.type="lowpass"; lpf.frequency.value=f*(5+count*0.3); lpf.Q.value=3.5;
+            lpf.type="lowpass";
+            lpf.frequency.value=f*(4+count*0.35); // combo arttıkça filtre açılır = daha parlak
+            lpf.Q.value=3.5+count*0.08;
             g.gain.setValueAtTime(_vol(vol),t);
-            g.gain.exponentialRampToValueAtTime(0.0001,t+0.36);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.38);
             o.connect(lpf); lpf.connect(g); g.connect(_sfxBus);
-            o.start(t); o.stop(t+0.40);
-            _osc("sine",f*4,t+0.02,0.20,_vol(vol*0.28));
-            _noise(t,0.016,_vol(0.22),2000,10000);
+            o.start(t); o.stop(t+0.42);
+
+            // ── 4. harmonik + gürültü transient ─────────────────
+            _osc("sine",f*4,t+0.018,0.22,_vol(vol*0.30));
+            _noise(t,0.014,_vol(0.20+count*0.006),2000,10000);
+
+            // ── Combo 5+: stereo harmonik çift — genişlik hissi ─
+            if(count>=5){
+                const panL=_mkPan(ctx,-0.3-Math.min(count*0.03,0.6));
+                const panR=_mkPan(ctx, 0.3+Math.min(count*0.03,0.6));
+                const h1=ctx.createOscillator(), h1g=ctx.createGain();
+                const h2=ctx.createOscillator(), h2g=ctx.createGain();
+                h1.type="triangle"; h1.frequency.value=f*3; h1.detune.value=detune*0.5+8;
+                h2.type="triangle"; h2.frequency.value=f*3; h2.detune.value=detune*0.5-8;
+                const hv=_vol(vol*0.18+count*0.006);
+                h1g.gain.setValueAtTime(0,t); h1g.gain.linearRampToValueAtTime(hv,t+0.02);
+                h1g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+                h2g.gain.setValueAtTime(0,t); h2g.gain.linearRampToValueAtTime(hv,t+0.02);
+                h2g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+                if(panL){h1.connect(h1g);h1g.connect(panL);panL.connect(_sfxBus);}else{h1.connect(h1g);h1g.connect(_sfxBus);}
+                if(panR){h2.connect(h2g);h2g.connect(panR);panR.connect(_sfxBus);}else{h2.connect(h2g);h2g.connect(_sfxBus);}
+                h1.start(t); h1.stop(t+0.30);
+                h2.start(t); h2.stop(t+0.30);
+            }
+
+            // ── Combo 10+: mini 2-nota arpeggio ─────────────────
+            // Hızlı yukarı fırlayan iki nota — "flow state" hissi
             if(count>=10){
-                _osc("square",f*3,t,0.14,_vol(0.18),f*2);
-                _noise(t,0.035,_vol(0.24),4000,16000);
-                _osc("triangle",f*5,t+0.04,0.10,_vol(0.12),null,null,Math.sin(count*0.5)*0.62);
+                const arp=[f*3, f*4];
+                arp.forEach((af,i)=>{
+                    const ao=ctx.createOscillator(), ag=ctx.createGain();
+                    const ap=_mkPan(ctx,(i===0?-0.45:0.45));
+                    ao.type="square"; ao.frequency.value=af;
+                    ao.detune.value=detune;
+                    ag.gain.setValueAtTime(0,t+i*0.048);
+                    ag.gain.linearRampToValueAtTime(_vol(0.16+count*0.004),t+i*0.048+0.01);
+                    ag.gain.exponentialRampToValueAtTime(0.0001,t+i*0.048+0.14);
+                    if(ap){ao.connect(ag);ag.connect(ap);ap.connect(_sfxBus);}else{ao.connect(ag);ag.connect(_sfxBus);}
+                    ao.start(t+i*0.048); ao.stop(t+i*0.048+0.16);
+                });
+                _noise(t,0.030,_vol(0.26+count*0.006),4000,16000);
+            }
+
+            // ── Combo 15+: shimmer katmanı + daha geniş stereo ──
+            // Oyuncu "max flow"da hisseder
+            if(count>=15){
+                const shimFreqs=[f*5, f*6, f*7.5];
+                shimFreqs.forEach((sf,i)=>{
+                    const so=ctx.createOscillator(), sg=ctx.createGain();
+                    const sp=_mkPan(ctx,Math.cos(i*2.1)*0.8);
+                    so.type="sine"; so.frequency.value=sf;
+                    so.detune.value=_varyC(15);
+                    sg.gain.setValueAtTime(0,t+i*0.022);
+                    sg.gain.linearRampToValueAtTime(_vol(0.08+count*0.003),t+i*0.022+0.015);
+                    sg.gain.exponentialRampToValueAtTime(0.0001,t+i*0.022+0.20);
+                    if(sp){so.connect(sg);sg.connect(sp);sp.connect(_sfxBus);}else{so.connect(sg);sg.connect(_sfxBus);}
+                    so.start(t+i*0.022); so.stop(t+i*0.022+0.22);
+                });
             }
         },
 
@@ -997,32 +1067,200 @@ const NT_SFX = (function(){
             _noise(t,0.022,_vol(0.13),5000,16000);
         },
 
-        // ── XP PICKUP — 2 kısa bip varyantı ─────────────────────────
+        // ── PERFECT HIT — kristal ping, combo'ya göre pitch artar ──────
+        // Tam merkeze isabet ettiğinde çalınır. Ses combo ile yükselir.
+        // 3 katman: ana ping + harmonik kırışma + sparkle gürültü.
+        perfect_hit(combo=0){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Temel frekans: E6 (1318Hz) + combo başına +55 cent
+            // Combo 20'de yaklaşık 2 yarı ton yukarı — belirgin ama rahatsız etmez
+            const baseF = 1318.5;
+            const detune = Math.min(combo * 5.5, 110); // cents, max +110
+            const vol    = Math.min(0.35, 0.22 + combo * 0.006);
+
+            // Katman 1: Parlak sine ping — hızlı attack, natural decay
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine"; o.frequency.setValueAtTime(baseF,t);
+            o.detune.setValueAtTime(detune+_varyC(5),t);
+            o.frequency.exponentialRampToValueAtTime(baseF*1.035,t+0.018); // ufak pitch rise = "bling"
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(vol),t+0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
+            o.connect(g); g.connect(_sfxBus); o.start(t); o.stop(t+0.20);
+
+            // Katman 2: İnharmonik üst kısmi (2.756x) — metalik kristal renk
+            const o2=ctx.createOscillator(), g2=ctx.createGain();
+            o2.type="triangle"; o2.frequency.value=baseF*2.756;
+            o2.detune.value=detune*0.5;
+            g2.gain.setValueAtTime(0,t); g2.gain.linearRampToValueAtTime(_vol(vol*0.36),t+0.003);
+            g2.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
+            o2.connect(g2); g2.connect(_sfxBus); o2.start(t); o2.stop(t+0.10);
+
+            // Katman 3: Sparkle gürültü — çok kısa, yüksek frekans, geniş pan
+            _noise(t+0.002, 0.055, _vol(vol*0.50), 8000, 18000, null, _vary(0, 0.70));
+
+            // Combo 10+: ikinci harmonik nota (5th üstü) — daha "kazanılmış" his
+            if(combo >= 10){
+                const o3=ctx.createOscillator(), g3=ctx.createGain();
+                const p3=_mkPan(ctx, _vary(0,0.5));
+                o3.type="sine"; o3.frequency.value=baseF*1.5; // perfect 5th
+                o3.detune.value=detune;
+                g3.gain.setValueAtTime(0,t+0.025); g3.gain.linearRampToValueAtTime(_vol(vol*0.22),t+0.035);
+                g3.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
+                if(p3){o3.connect(g3);g3.connect(p3);p3.connect(_sfxBus);}else{o3.connect(g3);g3.connect(_sfxBus);}
+                o3.start(t+0.025); o3.stop(t+0.18);
+            }
+        },
+
+        // ── MULTI KILL — kill zinciri, ağırlık combo'ya göre artar ────
+        // killChain: 1=normal, 2=double, 3+=heavy
+        multi_kill(chain=1){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const chain3=Math.min(chain,5);
+            // Ana etki: pitch düşer, hacim artar, zincir büyüdükçe
+            const baseFreq = Math.max(45, 88 - chain3 * 10); // daha düşük = daha ağır
+            const vol = Math.min(0.95, 0.60 + chain3 * 0.07);
+
+            // Gövde darbesi
+            _osc("sine",    _vary(baseFreq),  t,      _vary(0.22,0.05), _vol(vol),       _vary(baseFreq*0.35));
+            _osc("triangle",_vary(baseFreq*5),t,      _vary(0.06,0.05), _vol(vol*0.40),  _vary(baseFreq));
+            _noise(t, _vary(0.05,0.05), _vol(vol*0.55), 300, 5000);
+
+            // Metalik zing — her zincirde biraz daha yüksek
+            const zingF = 550 + chain3 * 85;
+            _osc("sine", _vary(zingF), t+0.028, _vary(0.12,0.05), _vol(vol*0.28), _vary(zingF*0.6));
+
+            // Chain 2+: ekstra bass thud
+            if(chain >= 2){
+                const sub=ctx.createOscillator(), subG=ctx.createGain();
+                sub.type="sine"; sub.frequency.setValueAtTime(_vary(36,0.08),t);
+                sub.frequency.exponentialRampToValueAtTime(22,t+0.18);
+                subG.gain.setValueAtTime(_vol(vol*0.80),t);
+                subG.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+                sub.connect(subG); subG.connect(_sfxBus); sub.start(t); sub.stop(t+0.26);
+            }
+
+            // Chain 3+: yüksek frekanslı "sweep" — birden fazla düşman hissini verir
+            if(chain >= 3){
+                _noise(t+0.04, 0.12, _vol(vol*0.30), 2000, 14000);
+                const so=ctx.createOscillator(), sg=ctx.createGain();
+                so.type="sawtooth"; so.frequency.setValueAtTime(_vary(320,0.08),t+0.05);
+                so.frequency.exponentialRampToValueAtTime(_vary(85,0.06),t+0.22);
+                sg.gain.setValueAtTime(_vol(vol*0.22),t+0.05);
+                sg.gain.exponentialRampToValueAtTime(0.0001,t+0.26);
+                so.connect(sg); sg.connect(_sfxBus); so.start(t+0.05); so.stop(t+0.28);
+            }
+        },
+
+        // ── XP PICKUP — "aldım!" anı hissi ──────────────────────────────
+        // Tasarım hedefi: her tıklamada oyuncu bir şey "kazandığını" hissetsin.
+        // Anahtar unsur: ani parlak transient + dolgun sub pop + parlayan üst kısım.
         xp_pickup(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            // Sırayla değişir — aynı ses art arda çalınmaz
-            _xpLastVariant=1-(_xpLastVariant<0?1:_xpLastVariant);
-            if(_xpLastVariant===0){
-                // Bip A — biraz daha yüksek
-                const f=_vary(1760,0.06); // A6 civarı
-                const o=ctx.createOscillator(), g=ctx.createGain();
-                o.type="sine"; o.frequency.value=f;
-                g.gain.setValueAtTime(0,t);
-                g.gain.linearRampToValueAtTime(_vol(0.18),t+0.004);
-                g.gain.exponentialRampToValueAtTime(0.0001,t+0.065);
-                o.connect(g); g.connect(_sfxBus);
-                o.start(t); o.stop(t+0.08);
-            } else {
-                // Bip B — biraz daha alçak
-                const f=_vary(1396,0.06); // F6 civarı
-                const o=ctx.createOscillator(), g=ctx.createGain();
-                o.type="sine"; o.frequency.value=f;
-                g.gain.setValueAtTime(0,t);
-                g.gain.linearRampToValueAtTime(_vol(0.18),t+0.004);
-                g.gain.exponentialRampToValueAtTime(0.0001,t+0.065);
-                o.connect(g); g.connect(_sfxBus);
-                o.start(t); o.stop(t+0.08);
+            const now=performance.now();
+
+            // Zincir güncelle
+            if(now - _xpChainLast > _XP_CHAIN_GAP) _xpChainStep=0;
+            _xpChainLast=now;
+            const step=_xpChainStep % _XP_SCALE.length;
+            _xpChainStep++;
+
+            const f   = _XP_SCALE[step] * _vary(1, 0.04);
+            const vol = Math.min(0.42, 0.28 + step * 0.013);
+
+            // ── 1. PARLAK ÜÇGEN POP — "kazanç" transient ────────────
+            // Çok hızlı attack (2ms), sonra sert pitch düşüşü.
+            // Bu hareket beyne "bir şey toplandı" sinyali gönderir.
+            const oA=ctx.createOscillator(), gA=ctx.createGain();
+            oA.type="triangle";
+            oA.frequency.setValueAtTime(f*2.2, t);
+            oA.frequency.exponentialRampToValueAtTime(f*1.0, t+0.035);
+            gA.gain.setValueAtTime(0,t);
+            gA.gain.linearRampToValueAtTime(_vol(vol*0.90), t+0.002); // 2ms attack
+            gA.gain.exponentialRampToValueAtTime(0.0001, t+0.14);
+            oA.connect(gA); gA.connect(_sfxBus); oA.start(t); oA.stop(t+0.16);
+
+            // ── 2. SINE ANA GÖVDE — sıcaklık / dolgunluk ────────────
+            const oB=ctx.createOscillator(), gB=ctx.createGain();
+            oB.type="sine"; oB.frequency.value=f;
+            gB.gain.setValueAtTime(0,t);
+            gB.gain.linearRampToValueAtTime(_vol(vol*0.55), t+0.005);
+            gB.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
+            oB.connect(gB); gB.connect(_sfxBus); oB.start(t); oB.stop(t+0.20);
+
+            // ── 3. SUB POP — fiziksel bas darbesi (f/2) ─────────────
+            // Kulaklıkta ve telefon hoparlöründe hissedilen "dokunuş".
+            const oS=ctx.createOscillator(), gS=ctx.createGain();
+            oS.type="sine"; oS.frequency.setValueAtTime(f*0.5, t);
+            oS.frequency.exponentialRampToValueAtTime(f*0.3, t+0.055);
+            gS.gain.setValueAtTime(_vol(vol*0.40), t);
+            gS.gain.exponentialRampToValueAtTime(0.0001, t+0.07);
+            oS.connect(gS); gS.connect(_sfxBus); oS.start(t); oS.stop(t+0.08);
+
+            // ── 4. SPARKLE BURST — parıldama (yüksek frekans noise) ─
+            // Çok kısa, stereo'da rastgele — her pickup biraz farklı hissettir.
+            const panSpark=_mkPan(ctx, (Math.random()-0.5)*0.9);
+            const sparkG=ctx.createGain();
+            const sr=ctx.sampleRate, sparkLen=Math.ceil(sr*0.04);
+            const sparkBuf=ctx.createBuffer(1,sparkLen,sr);
+            const sparkD=sparkBuf.getChannelData(0);
+            for(let i=0;i<sparkLen;i++) sparkD[i]=Math.random()*2-1;
+            const sparkSrc=ctx.createBufferSource(); sparkSrc.buffer=sparkBuf;
+            const sparkHPF=ctx.createBiquadFilter();
+            sparkHPF.type="highpass"; sparkHPF.frequency.value=9000+step*300;
+            sparkG.gain.setValueAtTime(_vol(vol*0.55), t+0.001);
+            sparkG.gain.exponentialRampToValueAtTime(0.0001, t+0.04);
+            sparkSrc.connect(sparkHPF); sparkHPF.connect(sparkG);
+            if(panSpark){sparkG.connect(panSpark);panSpark.connect(_sfxBus);}
+            else{sparkG.connect(_sfxBus);}
+            sparkSrc.start(t+0.001); sparkSrc.stop(t+0.045);
+
+            // ── 5. İNHARMONİK PARLAKLAMA (2.76x) — metalik kristal ─
+            const oC=ctx.createOscillator(), gC=ctx.createGain();
+            oC.type="sine"; oC.frequency.value=f*2.76;
+            gC.gain.setValueAtTime(0,t);
+            gC.gain.linearRampToValueAtTime(_vol(vol*0.22), t+0.003);
+            gC.gain.exponentialRampToValueAtTime(0.0001, t+0.06);
+            oC.connect(gC); gC.connect(_sfxBus); oC.start(t); oC.stop(t+0.08);
+
+            // ── Zincir 4+: stereo harmonik genişleme ────────────────
+            if(step>=4){
+                const pL=_mkPan(ctx,-0.45+step*-0.02);
+                const pR=_mkPan(ctx, 0.45+step* 0.02);
+                const oL=ctx.createOscillator(), gL=ctx.createGain();
+                const oR=ctx.createOscillator(), gR=ctx.createGain();
+                oL.type="triangle"; oL.frequency.value=f*2.01;
+                oR.type="triangle"; oR.frequency.value=f*1.99; // ufak detune = genişlik
+                const hv=_vol(vol*0.22+step*0.008);
+                [gL,gR].forEach(g2=>{
+                    g2.gain.setValueAtTime(0,t+0.003);
+                    g2.gain.linearRampToValueAtTime(hv,t+0.010);
+                    g2.gain.exponentialRampToValueAtTime(0.0001,t+0.10);
+                });
+                if(pL){oL.connect(gL);gL.connect(pL);pL.connect(_sfxBus);}else{oL.connect(gL);gL.connect(_sfxBus);}
+                if(pR){oR.connect(gR);gR.connect(pR);pR.connect(_sfxBus);}else{oR.connect(gR);gR.connect(_sfxBus);}
+                oL.start(t+0.003); oL.stop(t+0.12);
+                oR.start(t+0.003); oR.stop(t+0.12);
+            }
+
+            // ── Zincir 8+: perfect 5th akor katmanı ─────────────────
+            if(step>=8){
+                const f5=f*1.498;
+                const pL=_mkPan(ctx,-0.65), pR=_mkPan(ctx,0.65);
+                [f5, f5*1.003].forEach((freq,i)=>{
+                    const oo=ctx.createOscillator(), gg=ctx.createGain();
+                    const pp=i===0?pL:pR;
+                    oo.type="sine"; oo.frequency.value=freq;
+                    gg.gain.setValueAtTime(0,t+0.006);
+                    gg.gain.linearRampToValueAtTime(_vol(vol*0.35),t+0.014);
+                    gg.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+                    if(pp){oo.connect(gg);gg.connect(pp);pp.connect(_sfxBus);}
+                    else{oo.connect(gg);gg.connect(_sfxBus);}
+                    oo.start(t+0.006); oo.stop(t+0.14);
+                });
             }
         },
 
@@ -1135,13 +1373,43 @@ const NT_SFX = (function(){
             _osc("sine",_vary(160), t, 0.06, _vol(0.28), _vary(60), _uiBus);
         },
 
-        // ── UPGRADE SELECT ────────────────────────────────────────
+        // ── UPGRADE SELECT — kick + snare + hihat darbesi ────────────
+        // Kart seçilince müzikle uyumlu bir davul vurumu hissi verir.
+        // 3 katman: bas kick + snare crack + kısa hihat sisi
         upgrade_select(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sawtooth",_vary(330), t,      _vary(0.05,0.1), _vol(0.28), _vary(165), _uiBus);
-            _osc("sine",    _vary(660), t+0.04, _vary(0.08,0.05),_vol(0.22), null, _uiBus);
-            _noise(t,0.018,_vol(0.14),2000,10000,_uiBus);
+
+            // Katman 1: Kick — bas sweep (132Hz→30Hz)
+            const ok=ctx.createOscillator(), gk=ctx.createGain();
+            const wk=ctx.createWaveShaper(); wk.curve=_distCurve(1.2);
+            ok.type="sine"; ok.frequency.setValueAtTime(148,t);
+            ok.frequency.exponentialRampToValueAtTime(30,t+0.18);
+            gk.gain.setValueAtTime(_vol(1.10),t);
+            gk.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+            ok.connect(wk); wk.connect(gk); gk.connect(_sfxBus);
+            ok.start(t); ok.stop(t+0.25);
+            // Kick sub
+            const sk=ctx.createOscillator(), sgk=ctx.createGain();
+            sk.type="sine"; sk.frequency.value=52;
+            sgk.gain.setValueAtTime(_vol(0.65),t); sgk.gain.exponentialRampToValueAtTime(0.0001,t+0.10);
+            sk.connect(sgk); sgk.connect(_sfxBus); sk.start(t); sk.stop(t+0.13);
+
+            // Katman 2: Snare — triangle + noise (8ms gecikme)
+            const os=ctx.createOscillator(), gs_=ctx.createGain();
+            os.type="triangle"; os.frequency.setValueAtTime(240,t+0.008);
+            os.frequency.exponentialRampToValueAtTime(100,t+0.12);
+            gs_.gain.setValueAtTime(_vol(0.72),t+0.008);
+            gs_.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+            os.connect(gs_); gs_.connect(_sfxBus); os.start(t+0.008); os.stop(t+0.18);
+            _noise(t+0.008, 0.14, _vol(0.55), 1200, 12000, _sfxBus);
+
+            // Katman 3: Hihat — kısa yüksek frekans sisi (12ms gecikme)
+            _noise(t+0.012, 0.022, _vol(0.32), 8000, 18000, _sfxBus,
+                (Math.random()-0.5)*0.5);
+
+            // Katman 4: "Seçim" confirmation tonu — yüksek parlak nota
+            _osc("sine", _vary(880, 0.05), t+0.04, 0.12, _vol(0.28), _vary(1320, 0.05));
         },
 
         // ── LEVEL UP SCREEN OPEN ──────────────────────────────────
@@ -1317,6 +1585,21 @@ const NT_SFX = (function(){
 
     // ── XP pickup variant tracker (avoids exact repeat) ──────────
     let _xpLastVariant = -1;
+
+    // ── XP chain melody state ─────────────────────────────────────
+    // Hızlı ardışık XP toplamada yükselen melodi oluşturur.
+    // Her pickup'ta bir sonraki nota çalınır; 380ms boşlukta sıfırlanır.
+    let _xpChainStep  = 0;
+    let _xpChainLast  = 0; // timestamp of last pickup (ms)
+    const _XP_CHAIN_GAP = 380; // ms — this gap resets the chain
+    // Am pentatonic (A4→E7) — 12 adım, hep temiz kulağa gelir
+    const _XP_SCALE = [440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5, 1568, 1760, 2093];
+
+    // ── Kill chain state ──────────────────────────────────────────
+    // Kısa sürede art arda kill → multi-kill sesi + bass hit
+    let _killChain     = 0;
+    let _killChainLast = 0;
+    const _KILL_CHAIN_GAP = 1200; // ms — longer window for kill chain
 
     // ── Triangle Wind Ambience ────────────────────────────────────
     let _windNode   = null;
@@ -6586,7 +6869,12 @@ function spawnGoldText(S, x, y, amount){
 // ╚══════════════════════════════════════════════════════════╝
 function spawnKillText(S, x, y){
     if(!S||!S.add) return;
-    NT_SFX.play("kill");
+    // Kill chain: art arda killlar daha ağır ses çıkarır
+    const now=performance.now();
+    if(now - _killChainLast > _KILL_CHAIN_GAP) _killChain=0;
+    _killChain=Math.min(_killChain+1, 5);
+    _killChainLast=now;
+    NT_SFX.play("multi_kill", _killChain);
     const str   = "KILL!";
     const fs    = 18;
     const depth = 46;
@@ -12750,6 +13038,8 @@ function applyChainStormToLightning(S,target){
 // ★ YENİ: Perfect hit'e görev sayacı (doShoot callback'te çağırılır)
 function trackPerfectHit(gs){
     gs.questProgress.perfect=(gs.questProgress.perfect||0)+1;
+    // Perfect hit sesi — combo'ya göre pitch artar
+    NT_SFX.play("perfect_hit", gs.combo||0);
     // [ADIM 4] Desert Eye relic — perfect hit %3 şansla crystal
     if(gs._relicDesertEye && Math.random()<0.03){
         addCrystal(1,"desert_eye");
