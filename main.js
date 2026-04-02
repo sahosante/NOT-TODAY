@@ -4491,19 +4491,20 @@ function spawnEnemy(S){
         p.setDisplaySize(Math.round(p.displayWidth*1.25), Math.round(p.displayHeight*1.25));
     }
 
-    // ── HİTBOX — native piksel cinsinden, %85 genişlik %78 yükseklik
-    // Önceki formül (%68/%60 display'den çevirme) köşelerden mermi geçişine yol açıyordu.
-    // setSize() native (ölçeksiz) piksel ister. nw = displayWidth / scaleX = native genişlik.
+    // ── HİTBOX — tam genişlik, köşe geçişi kapalı ────────────────
+    // Pyramid sprite bir üçgen: tabanın köşeleri tam kenarda durur.
+    // Yatayı %94 daralttığımızda o köşeler hitbox dışına çıkıyor → mermi geçiyor.
+    // Çözüm: tam native genişlik kullan, dikeyde hafif boşluk ver.
     if(type !== "zigzag"){
         const dw = p.displayWidth  > 4 ? p.displayWidth  : 78;
         const dh = p.displayHeight > 4 ? p.displayHeight : 64;
         const sx = p.scaleX > 0 ? p.scaleX : 1;
         const sy = p.scaleY > 0 ? p.scaleY : 1;
-        const nw = dw / sx;   // native texture genişliği
-        const nh = dh / sy;   // native texture yüksekliği
-        const bw = nw * 0.94; // %94 — sağ/sol kenara kadar, geçiş engellendi
-        const bh = nh * 0.86; // %86 — üst/alt hafif boşluk
-        p.body.setSize(bw, bh).setOffset((nw - bw) * 0.5, (nh - bh) * 0.5);
+        const nw = dw / sx;
+        const nh = dh / sy;
+        const bw = nw;          // tam genişlik — üçgen tabanı köşeleri dahil
+        const bh = nh * 0.88;  // dikeyde %12 boşluk (tepedeki şeffaf alan)
+        p.body.setSize(bw, bh).setOffset(0, (nh - bh) * 0.5);
     }
     p.setCollideWorldBounds(false);
     // Spawn display boyutunu kaydet — break frame'de korunacak
@@ -4539,8 +4540,9 @@ function spawnBoss(S){
             boss.body.checkCollision.down = true;
             boss.body.checkCollision.left = true;
             boss.body.checkCollision.right = true;
-            // native texture 78x64 → 90% coverage
-            boss.body.setSize(70, 55).setOffset(4, 4);
+            // Tam native genişlik: 78x64 native, scale 2.4x
+            // setSize native piksel alır — tam 78 genişlik, köşe geçişini engeller
+            boss.body.setSize(78, 56).setOffset(0, 4);
         }
     }catch(e){console.warn("[NT] Boss hitbox fix:",e)}
     boss.spawnProtected=true; gs.bossActive=true;
@@ -4973,10 +4975,10 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
             if(enemy.body){
                 enemy.body.reset(enemy.x, enemy.y);
                 enemy.body.checkCollision.none=false;
-                // Native frame size → 85% width, 78% height, centered
-                const _bw = _breakFrameW * 0.85;
-                const _bh = _breakFrameH * 0.78;
-                const _ox = (_breakFrameW - _bw) * 0.5;
+                // Break frame'de de tam genişlik — daraltma yapmıyoruz
+                const _bw = _breakFrameW;
+                const _bh = _breakFrameH * 0.88;
+                const _ox = 0;
                 const _oy = (_breakFrameH - _bh) * 0.5;
                 enemy.body.setSize(_bw, _bh).setOffset(_ox, _oy);
             }
@@ -6725,9 +6727,9 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         const texKeys   = ["exp1","exp2","exp3"];
         // exp1/exp2 daha küçük scale, exp3 biraz daha büyük ama hepsi azaltıldı
         const rareScales= [
-            Math.max(2.2, sz * 5.0),  // exp1 — 32px → ~70px görsel
-            Math.max(2.2, sz * 5.0),  // exp2 — 32px → ~70px görsel
-            Math.max(1.1, sz * 2.5),  // exp3 — 72px → ~79px görsel
+            Math.max(1.2, sz * 2.5),  // exp1 — daha küçük
+            Math.max(1.2, sz * 2.5),  // exp2 — daha küçük
+            Math.max(0.8, sz * 1.4),  // exp3 — en küçük
         ];
         // Ağırlıklı seçim: exp3 %70, exp1 %15, exp2 %15
         const rnd = Math.random();
@@ -6743,7 +6745,7 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         // Normal Explosion 2 sprite (ana patlama)
         if(S.anims && S.anims.exists("anim_expl")){
             try{
-                const expScale = Math.max(2.8, Math.min(sz * 4.0, 6.0));
+                const expScale = Math.max(1.5, Math.min(sz * 2.5, 3.5));
                 const es=S.add.sprite(x,y,"explosion").setDepth(24).setScale(expScale).setAlpha(0.95);
                 es.play("anim_expl");
                 es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
@@ -6833,97 +6835,80 @@ function spawnHitDebris(S,x,y,type,isCrit){
         :type==="inferno"?[0xFF9977,0xFFBB88,0xFFDD99][Math.floor(Math.random()*3)]
         :(typeC[type]||0xddbb88);
 
-    // ── İmpact burst — anlık beyaz parlama halkası ──────────
-    // Her vuruda: küçük, hızlı genişleyen beyaz halka.
-    // Crit'te daha büyük ve renkli varyant.
+    // ── Impact burst halkası ──────────────────────────────────
     {
         const br=S.add.graphics().setDepth(22);
         br.x=x; br.y=y;
-        const bCol=isCrit?baseCol:0xffffff;
-        const bAlpha=isCrit?0.90:0.70;
-        const bR=isCrit?6:4;
-        br.lineStyle(isCrit?2:1.5, bCol, bAlpha);
-        br.strokeCircle(0,0,bR);
-        S.tweens.add({
-            targets:br,
-            scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,
-            alpha:0,
-            duration:isCrit?180:120,
-            ease:"Quad.easeOut",
-            onComplete:()=>br.destroy()
-        });
-        // Crit: ikinci dış halka (farklı renk)
+        br.lineStyle(isCrit?2:1.5, isCrit?baseCol:0xffffff, isCrit?0.90:0.70);
+        br.strokeCircle(0,0,isCrit?6:4);
+        S.tweens.add({targets:br,scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,alpha:0,
+            duration:isCrit?180:120,ease:"Quad.easeOut",onComplete:()=>br.destroy()});
         if(isCrit){
             const br2=S.add.graphics().setDepth(21);
             br2.x=x; br2.y=y;
             br2.lineStyle(1.2,0xffffff,0.55); br2.strokeCircle(0,0,3);
-            S.tweens.add({targets:br2,scaleX:6.0,scaleY:6.0,alpha:0,duration:240,ease:"Cubic.easeOut",onComplete:()=>br2.destroy()});
+            S.tweens.add({targets:br2,scaleX:6.0,scaleY:6.0,alpha:0,duration:240,
+                ease:"Cubic.easeOut",onComplete:()=>br2.destroy()});
         }
     }
 
-    // ── Çizgi parçacıklar — hız + yön farklılığı ─────────
+    // ── Çizgi parçacıklar ─────────────────────────────────────
     const lineCnt=isCrit?7:4;
     for(let i=0;i<lineCnt;i++){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-        const sp=Phaser.Math.Between(isCrit?28:14, isCrit?85:48);
+        const sp=Phaser.Math.Between(isCrit?28:14,isCrit?85:48);
         const col=i%3===0?baseCol:i%3===1?0xffffff:isCrit?0xffee44:baseCol;
         const d=S.add.graphics().setDepth(17);
-        d.x=x+Phaser.Math.Between(-4,4);
-        d.y=y+Phaser.Math.Between(-4,4);
-        d.lineStyle(isCrit?2:1.2, col, isCrit?0.90:0.80);
+        d.x=x+Phaser.Math.Between(-4,4); d.y=y+Phaser.Math.Between(-4,4);
+        d.lineStyle(isCrit?2:1.2,col,isCrit?0.90:0.80);
         const len=isCrit?Phaser.Math.Between(3,6):Phaser.Math.Between(2,4);
         d.lineBetween(0,0,Math.cos(ang)*len,Math.sin(ang)*len);
-        S.tweens.add({
-            targets:d,
-            x:d.x+Math.cos(ang)*sp,
-            y:d.y+Math.sin(ang)*sp*0.60,
+        S.tweens.add({targets:d,x:d.x+Math.cos(ang)*sp,y:d.y+Math.sin(ang)*sp*0.6,
             scaleX:0.05,scaleY:0.05,alpha:0,
             duration:Phaser.Math.Between(150,isCrit?340:220),
-            ease:"Quad.easeOut",onComplete:()=>d.destroy()
-        });
+            ease:"Quad.easeOut",onComplete:()=>d.destroy()});
     }
 
-    // ── Kırık çip parçacıklar — küçük dolu dikdörtgenler ─
-    // Normal: 2 adet, Crit: 4 adet — merkezden fırlayan renk çipleri.
-    // Gameplay feel'in asıl katkısı buradan geliyor.
-    const chipCnt=isCrit?4:2;
+    // ── Zemine düşen kırık çip parçacıklar ───────────────────
+    // Parçalar yukarı fırlar, yere düşer — yerçekimi hissi.
+    // ease:"Quad.easeIn" = hızlanan düşüş taklidi.
+    const chipCnt=isCrit?5:3;
     for(let i=0;i<chipCnt;i++){
-        const ang=Phaser.Math.DegToRad(Phaser.Math.Between(-30,210)); // ağırlıklı yukarı
-        const sp=Phaser.Math.Between(isCrit?35:20, isCrit?100:55);
         const sz=isCrit?Phaser.Math.Between(2,4):Phaser.Math.Between(1,3);
         const chipCol=i%2===0?baseCol:0xffffff;
-        const ch=S.add.graphics().setDepth(18);
-        ch.x=x+Phaser.Math.Between(-5,5);
-        ch.y=y+Phaser.Math.Between(-5,5);
-        ch.fillStyle(chipCol, isCrit?0.92:0.78);
+        const ch=S.add.graphics().setDepth(16);
+        ch.x=x+Phaser.Math.Between(-6,6);
+        ch.y=y+Phaser.Math.Between(-4,4);
+        ch.fillStyle(chipCol,isCrit?0.92:0.80);
         ch.fillRect(-sz/2,-sz/2,sz,sz);
-        S.tweens.add({
-            targets:ch,
-            x:ch.x+Math.cos(ang)*sp,
-            y:ch.y+Math.sin(ang)*sp*0.65,
-            angle:Phaser.Math.Between(-180,180),
-            scaleX:0.05,scaleY:0.05,alpha:0,
-            duration:Phaser.Math.Between(180,isCrit?400:260),
-            ease:"Quad.easeOut",onComplete:()=>ch.destroy()
-        });
+        const vx=Phaser.Math.Between(-60,60);
+        const landY=y+Phaser.Math.Between(55,110);
+        const dur=Phaser.Math.Between(200,isCrit?420:300);
+        S.tweens.add({targets:ch,
+            x:ch.x+vx*0.45,
+            y:landY,
+            angle:Phaser.Math.Between(-220,220),
+            alpha:0,scaleX:0.06,scaleY:0.06,
+            duration:dur,
+            ease:"Quad.easeIn",
+            onComplete:()=>ch.destroy()});
     }
 
-    // ── Kıvılcım — yukarı doğru ince çizgiler ────────────
+    // ── Kıvılcımlar ──────────────────────────────────────────
     const sparkCnt=isCrit?3:1;
     for(let i=0;i<sparkCnt;i++){
         const sang=Phaser.Math.DegToRad(Phaser.Math.Between(-175,-5));
         const ssp=Phaser.Math.Between(22,isCrit?60:35);
         const sp2=S.add.graphics().setDepth(19);
         sp2.x=x+Phaser.Math.Between(-3,3); sp2.y=y+Phaser.Math.Between(-3,3);
-        sp2.lineStyle(isCrit?1.5:1, isCrit?0xffee44:0xffffbb, isCrit?0.90:0.75);
-        sp2.lineBetween(0,-isCrit?4:3,0,isCrit?4:3);
-        S.tweens.add({targets:sp2,
-            x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
-            alpha:0,scaleY:0.15,
-            duration:Phaser.Math.Between(100,isCrit?200:150),
+        sp2.lineStyle(isCrit?1.5:1,isCrit?0xffee44:0xffffbb,isCrit?0.90:0.75);
+        sp2.lineBetween(0,isCrit?-4:-3,0,isCrit?4:3);
+        S.tweens.add({targets:sp2,x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
+            alpha:0,scaleY:0.15,duration:Phaser.Math.Between(100,isCrit?200:150),
             ease:"Quad.easeOut",onComplete:()=>sp2.destroy()});
     }
 }
+
 function spawnImpact(S,x,y){
     // Kum / toprak parçacıkları — yarı daire yukarı
     const sandC=[0xddbb77,0xccaa55,0xeecc88,0xbbaa44,0xffffff];
@@ -7693,17 +7678,54 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
 
-        // ── HIGH SCORE + GOLD — yan yana, panel üstünde ortalı ────────
-        // Geometri: [🏆 BEST: xxx] [💰 yyy] → toplam genişlik ortalanır.
-        // Skor yoksa sadece gold badge ortada gösterilir.
+        // ── HIGH SCORE — ortada, panel üstünde ────────────────────────
         {
-            const hs      = parseInt(localStorage.getItem("nt_highscore")||"0");
-            const badgeY  = pTop - 30;   // iki badge de aynı Y satırında
-            const badgeH  = 30;
-            const R       = 15;           // border radius
-            const GAP     = 8;            // iki badge arası boşluk
+            const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
+            if(hs > 0){
+                const hsY = pTop - 30;
+                const hsW = 176;
+                const R   = 15;
 
-            // tex_gold_icon menüde yoksa oluştur (SceneGame daha çalışmamış olabilir)
+                const hsGlowG = this.add.graphics().setDepth(4).setAlpha(0);
+                const hsBgG   = this.add.graphics().setDepth(5).setAlpha(0);
+
+                const _drawHs = (v) => {
+                    hsBgG.clear();
+                    hsBgG.fillStyle(0xffaa00, 0.12+v*0.06);
+                    hsBgG.fillRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
+                    hsBgG.lineStyle(1.8+v*0.8, 0xFFD700, 0.85+v*0.10);
+                    hsBgG.strokeRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
+                    hsBgG.fillStyle(0xffffff, 0.09);
+                    hsBgG.fillRoundedRect(CX-hsW/2+6, hsY-12, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
+                };
+                _drawHs(0);
+
+                const hsTxt = this.add.text(CX, hsY, "🏆  "+hs.toLocaleString(), {
+                    fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
+                    color:"#FFD700", stroke:"#000", strokeThickness:2
+                }).setOrigin(0.5).setDepth(6).setAlpha(0);
+
+                this.tweens.add({targets:[hsBgG,hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
+                this.tweens.add({targets:hsGlowG, alpha:1, duration:500, delay:420});
+
+                const _hd={v:0};
+                this.tweens.add({targets:_hd,v:1,duration:1700,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:800,
+                    onUpdate:()=>{
+                        _drawHs(_hd.v);
+                        hsGlowG.clear();
+                        hsGlowG.lineStyle(4+_hd.v*6, 0xffcc00, 0.05+_hd.v*0.20);
+                        hsGlowG.strokeRoundedRect(CX-hsW/2-5, hsY-20, hsW+10, 40, R+5);
+                        hsGlowG.lineStyle(1.5, 0xffee88, 0.04+_hd.v*0.12);
+                        hsGlowG.strokeRoundedRect(CX-hsW/2-10, hsY-25, hsW+20, 50, R+10);
+                    }
+                });
+                this.tweens.add({targets:hsTxt, alpha:{from:0.82,to:1},
+                    duration:1700, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:800});
+            }
+        }
+
+        // ── GOLD — sağ üst köşe, sadece ikon + sayı, arka plan yok ────
+        {
             if(!this.textures.exists("tex_gold_icon")){
                 const _gc=document.createElement("canvas");
                 _gc.width=20; _gc.height=20;
@@ -7714,98 +7736,21 @@ class SceneMainMenu extends Phaser.Scene {
                 this.textures.addCanvas("tex_gold_icon",_gc);
             }
 
-            const _gold    = PLAYER_GOLD;
-            const _goldStr = _gold.toLocaleString();
-            const showHs   = hs > 0;
+            const _gStr = PLAYER_GOLD.toLocaleString();
+            const _gY   = 20;
+            const ICON  = 16;
 
-            // ── Sabit badge genişlikleri ────────────────────────────────
-            const hsW   = 160;   // high score badge genişliği
-            const goldW = 90;    // gold badge genişliği (yeterince geniş)
+            // Sayıyı önce oluştur, genişliğini öğren, ikonla bitişik hizala
+            const gTxt = this.add.text(W-8, _gY, _gStr, {
+                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
+                color:"#FFD700", stroke:"#000", strokeThickness:2
+            }).setOrigin(1, 0.5).setDepth(8).setAlpha(0);
 
-            // Toplam satır ve sol kenar
-            const totalW  = showHs ? hsW + GAP + goldW : goldW;
-            const rowLeft = CX - totalW / 2;   // satırın sol başlangıcı
+            // İkon: sayının hemen soluna yapışık
+            const gIcon = this.add.image(W-8-gTxt.width-4-ICON/2, _gY, "tex_gold_icon")
+                .setDisplaySize(ICON,ICON).setDepth(8).setAlpha(0);
 
-            // Her badge'in sol X'i
-            const hsLeft   = rowLeft;
-            const goldLeft = showHs ? rowLeft + hsW + GAP : rowLeft;
-
-            // HIGH SCORE BADGE ──────────────────────────────────────────
-            if(showHs){
-                const hsGlow = this.add.graphics().setDepth(4).setAlpha(0);
-                const hsBg   = this.add.graphics().setDepth(5).setAlpha(0);
-
-                const _drawHsBg = () => {
-                    hsBg.clear();
-                    hsBg.fillStyle(0xffaa00, 0.12);
-                    hsBg.fillRoundedRect(hsLeft, badgeY-badgeH/2, hsW, badgeH, R);
-                    hsBg.lineStyle(1.8, 0xffcc00, 0.85);
-                    hsBg.strokeRoundedRect(hsLeft, badgeY-badgeH/2, hsW, badgeH, R);
-                    hsBg.fillStyle(0xffffff, 0.10);
-                    hsBg.fillRoundedRect(hsLeft+6, badgeY-badgeH/2+3, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
-                };
-                _drawHsBg();
-
-                const hsCX  = hsLeft + hsW/2;
-                const hsTxt = this.add.text(hsCX, badgeY, "🏆  " + hs.toLocaleString(), {
-                    fontFamily:"LilitaOne, Arial, sans-serif",
-                    fontSize:"14px", color:"#FFD700",
-                    stroke:"#000000", strokeThickness:2
-                }).setOrigin(0.5).setDepth(6).setAlpha(0);
-
-                this.tweens.add({targets:[hsBg,hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
-                this.tweens.add({targets:hsGlow, alpha:1, duration:600, delay:420});
-
-                const _gd={v:0};
-                this.tweens.add({targets:_gd,v:1,duration:1600,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:900,
-                    onUpdate:()=>{
-                        const v=_gd.v;
-                        hsGlow.clear();
-                        hsGlow.fillStyle(0xffcc00, 0.04+v*0.10);
-                        hsGlow.fillRoundedRect(hsLeft-10, badgeY-badgeH/2-8, hsW+20, badgeH+16, R+8);
-                        hsGlow.fillStyle(0xffffff, v*0.05);
-                        hsGlow.fillRoundedRect(hsLeft+4, badgeY-badgeH/2+3, hsW-8, 7, {tl:R-2,tr:R-2,bl:0,br:0});
-                    }
-                });
-                this.tweens.add({targets:hsTxt, alpha:{from:0.85,to:1},
-                    duration:1600, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:900});
-            }
-
-            // GOLD BADGE ────────────────────────────────────────────────
-            const goldBg  = this.add.graphics().setDepth(5).setAlpha(0);
-            const goldCX  = goldLeft + goldW/2;
-            const iconX   = goldLeft + 14;      // ikon sol içi
-            const ICON_SZ = 15;
-
-            const _drawGoldBg = (extra) => {
-                const e = extra||0;
-                goldBg.clear();
-                goldBg.fillStyle(0xffcc00, 0.14+e);
-                goldBg.fillRoundedRect(goldLeft, badgeY-badgeH/2, goldW, badgeH, R);
-                goldBg.lineStyle(1.8+e*2, 0xFFD700, 0.90);
-                goldBg.strokeRoundedRect(goldLeft, badgeY-badgeH/2, goldW, badgeH, R);
-                goldBg.fillStyle(0xffffff, 0.10+e*0.5);
-                goldBg.fillRoundedRect(goldLeft+6, badgeY-badgeH/2+3, goldW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
-            };
-            _drawGoldBg(0);
-
-            const goldIcon = this.add.image(iconX, badgeY, "tex_gold_icon")
-                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(6).setAlpha(0);
-
-            const goldTxt = this.add.text(goldLeft+goldW-8, badgeY, _goldStr, {
-                fontFamily:"LilitaOne, Arial, sans-serif",
-                fontSize:"14px", color:"#FFD700",
-                stroke:"#000000", strokeThickness:2
-            }).setOrigin(1, 0.5).setDepth(6).setAlpha(0);
-
-            this.tweens.add({targets:[goldBg,goldIcon,goldTxt], alpha:1, duration:400, delay:460, ease:"Quad.easeOut"});
-
-            const _ggd={v:0};
-            this.tweens.add({targets:_ggd,v:1,duration:1800,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:1100,
-                onUpdate:()=>{ _drawGoldBg(_ggd.v*0.06); }
-            });
-            this.tweens.add({targets:goldTxt, alpha:{from:0.85,to:1},
-                duration:1800, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:1100});
+            this.tweens.add({targets:[gIcon,gTxt], alpha:1, duration:380, delay:460, ease:"Quad.easeOut"});
         }
 
         // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
@@ -13193,7 +13138,7 @@ function doExplosion(S,x,y){
     // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
         try{
-            const sc=4.5+(lv*0.4);
+            const sc=2.8+(lv*0.2);
             const es=S.add.sprite(x,y,"explosion").setDepth(25).setScale(sc).setAlpha(0.95);
             es.play("anim_expl");
             es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
@@ -13203,9 +13148,9 @@ function doExplosion(S,x,y){
     if(_isHeavy && S.anims && S.anims.exists("anim_exp1")){
         // Merkez + 2 offset exp1 — güçlü patlama hissi
         const _exp1Configs = [
-            {ox:0,  oy:0,  sc:5.5, delay:0},
-            {ox:-18,oy:-8, sc:3.8, delay:55},
-            {ox:20, oy:-5, sc:3.5, delay:90},
+            {ox:0,  oy:0,  sc:2.8, delay:0},
+            {ox:-18,oy:-8, sc:2.0, delay:55},
+            {ox:20, oy:-5, sc:1.8, delay:90},
         ];
         _exp1Configs.forEach(cfg=>{
             S.time.delayedCall(cfg.delay, ()=>{
