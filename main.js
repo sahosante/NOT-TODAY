@@ -7693,69 +7693,119 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
 
-        // ── HIGH SCORE — panel üstünde, animasyonlu glow ──
-        const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
-        if(hs > 0){
-            const hsY = pTop - 30;
+        // ── HIGH SCORE + GOLD — yan yana, panel üstünde ortalı ────────
+        // Geometri: [🏆 BEST: xxx] [💰 yyy] → toplam genişlik ortalanır.
+        // Skor yoksa sadece gold badge ortada gösterilir.
+        {
+            const hs      = parseInt(localStorage.getItem("nt_highscore")||"0");
+            const badgeY  = pTop - 30;   // iki badge de aynı Y satırında
+            const badgeH  = 30;
+            const R       = 15;           // border radius
+            const GAP     = 8;            // iki badge arası boşluk
 
-            // Glow halkası (arkada, depth 4)
-            const hsGlow = this.add.graphics().setDepth(4).setAlpha(0);
+            // tex_gold_icon menüde yoksa oluştur (SceneGame daha çalışmamış olabilir)
+            if(!this.textures.exists("tex_gold_icon")){
+                const _gc=document.createElement("canvas");
+                _gc.width=20; _gc.height=20;
+                const _gctx=_gc.getContext("2d");
+                _gctx.clearRect(0,0,20,20);
+                _gctx.strokeStyle="#CC8800"; _gctx.lineWidth=2.5; _gctx.strokeRect(3,3,14,14);
+                _gctx.strokeStyle="#FFD700"; _gctx.lineWidth=1.5; _gctx.strokeRect(6,6,8,8);
+                this.textures.addCanvas("tex_gold_icon",_gc);
+            }
 
-            // Kapsül çerçevesi (depth 5)
-            const hsBg = this.add.graphics().setDepth(5).setAlpha(0);
-            const _drawHsBg = (glowA) => {
-                hsBg.clear();
-                // Hafif altın iç dolgu
-                hsBg.fillStyle(0xffaa00, 0.12);
-                hsBg.fillRoundedRect(CX-88, hsY-15, 176, 30, 15);
-                // Altın çerçeve
-                hsBg.lineStyle(1.8, 0xffcc00, 0.85);
-                hsBg.strokeRoundedRect(CX-88, hsY-15, 176, 30, 15);
-                // Üst shine
-                hsBg.fillStyle(0xffffff, 0.10);
-                hsBg.fillRoundedRect(CX-80, hsY-13, 160, 8, {tl:12,tr:12,bl:0,br:0});
+            const _gold    = PLAYER_GOLD;
+            const _goldStr = _gold.toLocaleString();
+            const showHs   = hs > 0;
+
+            // ── Sabit badge genişlikleri ────────────────────────────────
+            const hsW   = 160;   // high score badge genişliği
+            const goldW = 90;    // gold badge genişliği (yeterince geniş)
+
+            // Toplam satır ve sol kenar
+            const totalW  = showHs ? hsW + GAP + goldW : goldW;
+            const rowLeft = CX - totalW / 2;   // satırın sol başlangıcı
+
+            // Her badge'in sol X'i
+            const hsLeft   = rowLeft;
+            const goldLeft = showHs ? rowLeft + hsW + GAP : rowLeft;
+
+            // HIGH SCORE BADGE ──────────────────────────────────────────
+            if(showHs){
+                const hsGlow = this.add.graphics().setDepth(4).setAlpha(0);
+                const hsBg   = this.add.graphics().setDepth(5).setAlpha(0);
+
+                const _drawHsBg = () => {
+                    hsBg.clear();
+                    hsBg.fillStyle(0xffaa00, 0.12);
+                    hsBg.fillRoundedRect(hsLeft, badgeY-badgeH/2, hsW, badgeH, R);
+                    hsBg.lineStyle(1.8, 0xffcc00, 0.85);
+                    hsBg.strokeRoundedRect(hsLeft, badgeY-badgeH/2, hsW, badgeH, R);
+                    hsBg.fillStyle(0xffffff, 0.10);
+                    hsBg.fillRoundedRect(hsLeft+6, badgeY-badgeH/2+3, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
+                };
+                _drawHsBg();
+
+                const hsCX  = hsLeft + hsW/2;
+                const hsTxt = this.add.text(hsCX, badgeY, "🏆  " + hs.toLocaleString(), {
+                    fontFamily:"LilitaOne, Arial, sans-serif",
+                    fontSize:"14px", color:"#FFD700",
+                    stroke:"#000000", strokeThickness:2
+                }).setOrigin(0.5).setDepth(6).setAlpha(0);
+
+                this.tweens.add({targets:[hsBg,hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
+                this.tweens.add({targets:hsGlow, alpha:1, duration:600, delay:420});
+
+                const _gd={v:0};
+                this.tweens.add({targets:_gd,v:1,duration:1600,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:900,
+                    onUpdate:()=>{
+                        const v=_gd.v;
+                        hsGlow.clear();
+                        hsGlow.fillStyle(0xffcc00, 0.04+v*0.10);
+                        hsGlow.fillRoundedRect(hsLeft-10, badgeY-badgeH/2-8, hsW+20, badgeH+16, R+8);
+                        hsGlow.fillStyle(0xffffff, v*0.05);
+                        hsGlow.fillRoundedRect(hsLeft+4, badgeY-badgeH/2+3, hsW-8, 7, {tl:R-2,tr:R-2,bl:0,br:0});
+                    }
+                });
+                this.tweens.add({targets:hsTxt, alpha:{from:0.85,to:1},
+                    duration:1600, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:900});
+            }
+
+            // GOLD BADGE ────────────────────────────────────────────────
+            const goldBg  = this.add.graphics().setDepth(5).setAlpha(0);
+            const goldCX  = goldLeft + goldW/2;
+            const iconX   = goldLeft + 14;      // ikon sol içi
+            const ICON_SZ = 15;
+
+            const _drawGoldBg = (extra) => {
+                const e = extra||0;
+                goldBg.clear();
+                goldBg.fillStyle(0xffcc00, 0.14+e);
+                goldBg.fillRoundedRect(goldLeft, badgeY-badgeH/2, goldW, badgeH, R);
+                goldBg.lineStyle(1.8+e*2, 0xFFD700, 0.90);
+                goldBg.strokeRoundedRect(goldLeft, badgeY-badgeH/2, goldW, badgeH, R);
+                goldBg.fillStyle(0xffffff, 0.10+e*0.5);
+                goldBg.fillRoundedRect(goldLeft+6, badgeY-badgeH/2+3, goldW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
             };
-            _drawHsBg(0);
+            _drawGoldBg(0);
 
-            // Yazı (depth 6)
-            const hsTxt = this.add.text(CX, hsY, "🏆  BEST: " + hs.toLocaleString(), {
+            const goldIcon = this.add.image(iconX, badgeY, "tex_gold_icon")
+                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(6).setAlpha(0);
+
+            const goldTxt = this.add.text(goldLeft+goldW-8, badgeY, _goldStr, {
                 fontFamily:"LilitaOne, Arial, sans-serif",
-                fontSize:"15px",
-                color:"#FFD700",
-                stroke:"#000000",
-                strokeThickness:2
-            }).setOrigin(0.5).setDepth(6).setAlpha(0);
+                fontSize:"14px", color:"#FFD700",
+                stroke:"#000000", strokeThickness:2
+            }).setOrigin(1, 0.5).setDepth(6).setAlpha(0);
 
-            // Fade-in
-            this.tweens.add({targets:[hsBg, hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
-            this.tweens.add({targets:hsGlow, alpha:1, duration:600, delay:420});
+            this.tweens.add({targets:[goldBg,goldIcon,goldTxt], alpha:1, duration:400, delay:460, ease:"Quad.easeOut"});
 
-            // Nefes alma animasyonu — glow halkası + yazı scale
-            const _glowDummy = {v:0};
-            this.tweens.add({
-                targets: _glowDummy, v:1,
-                duration: 1600, ease:"Sine.easeInOut",
-                yoyo:true, repeat:-1, delay:900,
-                onUpdate: () => {
-                    const v = _glowDummy.v;
-                    hsGlow.clear();
-                    // Dış yumuşak halo
-                    hsGlow.fillStyle(0xffcc00, 0.04 + v * 0.10);
-                    hsGlow.fillRoundedRect(CX-100, hsY-24, 200, 48, 24);
-                    hsGlow.fillStyle(0xffaa00, 0.03 + v * 0.07);
-                    hsGlow.fillRoundedRect(CX-112, hsY-30, 224, 60, 30);
-                    // İç parıltı
-                    hsGlow.fillStyle(0xffffff, 0.0 + v * 0.06);
-                    hsGlow.fillRoundedRect(CX-78, hsY-11, 156, 7, {tl:12,tr:12,bl:0,br:0});
-                }
+            const _ggd={v:0};
+            this.tweens.add({targets:_ggd,v:1,duration:1800,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:1100,
+                onUpdate:()=>{ _drawGoldBg(_ggd.v*0.06); }
             });
-
-            // Yazı rengi titreşimi (gold → white → gold)
-            this.tweens.add({
-                targets: hsTxt, alpha: { from:0.85, to:1 },
-                duration:1600, ease:"Sine.easeInOut",
-                yoyo:true, repeat:-1, delay:900
-            });
+            this.tweens.add({targets:goldTxt, alpha:{from:0.85,to:1},
+                duration:1800, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:1100});
         }
 
         // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
