@@ -2903,7 +2903,7 @@ const RUN_EVENTS = [
                  const origGold=gs.goldMult;
                  EventManager.startEvent("gold_rush",gs,35000,null);
                  // Anında bonus
-                 gs.gold+=150; PLAYER_GOLD+=150;
+                 gs.gold+=150; PLAYER_GOLD+=150; secureSet("nt_gold",PLAYER_GOLD);
                  gs.goldMult=origGold+0.40;
                  gs._goldRushActive=true;
                  const timerEv=S.time.addEvent({delay:35000,callback:()=>{
@@ -2916,7 +2916,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,"ALTIN AKINI! +150 Gold Anında / +40% Gold (35sn)","#ffcc00",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
     // 3. GLASS CANNON
@@ -2946,7 +2946,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,"\ud83d\udd2e CAM TOP! +15% HASAR / Max HP-2 (40sn)","#ffaa22",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
     // 4. CHAOS BURST
@@ -2990,7 +2990,7 @@ const RUN_EVENTS = [
                  if(EventManager._state) EventManager._state.timerEv=burstEv;
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
     // 5. SURVIVAL MODE
@@ -3026,7 +3026,7 @@ const RUN_EVENTS = [
                  if(EventManager._state) EventManager._state.timerEv=regenEv;
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
     // 6. BLITZ MODE
@@ -3053,7 +3053,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,"\u26a1 YILDIRIN HIZI! +25% Ate\u015f / XP -%30 (30sn)","#ffee44",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
     // 7. XP FRENZY
@@ -3082,7 +3082,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,"\ud83d\udcda XP \u00c7ILGINLI\u011eI! +40% XP / H\u0131zl\u0131 Spawn (25sn)","#44ffcc",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg;} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,"+60G Reddetme Bonusu","#ffcc44",false); }}
         ]
     },
 ];
@@ -4546,6 +4546,7 @@ function spawnBoss(S){
         }
     }catch(e){console.warn("[NT] Boss hitbox fix:",e)}
     boss.spawnProtected=true; gs.bossActive=true;
+    NT_SFX.setMusicState("boss", 2.5);
     S.time.delayedCall(1400,()=>{if(boss.active){boss.spawnProtected=false;boss.setAlpha(1);}});
 }
 
@@ -6727,9 +6728,9 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         const texKeys   = ["exp1","exp2","exp3"];
         // exp1/exp2 daha küçük scale, exp3 biraz daha büyük ama hepsi azaltıldı
         const rareScales= [
-            Math.max(1.2, sz * 2.5),  // exp1 — daha küçük
-            Math.max(1.2, sz * 2.5),  // exp2 — daha küçük
-            Math.max(0.8, sz * 1.4),  // exp3 — en küçük
+            Math.max(2.2, sz * 5.0),  // exp1 — 32px → ~70px görsel
+            Math.max(2.2, sz * 5.0),  // exp2 — 32px → ~70px görsel
+            Math.max(1.1, sz * 2.5),  // exp3 — 72px → ~79px görsel
         ];
         // Ağırlıklı seçim: exp3 %70, exp1 %15, exp2 %15
         const rnd = Math.random();
@@ -6745,7 +6746,7 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         // Normal Explosion 2 sprite (ana patlama)
         if(S.anims && S.anims.exists("anim_expl")){
             try{
-                const expScale = Math.max(1.5, Math.min(sz * 2.5, 3.5));
+                const expScale = Math.max(2.8, Math.min(sz * 4.0, 6.0));
                 const es=S.add.sprite(x,y,"explosion").setDepth(24).setScale(expScale).setAlpha(0.95);
                 es.play("anim_expl");
                 es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
@@ -8330,7 +8331,7 @@ class SceneGame extends Phaser.Scene {
             const _earlyBonus = _runCount===1 ? 150 : _runCount===2 ? 100 : _runCount===3 ? 60 : 0;
             if(_earlyBonus > 0){
                 GS.gold += _earlyBonus;
-                PLAYER_GOLD += _earlyBonus;
+                PLAYER_GOLD += _earlyBonus; secureSet("nt_gold",PLAYER_GOLD);
                 // Show hint on first run, silent on 2/3
                 if(_runCount === 1){
                     this.time.delayedCall(2200, ()=>{
@@ -8677,6 +8678,10 @@ class SceneGame extends Phaser.Scene {
                     gs.combo=Math.min(20,gs.combo+1); gs.comboTimer=1500;
                     gs.comboDmgBoost=Math.min(1.20,1+gs.combo*0.010); // referans
                     syncStatsFromPipeline(gs); // [v9.2]
+                    // Combo 15+ → high_combo müzik geçişi
+                    if(gs.combo===15 && !gs.bossActive){
+                        NT_SFX.setMusicState("high_combo", 1.5);
+                    }
                 }
                 // ── AAA NORMAL HIT VFX v2 — directional + squash ──
                 const _bAng=Math.atan2(b.body.velocity.y,b.body.velocity.x);
@@ -11436,7 +11441,7 @@ function killEnemy(S,p,giveXP){
 
     if(p.isBoss){
         gs.bossActive=false; gs._bossKills=(gs._bossKills||0)+1;
-        // [FIX] Crystal and XP orbs only on player kill — not if boss escapes to ground
+        NT_SFX.setMusicState("gameplay", 3.0); // boss öldü — gameplay müziğine geri dön
         if(giveXP){
             const crystalAmt = gs._relicVoidCrystal ? 2 : 1;
             addCrystal(crystalAmt, "boss_kill");
@@ -11476,7 +11481,7 @@ function killEnemy(S,p,giveXP){
         gs._eliteHuntCount--;
         showHitTxt(S,px,py-20,"ELİT AV BONUS!","#ffdd44",true);
         const gvBonus=Math.round((p.isBoss?6:p.elite?3:1)*gs.goldMult*2);
-        gs.gold+=gvBonus; PLAYER_GOLD+=gvBonus;
+        gs.gold+=gvBonus; PLAYER_GOLD+=gvBonus; secureSet("nt_gold",PLAYER_GOLD);
     }
     // Score
     const killScore=p.isBoss?2000:p.elite?300:p.elder||p.titan||p.colossus?200:p.obsidian?180:p.glacier?110:p.inferno?100:p.volt?90:p.phantom_tri?85:p.tank||p.armored?80:50;
@@ -11612,8 +11617,8 @@ function killEnemy(S,p,giveXP){
           : p.obsidian?2 : p.glacier||p.inferno||p.volt?2 : 2)
         * gs.goldMult * timeMult
     ));
-    gs.gold+=gV; PLAYER_GOLD+=gV;
-    // [PERF] localStorage her kill'de değil, sadece oyun sonunda kaydedilir (donma önleme)
+    gs.gold+=gV; PLAYER_GOLD+=gV; secureSet("nt_gold",PLAYER_GOLD);
+    if(gV>0) NT_SFX.play("gold");
     if(gV>0){
         const c=S.add.image(px+Phaser.Math.Between(-15,15),py-5,"xp_coin").setDepth(18);
         S.tweens.add({targets:c,y:c.y-18,alpha:0,duration:520,onComplete:()=>c.destroy()});
@@ -12760,6 +12765,8 @@ function gameOver(S){
     NT_SFX.play("game_over");
     NT_SFX.stopMusic(1.8);
     NT_SFX.stopWindAmbience(2.0);
+    // Müzik state'i sıfırla — bir sonraki oyun menu'den başlasın
+    NT_SFX.setMusicState("menu", 0.1);
     EventManager.forceCleanup(gs);
     cleanupEventHUD(S);
     SYNERGIES.forEach(syn=>syn.active=false);
@@ -13086,6 +13093,7 @@ function doRevive(S, panel){
     if(S.spawnEvent) S.spawnEvent.paused=false;
     try{if(panel)panel.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
     // Diriliş efekti
+    NT_SFX.play("revive");
     S.cameras.main.shake(180,0.020);
     S.cameras.main.zoomTo(1.08,160,"Quad.easeOut");
     S.time.delayedCall(160,()=>S.cameras.main.zoomTo(1.0,400,"Quad.easeIn"));
@@ -13138,7 +13146,7 @@ function doExplosion(S,x,y){
     // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
         try{
-            const sc=2.8+(lv*0.2);
+            const sc=4.5+(lv*0.4);
             const es=S.add.sprite(x,y,"explosion").setDepth(25).setScale(sc).setAlpha(0.95);
             es.play("anim_expl");
             es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
@@ -13148,9 +13156,9 @@ function doExplosion(S,x,y){
     if(_isHeavy && S.anims && S.anims.exists("anim_exp1")){
         // Merkez + 2 offset exp1 — güçlü patlama hissi
         const _exp1Configs = [
-            {ox:0,  oy:0,  sc:2.8, delay:0},
-            {ox:-18,oy:-8, sc:2.0, delay:55},
-            {ox:20, oy:-5, sc:1.8, delay:90},
+            {ox:0,  oy:0,  sc:5.5, delay:0},
+            {ox:-18,oy:-8, sc:3.8, delay:55},
+            {ox:20, oy:-5, sc:3.5, delay:90},
         ];
         _exp1Configs.forEach(cfg=>{
             S.time.delayedCall(cfg.delay, ()=>{
@@ -13483,6 +13491,10 @@ function tickNearDeathPulse(S, delta){
 function showComboBreak(S, lastCombo){
     if(!S||!S.add||lastCombo < 3) return;
     NT_SFX.play("combo_break");
+    // High combo kırıldıysa müziği gameplay'e geri döndür
+    if(lastCombo >= 15 && !GS?.bossActive){
+        NT_SFX.setMusicState("gameplay", 2.0);
+    }
     const W=360;
     const intensity = Math.min(lastCombo, 30);
     const str = L("comboBreak");
