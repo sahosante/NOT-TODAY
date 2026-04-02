@@ -5,101 +5,63 @@
 
 
 // ═══════════════════════════════════════════════════════════════
-// PRESENCE TRACKER  [v5 — Zero-Secret]
+// PRESENCE TRACKER  [v6 — Direct Telegram Bot]
 //
-// Auth flow:
-//   1. logJoin() → POST /auth  (sends Telegram's initData)
-//      Server verifies Telegram's HMAC-SHA256 signature, returns JWT
-//   2. All /track calls carry JWT in Authorization header
-//      (or body._token for sendBeacon which can't set headers)
-//
-// ✅ NO token  ✅ NO API key  ✅ NO shared secret in this file.
+// Server yok — direkt Telegram Bot API'ye mesaj atar.
+// Giriş/çıkış/ping bilgileri logger chat'e düşer.
 // ═══════════════════════════════════════════════════════════════
 (function () {
     "use strict";
 
     // ── CONFIGURATION ─────────────────────────────────────────
-    // Only your server URL — zero secrets.
-    const BACKEND = "https://your-server.com"; // ← Railway/Render adresin
+    const BOT_TOKEN = "8639916106:AAG_aT6s_jsXPg2IJMjPOnP6NqdWja5Bgog";
+    const CHAT_ID   = "5817646600";
+    const TG_URL    = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
-    // ── SESSION ───────────────────────────────────────────────
-    // JWT bellekte tutulur — localStorage değil, cookie değil.
-    // Başka script'ler okuyamaz, sayfa yenilenince sıfırlanır.
-    let _sessionToken = null;
-
-    // ── AUTHENTICATE ──────────────────────────────────────────
-    // Telegram'ın imzaladığı initData'yı sunucuya gönderir.
-    // Sunucu HMAC-SHA256 ile doğrular, JWT döner.
-    // Bu süreçte istemci tarafında sır açığa çıkmaz.
-    async function _authenticate() {
-        const initData = window.Telegram?.WebApp?.initData || "";
+    // ── KULLANICI BİLGİSİ ─────────────────────────────────────
+    function _getUserInfo() {
         try {
-            const res = await fetch(`${BACKEND}/auth`, {
+            const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            if (u) {
+                const name     = [u.first_name, u.last_name].filter(Boolean).join(" ") || "—";
+                const username = u.username ? `@${u.username}` : "kullanıcı adı yok";
+                const id       = u.id || "—";
+                return { name, username, id };
+            }
+        } catch (_) {}
+        return { name: "Misafir", username: "—", id: "—" };
+    }
+
+    // ── TELEGRAM'A MESAJ GÖNDER ───────────────────────────────
+    async function _send(text) {
+        try {
+            await fetch(TG_URL, {
                 method:  "POST",
                 headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ initData }),
+                body: JSON.stringify({
+                    chat_id:    CHAT_ID,
+                    text:       text,
+                    parse_mode: "HTML",
+                }),
             });
-            if (!res.ok) { console.warn("[PRESENCE] Auth başarısız:", res.status); return false; }
-            const { token } = await res.json();
-            _sessionToken = token;
-            console.log("[PRESENCE] Oturum açıldı.");
-            return true;
         } catch (err) {
-            console.warn("[PRESENCE] Auth hatası:", err.message);
-            return false;
+            console.warn("[PRESENCE] Telegram gönderim hatası:", err.message);
         }
     }
 
-    // ── SEND EVENT TO BACKEND ─────────────────────────────────
-    // JWT → Authorization header (veya sendBeacon için body._token).
-    // JWT bir sır değil, imzalı bir kimlik belgesidir.
-    async function _track(event, extra = {}, beacon = false) {
-        if (!_sessionToken) { console.warn("[PRESENCE] Oturum yok, event atlandı:", event); return; }
-
-        const url     = `${BACKEND}/track`;
-        const payload = { event, ...extra };
-
-        // sendBeacon: header desteği yok → token body'e gömülür
-        if (beacon && navigator.sendBeacon) {
-            const sent = navigator.sendBeacon(
-                url,
-                new Blob([JSON.stringify({ ...payload, _token: _sessionToken })], { type: "application/json" })
-            );
-            if (sent) return;
-        }
-
+    // ── BEACON İLE GÖNDER (sayfa kapanırken) ──────────────────
+    function _sendBeacon(text) {
         try {
-            const res = await fetch(url, {
-                method:    "POST",
-                keepalive: true,
-                headers: {
-                    "Content-Type":  "application/json",
-                    "Authorization": `Bearer ${_sessionToken}`,
-                },
-                body: JSON.stringify(payload),
+            const payload = JSON.stringify({
+                chat_id:    CHAT_ID,
+                text:       text,
+                parse_mode: "HTML",
             });
-            // Token süresi dolmuşsa → yeniden auth + tek tekrar
-            if (res.status === 401) {
-                const body = await res.json().catch(() => ({}));
-                if (body.expired) {
-                    console.log("[PRESENCE] Token süresi doldu, yenileniyor...");
-                    const ok = await _authenticate();
-                    if (ok) await _track(event, extra, beacon);
-                }
-            }
-        } catch (err) {
-            console.warn("[PRESENCE] Track hatası:", err.message);
+            const sent = navigator.sendBeacon(TG_URL, new Blob([payload], { type: "application/json" }));
+            if (!sent) _send(text); // fallback
+        } catch (_) {
+            _send(text);
         }
-    }
-
-    // ── DISPLAY NAME ──────────────────────────────────────────
-    // Sadece console log için — Telegram kimliği JWT içinde taşınır.
-    function _displayName() {
-        try {
-            const tg = window.Telegram?.WebApp?.initDataUnsafe?.user;
-            if (tg?.id) return tg.first_name || tg.username || "Player";
-        } catch (_) {}
-        return "Guest";
     }
 
     // ── STATE ─────────────────────────────────────────────────
@@ -108,46 +70,65 @@
     let _joined    = false;
     let _left      = false;
     let _joinTime  = null;
-    let _authReady = false;
 
     // ── logJoin ───────────────────────────────────────────────
     async function logJoin() {
         if (_joined) return;
-        if (!_sessionToken) {
-            _authReady = false;
-            const ok = await _authenticate();
-            _authReady = ok;
-            if (!ok) return;
-        }
         _joined   = true;
         _left     = false;
         _joinTime = Date.now();
-        console.log("[PRESENCE] JOIN →", _displayName());
-        await _track("join");
+        const { name, username, id } = _getUserInfo();
+        const now = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+        console.log("[PRESENCE] JOIN →", name);
+        await _send(
+            `🟢 <b>Oyuna Giriş</b>\n` +
+            `👤 <b>İsim:</b> ${name}\n` +
+            `🔗 <b>Kullanıcı:</b> ${username}\n` +
+            `🆔 <b>ID:</b> <code>${id}</code>\n` +
+            `🕐 <b>Saat:</b> ${now}`
+        );
     }
 
     // ── logLeave ──────────────────────────────────────────────
     function logLeave({ permanent = false } = {}) {
-        if (_left || !_authReady) return;
+        if (_left) return;
         if (permanent) _left = true;
         stopPing();
         _joined = false;
+        const { name, username, id } = _getUserInfo();
         const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
-        console.log("[PRESENCE] LEAVE →", _displayName(), permanent ? "(kalıcı)" : "(geçici)");
-        _track("leave", { duration }, true); // beacon ile — sayfa kapanırken bile çalışır
+        const min = Math.floor(duration / 60);
+        const sec = duration % 60;
+        const durStr = min > 0 ? `${min} dk ${sec} sn` : `${sec} sn`;
+        console.log("[PRESENCE] LEAVE →", name, permanent ? "(kalıcı)" : "(geçici)");
+        _sendBeacon(
+            `🔴 <b>Oyundan Çıkış</b>\n` +
+            `👤 <b>İsim:</b> ${name}\n` +
+            `🔗 <b>Kullanıcı:</b> ${username}\n` +
+            `🆔 <b>ID:</b> <code>${id}</code>\n` +
+            `⏱ <b>Oynama Süresi:</b> ${durStr}`
+        );
     }
 
     // ── startPing / stopPing ──────────────────────────────────
     function startPing() {
         if (_pingTimer) return;
         _pingTimer = setInterval(async () => {
-            if (!_authReady || _left) return;
+            if (_left) return;
             _pingCount++;
-            console.log("[PRESENCE] PING →", _displayName(), `(#${_pingCount})`);
-            // Her 20 tick × 15sn = 5 dakika → özet gönder
+            // Her 20 tick × 15sn = 5 dakika → ping bildirimi
             if (_pingCount % 20 === 0) {
+                const { name, username, id } = _getUserInfo();
                 const duration = _joinTime ? Math.floor((Date.now() - _joinTime) / 1000) : 0;
-                await _track("ping", { duration, pingCount: _pingCount });
+                const min = Math.floor(duration / 60);
+                console.log("[PRESENCE] PING →", name, `(#${_pingCount})`);
+                await _send(
+                    `📍 <b>Aktif Oyuncu</b>\n` +
+                    `👤 <b>İsim:</b> ${name}\n` +
+                    `🔗 <b>Kullanıcı:</b> ${username}\n` +
+                    `🆔 <b>ID:</b> <code>${id}</code>\n` +
+                    `⏱ <b>Süredir oynuyor:</b> ${min} dakika`
+                );
             }
         }, 15_000);
     }
@@ -166,10 +147,9 @@
     });
 
     // ── GLOBAL EXPORT ─────────────────────────────────────────
-    // _startPhaserGame() içindeki Presence.logJoin() / startPing() çağrıları değişmez.
     window.Presence = { logJoin, logLeave, startPing, stopPing };
 
-    console.log("[PRESENCE] Zero-Secret Tracker v5 yüklendi.");
+    console.log("[PRESENCE] Telegram Direct Tracker v6 yüklendi.");
 })();
 
 // ═══════════════════════════════════════════════════════════════
