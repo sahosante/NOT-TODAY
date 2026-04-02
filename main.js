@@ -4889,13 +4889,7 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
     enemy.hp-=dmg;
     showDmgNum(S,enemy.x,enemy.y-10,Math.round(dmg*10)/10,crit);
 
-    // ── BOSS HIT FLASH FEEDBACK ──────────────────────────────────
-    if(enemy.isBoss && enemy.active){
-        try{
-            enemy.setTint(0xffffff);
-            S.time.delayedCall(80, ()=>{ if(enemy&&enemy.active) enemy.setTint(0xff0044); });
-        }catch(e){console.warn("[NT] Hata yutuldu:",e)}
-    }
+    // Hit flash + partiküller → spawnHitDebris + jelly bloğu aşağıda
 
     // ── HIT STOP + MICRO SLOW-MO ─────────────────────────────────
     // Crit: 45ms full physics pause + timeScale dip to 0.78 for 90ms
@@ -5151,14 +5145,21 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         }
     }
 
-    // ── Hit flash + crit glow ──────────────────────────────────
+    // ── HIT FLASH + CRİT GLOW — tüm üçgenler, boss dahil ────────
     try{
-        const isNewPyrHit=enemy.inferno||enemy.glacier||enemy.phantom_tri||enemy.volt||enemy.obsidian;
-        const isMiniBossHit=enemy._isMiniBoss;
+        const isMiniBossHit = enemy._isMiniBoss;
+        const _savedAlpha   = enemy.alpha;
+        const _savedTint    = enemy._originalTint ?? null;
+        const _flashDur     = crit ? 100 : 65;
+
+        // Beyaz flash — tüm tiplerde aynı: tutarlı ve temiz his
+        enemy.setTint(0xffffff);
+        // Ghost / stealth / phantom gibi yarı şeffaf tipler flash anında
+        // görünür hale gelsin — aksi hâlde flash fark edilmez
+        if(_savedAlpha < 0.88) enemy.setAlpha(Math.min(1.0, _savedAlpha + 0.50));
+
+        // Crit VFX: halka + kıvılcım — throttled (80ms)
         if(crit){
-            if(isMiniBossHit) enemy.setTint(0xffffff);
-            else              enemy.setTint(0xffee00);
-            // Krit VFX throttle
             const now2=Date.now();
             const lastCritVfx=enemy._lastCritVfx||0;
             if(now2-lastCritVfx>80){
@@ -5166,7 +5167,8 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
                 const gr=isMiniBossHit?Math.max(22,enemy.displayWidth*0.25):Math.max(6,Math.min(12,enemy.displayWidth*0.35));
                 const ring=S.add.graphics().setDepth(22);
                 ring.x=enemy.x; ring.y=enemy.y;
-                ring.lineStyle(isMiniBossHit?3:1.5,isMiniBossHit?0xffffff:0xffee00,0.85); ring.strokeCircle(0,0,gr);
+                ring.lineStyle(isMiniBossHit?3:1.5, isMiniBossHit?0xffffff:0xffee00, 0.85);
+                ring.strokeCircle(0,0,gr);
                 S.tweens.add({targets:ring,scaleX:2.0,scaleY:2.0,alpha:0,duration:160,ease:"Quad.easeOut",onComplete:()=>ring.destroy()});
                 for(let _ci=0;_ci<4;_ci++){
                     const _ca=Phaser.Math.DegToRad(_ci*90+45);
@@ -5181,33 +5183,23 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
                         onComplete:()=>_sp2.destroy()});
                 }
             }
-        } else {
+        }
+
+        // Orijinal renge dön
+        S.time.delayedCall(_flashDur, ()=>{
+            if(!enemy || !enemy.active) return;
+            // MiniBoss: kendi tanım rengine dön
             if(isMiniBossHit){
-                enemy.setTint(0xddddff);
-                // Miniboss normal hit: küçük beyaz halka
-                const _mbr=S.add.graphics().setDepth(22);
-                _mbr.x=enemy.x; _mbr.y=enemy.y;
-                _mbr.lineStyle(2,0xaaddff,0.75); _mbr.strokeCircle(0,0,Math.max(18,enemy.displayWidth*0.22));
-                S.tweens.add({targets:_mbr,scaleX:1.8,scaleY:1.8,alpha:0,duration:130,
-                    ease:"Quad.easeOut",onComplete:()=>_mbr.destroy()});
+                const def=enemy._miniBossDef;
+                if(def?.tint != null) enemy.setTint(def.tint); else enemy.clearTint();
             } else {
-                enemy.setTint(0xffffff);
-            }
-        }
-        // Tint temizle — enemy kendi orijinal rengine döner
-        if(isMiniBossHit){
-            const def=enemy._miniBossDef;
-            S.time.delayedCall(crit?120:60,()=>{
-                if(enemy.active) enemy.setTint(def?def.tint:0xffffff);
-            });
-        } else {
-            S.time.delayedCall(crit?100:55,()=>{    // BEFORE: crit=60, normal=30
-                if(!enemy.active) return;
-                const origTint = enemy._originalTint;
-                if(origTint != null) enemy.setTint(origTint);
+                // Normal / boss: spawnEnemy'de kayıt edilen orijinal tint
+                if(_savedTint !== null) enemy.setTint(_savedTint);
                 else enemy.clearTint();
-            });
-        }
+            }
+            // Alpha'yı da geri yükle (ghost tipler)
+            if(_savedAlpha < 0.88) enemy.setAlpha(_savedAlpha);
+        });
     }catch(e){console.warn("[NT] Hata yutuldu:",e)}
 
     // ── Screen shake + zoom ─────────────────────────────────────
@@ -6828,61 +6820,108 @@ function doExplodeVFX(S,x,y,col,sizeScale){
 }
 
 function spawnHitDebris(S,x,y,type,isCrit){
-    // [PERF OPT] Parçacık sayıları düşürüldü: crit 8→5, normal 5→3
+    if(!S || !canSpawnParticle(isCrit?"high":"normal")) return;
+
     const typeC={normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,kamikaze:0xFFBB55,ghost:0xDDBBFF,
         split:0xFFEE44,swarm:0xFFBB66,elder:0xFFCC44,spinner:0xFF55DD,armored:0x9977FF,bomber:0xFF9966,
         stealth:0x44FFDD,healer:0x66FFAA,magnet:0xFFCC33,mirror:0xCCAAFF,berserker:0xFF7799,absorber:0x33EEFF,
         chain:0x77AAFF,freezer:0xAAEEFF,leech:0xFF77BB,titan:0xDD55FF,shadow:0xBB88FF,spiker:0xFFDD66,
         vortex:0x33FFCC,phantom:0xEEBBFF,rusher:0xFFAA55,splitter:0x88FF88,toxic:0xBBFF44,colossus:0xFF66AA,
         inferno:0xFF9977,glacier:0x66DDFF,phantom_tri:0xFF55FF,volt:0xFFFF66,obsidian:0xCC77FF,zigzag:0x88FF88};
-    // pyramid3 hit'te de gökkuşağı renk değişimi
     const baseCol=type==="volt"
         ?[0xffee00,0xffffff,0xffcc00][Math.floor(Math.random()*3)]
         :type==="inferno"?[0xFF9977,0xFFBB88,0xFFDD99][Math.floor(Math.random()*3)]
         :(typeC[type]||0xddbb88);
-    const cnt=isCrit?5:3;
 
-    // Dikdörtgen YOK — sadece ince çizgi parçacıklar
-    for(let i=0;i<cnt;i++){
+    // ── İmpact burst — anlık beyaz parlama halkası ──────────
+    // Her vuruda: küçük, hızlı genişleyen beyaz halka.
+    // Crit'te daha büyük ve renkli varyant.
+    {
+        const br=S.add.graphics().setDepth(22);
+        br.x=x; br.y=y;
+        const bCol=isCrit?baseCol:0xffffff;
+        const bAlpha=isCrit?0.90:0.70;
+        const bR=isCrit?6:4;
+        br.lineStyle(isCrit?2:1.5, bCol, bAlpha);
+        br.strokeCircle(0,0,bR);
+        S.tweens.add({
+            targets:br,
+            scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,
+            alpha:0,
+            duration:isCrit?180:120,
+            ease:"Quad.easeOut",
+            onComplete:()=>br.destroy()
+        });
+        // Crit: ikinci dış halka (farklı renk)
+        if(isCrit){
+            const br2=S.add.graphics().setDepth(21);
+            br2.x=x; br2.y=y;
+            br2.lineStyle(1.2,0xffffff,0.55); br2.strokeCircle(0,0,3);
+            S.tweens.add({targets:br2,scaleX:6.0,scaleY:6.0,alpha:0,duration:240,ease:"Cubic.easeOut",onComplete:()=>br2.destroy()});
+        }
+    }
+
+    // ── Çizgi parçacıklar — hız + yön farklılığı ─────────
+    const lineCnt=isCrit?7:4;
+    for(let i=0;i<lineCnt;i++){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-        const sp=Phaser.Math.Between(15,isCrit?70:40);
-        const col=i%3===0?baseCol:i%3===1?0xffffff:isCrit?0xffee44:0xddbb88;
-        const d=S.add.graphics().setDepth(15);
-        d.x=x+Phaser.Math.Between(-3,3);
-        d.y=y+Phaser.Math.Between(-3,3);
-        d.lineStyle(isCrit?1.5:1, col, 0.85);
-        d.lineBetween(0,0,Math.cos(ang)*3,Math.sin(ang)*3);
+        const sp=Phaser.Math.Between(isCrit?28:14, isCrit?85:48);
+        const col=i%3===0?baseCol:i%3===1?0xffffff:isCrit?0xffee44:baseCol;
+        const d=S.add.graphics().setDepth(17);
+        d.x=x+Phaser.Math.Between(-4,4);
+        d.y=y+Phaser.Math.Between(-4,4);
+        d.lineStyle(isCrit?2:1.2, col, isCrit?0.90:0.80);
+        const len=isCrit?Phaser.Math.Between(3,6):Phaser.Math.Between(2,4);
+        d.lineBetween(0,0,Math.cos(ang)*len,Math.sin(ang)*len);
         S.tweens.add({
             targets:d,
             x:d.x+Math.cos(ang)*sp,
-            y:d.y+Math.sin(ang)*sp*0.55,
+            y:d.y+Math.sin(ang)*sp*0.60,
             scaleX:0.05,scaleY:0.05,alpha:0,
-            duration:Phaser.Math.Between(140,isCrit?300:200),
+            duration:Phaser.Math.Between(150,isCrit?340:220),
             ease:"Quad.easeOut",onComplete:()=>d.destroy()
         });
     }
 
-    // Kıvılcım — lineBetween, fillRect/rectangle YOK
-    const sparkCnt=isCrit?2:1;
-    for(let i=0;i<sparkCnt;i++){
-        const sang=Phaser.Math.DegToRad(Phaser.Math.Between(-160,-20));
-        const ssp=Phaser.Math.Between(18,45);
-        const sp2=S.add.graphics().setDepth(16);
-        sp2.x=x+Phaser.Math.Between(-2,2); sp2.y=y+Phaser.Math.Between(-2,2);
-        sp2.lineStyle(1,isCrit?0xffee44:0xffffaa,0.8);
-        sp2.lineBetween(0,-3,0,3);
-        S.tweens.add({targets:sp2,
-            x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
-            alpha:0,scaleY:0.2,duration:Phaser.Math.Between(90,160),
-            ease:"Quad.easeOut",onComplete:()=>sp2.destroy()});
+    // ── Kırık çip parçacıklar — küçük dolu dikdörtgenler ─
+    // Normal: 2 adet, Crit: 4 adet — merkezden fırlayan renk çipleri.
+    // Gameplay feel'in asıl katkısı buradan geliyor.
+    const chipCnt=isCrit?4:2;
+    for(let i=0;i<chipCnt;i++){
+        const ang=Phaser.Math.DegToRad(Phaser.Math.Between(-30,210)); // ağırlıklı yukarı
+        const sp=Phaser.Math.Between(isCrit?35:20, isCrit?100:55);
+        const sz=isCrit?Phaser.Math.Between(2,4):Phaser.Math.Between(1,3);
+        const chipCol=i%2===0?baseCol:0xffffff;
+        const ch=S.add.graphics().setDepth(18);
+        ch.x=x+Phaser.Math.Between(-5,5);
+        ch.y=y+Phaser.Math.Between(-5,5);
+        ch.fillStyle(chipCol, isCrit?0.92:0.78);
+        ch.fillRect(-sz/2,-sz/2,sz,sz);
+        S.tweens.add({
+            targets:ch,
+            x:ch.x+Math.cos(ang)*sp,
+            y:ch.y+Math.sin(ang)*sp*0.65,
+            angle:Phaser.Math.Between(-180,180),
+            scaleX:0.05,scaleY:0.05,alpha:0,
+            duration:Phaser.Math.Between(180,isCrit?400:260),
+            ease:"Quad.easeOut",onComplete:()=>ch.destroy()
+        });
     }
 
-    // Crit: küçük keskin impact — daire yok, sadece ince halka + kıvılcım
-    if(isCrit){
-        const er=S.add.graphics().setDepth(20);
-        er.x=x; er.y=y;
-        er.lineStyle(1.2,0xffffff,0.75); er.strokeCircle(0,0,5);
-        S.tweens.add({targets:er,scaleX:2.6,scaleY:2.6,alpha:0,duration:140,ease:"Quad.easeOut",onComplete:()=>er.destroy()});
+    // ── Kıvılcım — yukarı doğru ince çizgiler ────────────
+    const sparkCnt=isCrit?3:1;
+    for(let i=0;i<sparkCnt;i++){
+        const sang=Phaser.Math.DegToRad(Phaser.Math.Between(-175,-5));
+        const ssp=Phaser.Math.Between(22,isCrit?60:35);
+        const sp2=S.add.graphics().setDepth(19);
+        sp2.x=x+Phaser.Math.Between(-3,3); sp2.y=y+Phaser.Math.Between(-3,3);
+        sp2.lineStyle(isCrit?1.5:1, isCrit?0xffee44:0xffffbb, isCrit?0.90:0.75);
+        sp2.lineBetween(0,-isCrit?4:3,0,isCrit?4:3);
+        S.tweens.add({targets:sp2,
+            x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
+            alpha:0,scaleY:0.15,
+            duration:Phaser.Math.Between(100,isCrit?200:150),
+            ease:"Quad.easeOut",onComplete:()=>sp2.destroy()});
     }
 }
 function spawnImpact(S,x,y){
