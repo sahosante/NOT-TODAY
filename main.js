@@ -1279,6 +1279,36 @@ const NT_SFX = (function(){
             _noise(t, _vary(0.028,0.15), _vol(0.20*vV), 110,850, null, pan);
             if(Math.random()<0.42) _noise(t,0.008,_vol(0.07*vV),2000,6000, null, pan);
         },
+
+        // ── PYRAMID SWOOP — enemy descend air-rush ────────────────
+        // Very subtle whoosh — felt rather than heard. Bandpass noise
+        // that sweeps downward, panned randomly for spatial presence.
+        // Volume is intentionally low: this runs on every enemy spawn.
+        pyramid_swoop(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const pan=_vary(0,0.65);
+            // Main swoop: bandpass noise with falling filter sweep
+            const sr=ctx.sampleRate, len=Math.ceil(sr*0.22);
+            const buf=ctx.createBuffer(1,len,sr);
+            const d=buf.getChannelData(0);
+            for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+            const src=ctx.createBufferSource(); src.buffer=buf;
+            const bpf=ctx.createBiquadFilter();
+            bpf.type="bandpass";
+            // Filter sweeps: 1800Hz → 480Hz — the "falling through air" sensation
+            bpf.frequency.setValueAtTime(1800,t);
+            bpf.frequency.exponentialRampToValueAtTime(480,t+0.18);
+            bpf.Q.value=2.2;
+            const g=ctx.createGain();
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(0.055),t+0.022); // very quiet
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.20);
+            const p=_mkPan(ctx,pan);
+            src.connect(bpf); bpf.connect(g);
+            if(p){g.connect(p);p.connect(_sfxBus);}else{g.connect(_sfxBus);}
+            src.start(t); src.stop(t+0.23);
+        },
     };
 
     // ── Footstep timer state ──────────────────────────────────────
@@ -4287,6 +4317,12 @@ function spawnEnemy(S){
     if(!p) return;
     p.setActive(true).setVisible(true);
     resetEF(p);
+    // Soft swoop on spawn — random 40% chance, max 1 per 400ms to avoid spam
+    const _now=Date.now();
+    if(Math.random()<0.40 && (!spawnEnemy._lastSwoop || _now-spawnEnemy._lastSwoop>400)){
+        spawnEnemy._lastSwoop=_now;
+        NT_SFX.play("pyramid_swoop");
+    }
     // Texture set + tint uygula — her tip kendine özgü renk
     try{
         // Texture var mı kontrol et — yoksa fallback kullan
@@ -5820,6 +5856,7 @@ function buildUI(S){
     pH.on("pointerover",  ()=> pH.setAlpha(1.0));
     pH.on("pointerout",   ()=> pH.setAlpha(0.80));
     pH.on("pointerdown",  ()=>{
+        NT_SFX.play("menu_click");
         pH.setAlpha(0.5);
         window.setTimeout(()=>{ pH.setAlpha(0.80); showPause(S); }, 60);
     });
@@ -7268,7 +7305,7 @@ function NT_YellowBtn(scene, cx, cy, bw, bh, label, depth, fn){
     const t=scene.add.text(cx,cy,label,NT_STYLE.label(17)).setOrigin(0.5).setDepth(depth+1);
     const h=scene.add.rectangle(cx,cy,bw,bh,0xffffff,0.001).setDepth(depth+2).setInteractive({useHandCursor:true});
     h.on("pointerover",()=>draw(true)).on("pointerout",()=>draw(false));
-    h.on("pointerdown",()=>{ scene.tweens.add({targets:[g,t],alpha:0.6,duration:50,yoyo:true,onComplete:fn}); });
+    h.on("pointerdown",()=>{ NT_SFX.play("menu_click"); scene.tweens.add({targets:[g,t],alpha:0.6,duration:50,yoyo:true,onComplete:fn}); });
     return [g,t,h];
 }
 
@@ -7418,6 +7455,7 @@ function NT_MenuBtn(scene,cx,cy,iconKey,label,callback){
             onUpdate:()=>drawFace(false, d.sc)});
     });
     hit.on("pointerdown", ()=>{
+        NT_SFX.play("menu_click");
         const d={sc:1.0};
         // Kısa press-down efekti — callback hemen tetiklenir, animasyon arka planda biter
         scene.tweens.add({
@@ -7753,7 +7791,7 @@ class SceneMainMenu extends Phaser.Scene {
             A(this.add.text(TX,ly,lbl,NT_STYLE.body(17)).setOrigin(0,0.5).setDepth(depth+3));
             const col=()=>getV()?"#44ff88":"#ff5555";
             const vt=A(this.add.text(VX,ly,getV()?"ON":"OFF",NT_STYLE.accent(17,col())).setOrigin(1,0.5).setDepth(depth+3).setInteractive({useHandCursor:true}));
-            vt.on("pointerdown",()=>{ toggle(); vt.setText(getV()?"ON":"OFF"); vt.setColor(col()); });
+            vt.on("pointerdown",()=>{ NT_SFX.play("menu_click"); toggle(); vt.setText(getV()?"ON":"OFF"); vt.setColor(col()); });
             ly+=46;
         };
         _row("SFX",          ()=>window._nt_sfx_enabled!==false,   ()=>{window._nt_sfx_enabled  =window._nt_sfx_enabled===false;});
@@ -7823,7 +7861,7 @@ class SceneMainMenu extends Phaser.Scene {
             _d();
             langGfx.push({lb,_d,lg});
             const lt=A(this.add.text(bx,ly,lg.toUpperCase(),NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+4).setInteractive({useHandCursor:true}));
-            lt.on("pointerdown",()=>{ CURRENT_LANG=lg; langGfx.forEach(x=>x._d()); });
+            lt.on("pointerdown",()=>{ NT_SFX.play("menu_click"); CURRENT_LANG=lg; langGfx.forEach(x=>x._d()); });
         });
     }
 
@@ -10655,6 +10693,7 @@ function showLevelUpUI(S) {
         hit.on("pointerdown", () => {
             if (_selectionMade || !_levelUpChoosing) return;
             _selectionMade = true;
+            NT_SFX.play("upgrade_select");
             console.log("[LevelUp] Upgrade selected:", upKey);
 
             // Disable all hit areas
@@ -12491,6 +12530,8 @@ function showRunEventUI(S, ev){
         hit.on("pointerdown",()=>{
             // [VFX WOW] Seçim efekti
             S.cameras.main.zoomTo(1.0,80,"Quad.easeIn");
+            // Ses: kabul → button_confirm, diğer seçenekler → menu_click
+            NT_SFX.play(isAccept ? "button_confirm" : "menu_click");
             
             if(isAccept){
                 S.cameras.main.shake(35,0.006);
