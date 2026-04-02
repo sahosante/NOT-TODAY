@@ -336,40 +336,72 @@ const NT_SFX = (function(){
     let _musTimer    = null;
     let _musStep     = 0;
     let _musNextNote = 0;
-    let _musBar      = 0;              // bar counter (for pattern variation)
+    let _musBar      = 0;
     let _musState    = "menu";         // menu | gameplay | high_combo | boss | outro
 
-    // ── Drum patterns per state ───────────────────────────────────
+    // ── Crossfade intensity: 0.0 = pure menu, 1.0 = pure gameplay ─
+    // Every drum vol, bass filter, pad level is lerped on this value.
+    // Ramped per-step inside _scheduleStep so transitions are smooth
+    // without any separate timer — the sequencer IS the transition engine.
+    let _musIntensity       = 0.0;
+    let _musIntensityTarget = 0.0;
+    let _musIntensityStep   = 0.0;  // added to _musIntensity each sequencer step
+
+    // Linear interpolate — clamped to [0,1]
+    function _lerp(a,b,t){ return a+(b-a)*Math.max(0,Math.min(1,t)); }
+
+    // ── Drum patterns ─────────────────────────────────────────────
     const _PAT_KICK = {
-        menu:       [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
-        gameplay:   [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        // MENU (ix=0): 4-on-the-floor — energetic, driving, relentless
+        menu:       [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
+        // GAMEPLAY (ix=1): heavy half-time stomp + anticipation hit on 15
+        //   Wide spacing = oppressive weight, not busy excitement
+        gameplay:   [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,1,0],
         high_combo: [1,0,1,0, 1,0,0,0, 1,0,1,0, 1,0,0,1],
         boss:       [1,0,1,0, 1,0,0,1, 1,0,1,0, 1,1,0,1],
     };
     const _PAT_SNARE = {
-        menu:       [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-        gameplay:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+        // MENU: crisp crack on 2+4 with ghost anticipation — classic groove
+        menu:       [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,1],
+        // GAMEPLAY: 2+4 only — heavier, longer decay, no ghost (weight > busy)
+        gameplay:   [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
         high_combo: [0,0,0,0, 1,0,0,1, 0,0,1,0, 1,0,0,1],
         boss:       [0,0,1,0, 1,0,1,0, 0,0,1,0, 1,0,1,1],
     };
     const _PAT_OHAT = {
+        // MENU: every-other-beat open hat — standard energetic groove
         menu:       [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-        gameplay:   [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
+        // GAMEPLAY: off-beat 16th notes — creates rhythmic tension and anxiety
+        gameplay:   [0,0,0,1, 0,0,0,1, 0,0,0,1, 0,0,0,1],
         high_combo: [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
         boss:       [0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1],
     };
 
-    // ── Bass & lead melody patterns (A minor) ─────────────────────
-    // A2=110 C3=130 D3=146 E3=164 G3=196 A3=220
+    // ── Bass patterns ─────────────────────────────────────────────
+    // Menu (bright/energetic): melodic Am bass lines
     const _BASS_A    = [110,0,0,110, 0,0,130,0, 146,0,0,0, 110,0,164,0];
     const _BASS_B    = [110,0,0,0,   130,0,0,0, 110,0,146,0, 164,0,0,0];
     const _BASS_BOSS = [55, 0,0,55,  0, 0,82, 0, 73, 0,0,0, 55, 0,82, 55];
-    const _LEAD_A    = [0,0,0,0,  220,0,0,0,   0,0,261,0,  0,246,0,0];
-    const _LEAD_B    = [0,0,330,0, 0,0,0,0,  294,0,0,261,  0,0,0,0];
-    const _LEAD_HC   = [440,0,0,330, 0,392,0,0, 330,0,0,294, 0,0,440,0]; // high combo lead
 
-    // ── Pad chord progressions (played on beat 1 and 9) ──────────
-    const _PAD_CHORDS = [
+    // Gameplay (dark): chromatic descent — A2→Ab2→G2, oppressive downward pull
+    // 110=A2  104=Ab2  98=G2  116.5=Bb2 (half-step up = neighbour tension)
+    const _BASS_DARK_A = [110,0,0,0, 0,0,0,0, 104,0,0,0, 0,0,98, 0]; // chromatic fall
+    const _BASS_DARK_B = [110,0,0,110,0,0,0,0, 0, 0,0,0, 82.4,0,0,0]; // A2 root + tritone
+
+    // Dark ostinato: replaces bright lead in gameplay —
+    // syncopated low sawtooth stabs with chromatic neighbour notes.
+    // A2↔Bb2 oscillation = maximum semitone dissonance = anxiety.
+    const _OSTINATO_DARK_A = [0,0,110,0, 0,0,0,116.5, 0,110,0,0, 0,0,116.5,0];
+    const _OSTINATO_DARK_B = [0,0,0,104, 0,0,110,0,   0,0,104,0, 0,0,0,110];
+
+    // ── Lead melody (menu/high_combo only) ───────────────────────
+    const _LEAD_A  = [0,0,0,0,  220,0,0,0,  0,0,261,0,  0,246,0,0];
+    const _LEAD_B  = [0,0,330,0, 0,0,0,0, 294,0,0,261,  0,0,0,0];
+    const _LEAD_HC = [440,0,0,330, 0,392,0,0, 330,0,0,294, 0,0,440,0];
+
+    // ── Pad chord progressions ────────────────────────────────────
+    // BRIGHT (menu): standard Am palette — energetic and clear
+    const _PAD_BRIGHT = [
         [110,164,220],  // Am
         [130,164,196],  // C
         [146,196,220],  // Dm
@@ -377,72 +409,114 @@ const NT_SFX = (function(){
         [110,146,220],  // Am7
     ];
 
-    // ── Sidechain gain node (kick ducks this) ─────────────────────
+    // DARK (gameplay): low-register minor voicings with tritone tensions.
+    // Very wide intervals = spacious but oppressive.
+    // 55=A1  73.4=D2  98=G2  87.3=F2  58.3=Bb1  49=G1  41.2=E1  77.8=Eb2
+    const _PAD_DARK = [
+        [55, 73.4,  98.0],   // Am7 open  — A1,D2,G2  (wide, dark, spacious)
+        [49, 58.3,  87.3],   // Gm7 low   — G1,Bb1,F2 (heavy, tense resolution)
+        [43.65, 55, 82.4],   // Fm low    — F1,A1,E2  (modal darkness)
+        [41.2, 55,  77.8],   // Em/Eb     — E1,A1,Eb2 (tritone = maximum tension)
+        [46.2, 58.3, 73.4],  // Bbm low   — Bb1,B1,D2 (chromatic cluster, dread)
+    ];
+
+    // ── Sidechain gain node (kick pump effect) ────────────────────
     let _sidechainG = null;
 
     function _scheduleStep(t,step){
         const ctx=_ctx; if(!ctx||!_musBus) return;
-        const st = _musState;
-        const v  = _mVol(0.45);
-        const bar= _musBar;
+        const st  = _musState;
+        const v   = _mVol(0.45);
+        const bar = _musBar;
+
+        // Advance crossfade intensity one step toward target
+        if(_musIntensity !== _musIntensityTarget && _musIntensityStep > 0){
+            const diff  = _musIntensityTarget - _musIntensity;
+            const delta = Math.sign(diff) * Math.min(Math.abs(diff), _musIntensityStep);
+            _musIntensity = Math.max(0, Math.min(1, _musIntensity + delta));
+        }
+        // ix=0 → MENU (energetic, bright, 4-on-the-floor)
+        // ix=1 → GAMEPLAY (dark, heavy, oppressive, tense)
+        const ix = _musIntensity;
 
         const kickPat  = _PAT_KICK[st]  || _PAT_KICK.gameplay;
         const snarePat = _PAT_SNARE[st] || _PAT_SNARE.gameplay;
         const ohatPat  = _PAT_OHAT[st]  || _PAT_OHAT.gameplay;
 
         // ── KICK ─────────────────────────────────────────────
+        // MENU:     crisp 4-on-the-floor — clean transient, standard punch
+        // GAMEPLAY: earth-shaking half-time stomp — deeper body, longer sub,
+        //           heavier distortion. Hits less often but feels physical.
         if(kickPat[step]){
-            // Body sine sweep
+            const kv       = _lerp(v*2.4,  v*3.2,  ix);
+            const distAmt  = _lerp(0.70,   2.50,   ix);
+            const kickFreq = _lerp(132,    108,    ix);
+            const kickEnd  = _lerp(30,     22,     ix);
+            const kickDur  = _lerp(0.19,   0.28,   ix);
             const o=ctx.createOscillator(), g=ctx.createGain();
-            const wave=ctx.createWaveShaper(); wave.curve=_distCurve(0.7);
+            const wave=ctx.createWaveShaper(); wave.curve=_distCurve(distAmt);
             o.type="sine";
-            o.frequency.setValueAtTime(st==="boss"?165:132,t);
-            o.frequency.exponentialRampToValueAtTime(30,t+0.19);
-            g.gain.setValueAtTime(v*2.4,t);
-            g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+            o.frequency.setValueAtTime(st==="boss"?165:kickFreq, t);
+            o.frequency.exponentialRampToValueAtTime(kickEnd, t+kickDur);
+            g.gain.setValueAtTime(kv, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+kickDur+0.04);
             o.connect(wave); wave.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+0.25);
-            // Transient click
-            _noise(t,0.009,v*0.65,700,10000,_musBus);
-            // Sub thump
+            o.start(t); o.stop(t+kickDur+0.08);
+            // Transient: crisp hi-freq in menu, dull low thud in gameplay
+            _noise(t,0.010,v*_lerp(0.65,0.18,ix),_lerp(700,120,ix),_lerp(10000,3200,ix),_musBus);
+            // Sub thump: standard in menu, enormous in gameplay
             const sub=ctx.createOscillator(), subG=ctx.createGain();
-            sub.type="sine"; sub.frequency.value=58;
-            subG.gain.setValueAtTime(v*1.0,t);
-            subG.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+            sub.type="sine"; sub.frequency.value=_lerp(58, 36, ix);
+            subG.gain.setValueAtTime(v*_lerp(1.0, 2.2, ix), t);
+            subG.gain.exponentialRampToValueAtTime(0.0001, t+_lerp(0.09,0.22,ix));
             sub.connect(subG); subG.connect(_musBus);
-            sub.start(t); sub.stop(t+0.12);
-            // Sidechain duck — other layers pump on kick
+            sub.start(t); sub.stop(t+_lerp(0.14,0.28,ix));
+            // Sidechain pump
             if(_sidechainG){
                 _sidechainG.gain.cancelScheduledValues(t);
-                _sidechainG.gain.setValueAtTime(0.50,t);
-                _sidechainG.gain.linearRampToValueAtTime(1.0,t+0.13);
+                _sidechainG.gain.setValueAtTime(_lerp(0.50,0.28,ix), t);
+                _sidechainG.gain.linearRampToValueAtTime(1.0, t+_lerp(0.13,0.26,ix));
             }
         }
 
         // ── SNARE ─────────────────────────────────────────────
+        // MENU:     crisp crack on 2+4 — backbone of energetic groove
+        // GAMEPLAY: deep heavy thud — more body, longer decay, low noise layer
         if(snarePat[step]){
+            const sv     = _lerp(v*1.05, v*1.40, ix);
+            const snFreq = _lerp(224,    148,    ix);
+            const snDur  = _lerp(0.18,   0.34,   ix);
             const o=ctx.createOscillator(), g=ctx.createGain();
             o.type="triangle";
-            o.frequency.setValueAtTime(st==="boss"?265:224,t);
-            o.frequency.exponentialRampToValueAtTime(100,t+0.13);
-            g.gain.setValueAtTime(v*1.05,t);
-            g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
+            o.frequency.setValueAtTime(st==="boss"?265:snFreq, t);
+            o.frequency.exponentialRampToValueAtTime(70, t+snDur);
+            g.gain.setValueAtTime(sv, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t+snDur+0.06);
             o.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+0.22);
-            _noise(t,0.17,v*(st==="boss"?0.92:0.78),1500,13000,_musBus);
+            o.start(t); o.stop(t+snDur+0.10);
+            _noise(t,_lerp(0.17,0.30,ix),v*_lerp(0.78,1.10,ix),
+                   _lerp(1500,300,ix),_lerp(13000,5000,ix),_musBus);
+            // Gameplay: extra sub body — the "thoom" sensation
+            if(ix>0.35) _noise(t,0.12*ix,v*0.40*ix,50,380,_musBus);
             if(st==="boss") _noise(t,0.05,v*0.42,4000,18000,_musBus);
         }
 
-        // ── CLOSED HIHAT (random pan for width) ───────────────
-        const chatVel=(step%2===0)?0.34:0.15;
-        _noise(t,0.020,v*chatVel,9000,20000,_musBus,(Math.random()-0.5)*0.45);
+        // ── CLOSED HIHAT ─────────────────────────────────────
+        // MENU:     on-beat accent dominant — clean groove
+        // GAMEPLAY: off-beat accent dominant — inverted = anxious, unsettled
+        {
+            const onBeat  = step%2===0;
+            const chatVel = onBeat ? _lerp(0.34,0.12,ix) : _lerp(0.15,0.32,ix);
+            _noise(t,0.018,v*chatVel,_lerp(9500,6800,ix),20000,_musBus,(Math.random()-0.5)*0.45);
+        }
 
         // ── OPEN HIHAT ────────────────────────────────────────
         if(ohatPat[step]){
-            _noise(t,0.16,v*0.28,6500,15000,_musBus,(Math.random()-0.5)*0.3);
+            _noise(t,_lerp(0.16,0.26,ix),v*_lerp(0.28,0.14,ix),
+                   _lerp(6500,3500,ix),_lerp(15000,9000,ix),_musBus,(Math.random()-0.5)*0.38);
         }
 
-        // ── RIMSHOT (occasional fills) ─────────────────────────
+        // ── RIMSHOT FILLS ─────────────────────────────────────
         if((st==="high_combo"||st==="boss")&&step===14){
             _noise(t,0.04,v*0.32,3000,11000,_musBus);
             const rim=ctx.createOscillator(),rimG=ctx.createGain();
@@ -454,77 +528,155 @@ const NT_SFX = (function(){
         }
 
         // ── BASS LINE ─────────────────────────────────────────
-        const bassPat = st==="boss"?_BASS_BOSS:(bar%2===0?_BASS_A:_BASS_B);
+        // MENU:     melodic Am bass — clear sawtooth, open filter, rhythmic
+        // GAMEPLAY: chromatic descent — very dark filter (180Hz), heavy
+        //           distortion, longer sustain — physically oppressive
+        const bassPat = st==="boss"  ? _BASS_BOSS
+                      : ix>0.50     ? (bar%2===0 ? _BASS_DARK_A : _BASS_DARK_B)
+                      :               (bar%2===0 ? _BASS_A      : _BASS_B);
         if(bassPat[step]){
-            const f=bassPat[step];
+            const f          = bassPat[step];
+            const bassFilter = _lerp(680, 170, ix);
+            const bassVol    = _lerp(v*0.68, v*0.95, ix);
+            const bassQ      = _lerp(2.8, 5.2, ix);
+            const bassNoteDur= _lerp(_STEP*2.3, _STEP*3.8, ix);
             const o=ctx.createOscillator(), g=ctx.createGain();
             o.type="sawtooth"; o.frequency.setValueAtTime(f,t);
             const lpf=ctx.createBiquadFilter();
-            lpf.type="lowpass"; lpf.frequency.value=st==="boss"?950:680; lpf.Q.value=2.8;
-            g.gain.setValueAtTime(v*0.68,t);
-            g.gain.setValueAtTime(v*0.68,t+0.04);
-            g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*2.3);
-            o.connect(lpf); lpf.connect(g); g.connect(_musBus);
-            o.start(t); o.stop(t+_STEP*2.6);
-            // Sub octave
+            lpf.type="lowpass"; lpf.frequency.value=bassFilter; lpf.Q.value=bassQ;
+            g.gain.setValueAtTime(bassVol,t);
+            g.gain.setValueAtTime(bassVol,t+0.04);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+bassNoteDur);
+            if(ix>0.42){
+                const dist=ctx.createWaveShaper();
+                dist.curve=_distCurve((ix-0.42)/0.58*4.0);
+                o.connect(dist); dist.connect(lpf);
+            } else { o.connect(lpf); }
+            lpf.connect(g); g.connect(_musBus);
+            o.start(t); o.stop(t+bassNoteDur+0.05);
+            // Sub octave — massive in gameplay
             const sub2=ctx.createOscillator(), sub2G=ctx.createGain();
             sub2.type="sine"; sub2.frequency.value=f/2;
-            sub2G.gain.setValueAtTime(v*0.58,t);
-            sub2G.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*4.2);
+            sub2G.gain.setValueAtTime(v*_lerp(0.58,1.10,ix),t);
+            sub2G.gain.exponentialRampToValueAtTime(0.0001,t+_lerp(_STEP*4.2,_STEP*7.0,ix));
             sub2.connect(sub2G); sub2G.connect(_musBus);
-            sub2.start(t); sub2.stop(t+_STEP*4.5);
+            sub2.start(t); sub2.stop(t+_lerp(_STEP*4.5,_STEP*7.5,ix));
         }
 
-        // ── LEAD SYNTH ────────────────────────────────────────
-        if(st!=="menu"){
-            const leadPat=st==="high_combo"?_LEAD_HC:(bar%2===0?_LEAD_A:_LEAD_B);
+        // ── BRIGHT LEAD SYNTH (MENU) ──────────────────────────
+        // Square-wave melodic lead — the driving voice of menu energy.
+        // Fades completely before dark gameplay takes over (ix>0.75).
+        if(ix<0.75){
+            const leadFade=1.0-Math.min(1,ix/0.75);
+            const leadPat =st==="high_combo"?_LEAD_HC:(bar%2===0?_LEAD_A:_LEAD_B);
             if(leadPat[step]){
                 const f=leadPat[step];
-                const o=ctx.createOscillator(), g=ctx.createGain();
-                o.type="square"; o.frequency.setValueAtTime(f,t);
-                o.detune.setValueAtTime(_varyC(8),t);
-                const bpf=ctx.createBiquadFilter();
-                bpf.type="bandpass"; bpf.frequency.value=f*2; bpf.Q.value=2.0;
-                g.gain.setValueAtTime(0,t);
-                g.gain.linearRampToValueAtTime(v*(st==="boss"?0.30:0.22),t+0.016);
-                g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*3.8);
-                o.connect(bpf); bpf.connect(g); g.connect(_musBus);
-                o.start(t); o.stop(t+_STEP*4.1);
-                // Octave shimmer with slight pan
-                const shimG=ctx.createGain();
-                shimG.gain.setValueAtTime(v*0.08,t+0.02);
-                shimG.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*2.5);
-                const shimO=ctx.createOscillator(); shimO.type="sine"; shimO.frequency.value=f*2;
-                const shimP=_mkPan(ctx,(Math.random()-0.5)*0.5);
-                shimO.connect(shimG);
-                if(shimP){shimG.connect(shimP);shimP.connect(_musBus);}else{shimG.connect(_musBus);}
-                shimO.start(t+0.02); shimO.stop(t+_STEP*2.8);
+                const leadVol=v*(st==="boss"?0.30:0.22)*leadFade;
+                if(leadVol>0.002){
+                    const o=ctx.createOscillator(), g=ctx.createGain();
+                    o.type="square"; o.frequency.setValueAtTime(f,t);
+                    o.detune.setValueAtTime(_varyC(8),t);
+                    const bpf=ctx.createBiquadFilter();
+                    bpf.type="bandpass"; bpf.frequency.value=f*2; bpf.Q.value=2.0;
+                    g.gain.setValueAtTime(0,t);
+                    g.gain.linearRampToValueAtTime(leadVol,t+0.016);
+                    g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*3.8);
+                    o.connect(bpf); bpf.connect(g); g.connect(_musBus);
+                    o.start(t); o.stop(t+_STEP*4.1);
+                    const shimG=ctx.createGain();
+                    shimG.gain.setValueAtTime(v*0.08*leadFade,t+0.02);
+                    shimG.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*2.5);
+                    const shimO=ctx.createOscillator(); shimO.type="sine";
+                    shimO.frequency.value=f*2;
+                    const shimP=_mkPan(ctx,(Math.random()-0.5)*0.5);
+                    shimO.connect(shimG);
+                    if(shimP){shimG.connect(shimP);shimP.connect(_musBus);}else{shimG.connect(_musBus);}
+                    shimO.start(t+0.02); shimO.stop(t+_STEP*2.8);
+                }
             }
         }
 
-        // ── PAD LAYER (slow attack, atmospheric, plays beats 1+9)─
+        // ── DARK OSTINATO (GAMEPLAY) ──────────────────────────
+        // Syncopated low sawtooth stabs — replaces bright lead in gameplay.
+        // A2 (110Hz) ↔ Bb2 (116.5Hz): semitone dissonance = anxiety.
+        // Heavily filtered (<320Hz) and distorted — grinding, oppressive.
+        if(ix>0.25){
+            const darkFade=Math.min(1,(ix-0.25)/0.55);
+            const ostPat  =bar%2===0?_OSTINATO_DARK_A:_OSTINATO_DARK_B;
+            if(ostPat[step]){
+                const f=ostPat[step];
+                const o=ctx.createOscillator(), g=ctx.createGain();
+                const dist=ctx.createWaveShaper(); dist.curve=_distCurve(4.5);
+                o.type="sawtooth"; o.frequency.setValueAtTime(f,t);
+                o.detune.setValueAtTime(_varyC(6),t);
+                const lpf=ctx.createBiquadFilter();
+                lpf.type="lowpass"; lpf.frequency.value=310; lpf.Q.value=4.2;
+                g.gain.setValueAtTime(0,t);
+                g.gain.linearRampToValueAtTime(v*0.40*darkFade,t+0.008);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*1.5);
+                o.connect(dist); dist.connect(lpf); lpf.connect(g); g.connect(_musBus);
+                o.start(t); o.stop(t+_STEP*1.8);
+            }
+        }
+
+        // ── PAD LAYER ─────────────────────────────────────────
+        // MENU:     bright Am chords, medium attack — supporting cast
+        // GAMEPLAY: dark low-register minor voicings, very slow attack (0.9s),
+        //           heavy low-pass, louder — the oppressive harmonic blanket
         if(step===0||step===8){
-            const padChord=_PAD_CHORDS[bar%_PAD_CHORDS.length];
-            const padVol=st==="menu"?v*0.38:(st==="boss"?v*0.16:v*0.24);
+            const useDark  =ix>0.45;
+            const padChord =useDark?_PAD_DARK[bar%_PAD_DARK.length]:_PAD_BRIGHT[bar%_PAD_BRIGHT.length];
+            const padVol   =st==="boss"?v*0.16:_lerp(v*0.22,v*0.52,ix);
+            const padFilter=_lerp(900,340,ix);
+            const padAttack=_lerp(0.45,0.95,ix);
             padChord.forEach((f,i)=>{
                 const o=ctx.createOscillator(), g=ctx.createGain();
                 o.type="sine"; o.frequency.setValueAtTime(f,t);
                 o.detune.setValueAtTime(_varyC(5),t);
+                const o2=ctx.createOscillator(), g2=ctx.createGain();
+                o2.type="sine"; o2.frequency.setValueAtTime(f,t);
+                o2.detune.setValueAtTime(_varyC(5)+8,t);
                 const lpf=ctx.createBiquadFilter();
-                lpf.type="lowpass"; lpf.frequency.value=900; lpf.Q.value=0.5;
+                lpf.type="lowpass"; lpf.frequency.value=padFilter; lpf.Q.value=0.5;
+                const pv=padVol*(1-i*0.09);
                 g.gain.setValueAtTime(0,t);
-                g.gain.linearRampToValueAtTime(padVol*(1-i*0.09),t+0.45);
-                g.gain.setValueAtTime(padVol*(1-i*0.09),t+_STEP*7.0);
+                g.gain.linearRampToValueAtTime(pv,t+padAttack);
+                g.gain.setValueAtTime(pv,t+_STEP*7.0);
                 g.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*8.2);
-                o.connect(lpf); lpf.connect(g); g.connect(_musBus);
+                g2.gain.setValueAtTime(0,t);
+                g2.gain.linearRampToValueAtTime(pv*0.38,t+padAttack+0.15);
+                g2.gain.setValueAtTime(pv*0.38,t+_STEP*7.0);
+                g2.gain.exponentialRampToValueAtTime(0.0001,t+_STEP*8.2);
+                o.connect(lpf); o2.connect(lpf); lpf.connect(g);
+                g.connect(_musBus); g2.connect(_musBus);
                 o.start(t); o.stop(t+_STEP*8.5);
+                o2.start(t+0.08); o2.stop(t+_STEP*8.5);
             });
         }
 
-        // ── ATMOSPHERE NOISE (menu + boss only) ───────────────
-        if(step===0&&(st==="menu"||st==="boss")){
-            _noise(t,_STEP*8,v*(st==="boss"?0.16:0.11),
-                st==="boss"?70:180, st==="boss"?550:1100, _musBus);
+        // ── ATMOSPHERE ────────────────────────────────────────
+        // MENU:     high shimmer — energy, sparkle, air
+        // GAMEPLAY: sub-bass rumble + mid grinding texture — dread, oppression
+        if(step===0){
+            if(st==="boss"){
+                _noise(t,_STEP*8,v*0.16,70,550,_musBus);
+            } else {
+                if(ix<0.80) _noise(t,_STEP*4,v*0.04*(1-ix/0.80),4500,14000,_musBus);
+                if(ix>0.20){
+                    const dv=v*0.18*Math.min(1,(ix-0.20)/0.65);
+                    _noise(t,_STEP*8,dv,25,180,_musBus); // sub rumble
+                    if(ix>0.55) _noise(t,_STEP*4,v*0.06*(ix-0.55)/0.45,150,550,_musBus);
+                }
+            }
+        }
+
+        // ── TENSION SWELL (GAMEPLAY EXCLUSIVE) ───────────────
+        // Every 4 bars: rising noise builds to peak just before bar 1.
+        // Creates a 4-bar horror dread cycle unique to dark gameplay.
+        if(ix>0.55&&step===0&&bar%4===3){
+            const sw=v*0.08*Math.min(1,(ix-0.55)/0.45);
+            _noise(t,_STEP*_BAR,sw,80,900,_musBus);
+            _noise(t+_STEP*12,_STEP*4,sw*2.0,3000,11000,_musBus);
         }
 
         // ── BOSS DISTORTED LAYER ──────────────────────────────
@@ -575,9 +727,7 @@ const NT_SFX = (function(){
         _musStep     =0;
         _musBar      =0;
         _musNextNote =ctx.currentTime+0.10;
-        // Setup sidechain gain (affects sfxBus indirectly for pump feel)
-        _sidechainG=ctx.createGain(); _sidechainG.gain.value=1.0;
-        // Fade in music bus
+        _sidechainG  =ctx.createGain(); _sidechainG.gain.value=1.0;
         _musBus.gain.cancelScheduledValues(ctx.currentTime);
         _musBus.gain.setValueAtTime(0,ctx.currentTime);
         _musBus.gain.linearRampToValueAtTime(_mVol(0.88),ctx.currentTime+0.6);
@@ -593,16 +743,29 @@ const NT_SFX = (function(){
         _musBus.gain.linearRampToValueAtTime(0,_ctx.currentTime+fadeTime);
     }
 
-    function _setMusicState(state,xfade=2.0){
+    function _setMusicState(state, xfade=2.0){
         if(!_ctx||state===_musState) return;
         _musState=state;
-        if(_musBus&&_musPlaying){
-            const now=_ctx.currentTime;
+
+        // Set intensity target based on state identity:
+        //   menu/outro → calm (0.0), all action states → energetic (1.0)
+        const intensityMap = { menu:0.0, outro:0.2, gameplay:1.0, high_combo:1.0, boss:1.0 };
+        _musIntensityTarget = intensityMap[state] ?? 1.0;
+
+        // Per-step increment: reach target in xfade seconds.
+        // _STEP = one 16th note in seconds. Dividing gives steps-per-second,
+        // then we need (1/total_steps) change per step = _STEP/xfade.
+        _musIntensityStep = _STEP / Math.max(0.1, xfade);
+
+        // Volume envelope: brief dip signals the transition, then recovers.
+        // Dip is deeper when leaving gameplay (more dramatic contrast).
+        if(_musBus && _musPlaying){
+            const now     = _ctx.currentTime;
+            const dipTo   = _lerp(0.62, 0.38, _musIntensity); // deeper from gameplay
             _musBus.gain.cancelScheduledValues(now);
-            _musBus.gain.setValueAtTime(_musBus.gain.value,now);
-            // Brief dip + recover for smooth transition feel
-            _musBus.gain.linearRampToValueAtTime(_mVol(0.45),now+xfade*0.28);
-            _musBus.gain.linearRampToValueAtTime(_mVol(0.88),now+xfade);
+            _musBus.gain.setValueAtTime(_musBus.gain.value, now);
+            _musBus.gain.linearRampToValueAtTime(_mVol(dipTo),   now + xfade*0.22);
+            _musBus.gain.linearRampToValueAtTime(_mVol(0.88),    now + xfade);
         }
     }
 
@@ -834,7 +997,36 @@ const NT_SFX = (function(){
             _noise(t,0.022,_vol(0.13),5000,16000);
         },
 
-        // ── XP PICKUP ─────────────────────────────────────────────
+        // ── XP PICKUP — 2 kısa bip varyantı ─────────────────────────
+        xp_pickup(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Sırayla değişir — aynı ses art arda çalınmaz
+            _xpLastVariant=1-(_xpLastVariant<0?1:_xpLastVariant);
+            if(_xpLastVariant===0){
+                // Bip A — biraz daha yüksek
+                const f=_vary(1760,0.06); // A6 civarı
+                const o=ctx.createOscillator(), g=ctx.createGain();
+                o.type="sine"; o.frequency.value=f;
+                g.gain.setValueAtTime(0,t);
+                g.gain.linearRampToValueAtTime(_vol(0.18),t+0.004);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+0.065);
+                o.connect(g); g.connect(_sfxBus);
+                o.start(t); o.stop(t+0.08);
+            } else {
+                // Bip B — biraz daha alçak
+                const f=_vary(1396,0.06); // F6 civarı
+                const o=ctx.createOscillator(), g=ctx.createGain();
+                o.type="sine"; o.frequency.value=f;
+                g.gain.setValueAtTime(0,t);
+                g.gain.linearRampToValueAtTime(_vol(0.18),t+0.004);
+                g.gain.exponentialRampToValueAtTime(0.0001,t+0.065);
+                o.connect(g); g.connect(_sfxBus);
+                o.start(t); o.stop(t+0.08);
+            }
+        },
+
+        // ── XP GAIN (legacy alias — crystal rising arpeggio) ─────────
         xp_gain(){
             // Crystal sparkle XP — rising bell arpeggio + shimmer burst
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
@@ -1092,6 +1284,9 @@ const NT_SFX = (function(){
     // ── Footstep timer state ──────────────────────────────────────
     let _lastStepTime    = 0;
     const _STEP_INTERVAL = 268; // ms between footsteps
+
+    // ── XP pickup variant tracker (avoids exact repeat) ──────────
+    let _xpLastVariant = -1;
 
     // ── Triangle Wind Ambience ────────────────────────────────────
     let _windNode   = null;
@@ -1904,8 +2099,8 @@ function _showMobileBtns(S){
     window._nt_music_on     = _b("nt_music_on",      true);
     window._nt_flame        = _b("nt_flame_effects", true);
     window._nt_shadows      = _b("nt_ground_shadows",true);
-    window._nt_sfx_vol      = _f("nt_sfx_vol",  0.8);
-    window._nt_music_vol    = _f("nt_music_vol", 0.6);
+    window._nt_sfx_vol      = _f("nt_sfx_vol",  0.19);
+    window._nt_music_vol    = _f("nt_music_vol", 0.19);
 })();
 
 // ── SABİTLER ─────────────────────────────────────────────────
@@ -5824,6 +6019,8 @@ function showPause(S){
         closeAll();
         Object.keys(UPGRADES).forEach(k=>UPGRADES[k].level=0);
         EVOLUTIONS.forEach(e=>e.active=false);
+        // Crossfade music back to calm menu state (2.5s transition)
+        NT_SFX.setMusicState("menu", 2.5);
         if(S.scene.manager.keys["SceneMainMenu"]){
             S.scene.start("SceneMainMenu");
         } else {
@@ -9616,6 +9813,11 @@ function tickXP(S){
         }
         gs._xpPerSecAccum = (gs._xpPerSecAccum||0) + cappedVal;
         gs.xp += cappedVal;
+            // ── XP PICKUP SOUND ─────────────────────────────────────
+            // Triggered exactly once per orb collected. xp_pickup() is
+            // safe for rapid calls — low volume, micro pitch variation,
+            // no voice stealing. Uses sfxBus so it respects SFX volume.
+            NT_SFX.play("xp_pickup");
             // Collect burst — beyaz parıltı partiküller
             const bx=o.obj.x, by=o.obj.y;
             const tk=o.obj.texture?.key||"";
