@@ -1963,7 +1963,7 @@ const LANG_DATA = {
         upDroneDesc:"Oto hedefli drone",upSawDesc:"Seken testere",upPoisonDesc:"Ölümde zehir",upLaserDesc:"Alan lazeri",upThunderDesc:"Rastgele şimşek",
         upRapidBlasterDesc:"Hızlı ateş, düşük hasar. 2.2x hız / 0.6x hasar",
         upHeavyCannonDesc:"Yavaş ama patlamalı. 2.5x hasar / 0.5x hız",
-        upSpreadShotDesc:"3 mermi koni atışı. 0.7x hasar",
+        upSpreadShotDesc:"3 mermi koni atışı. 0.45x hasar",
         upChainShotDesc:"3 düşmana sekme. 0.8x hasar",
         upPrecisionRifleDesc:"Merkeze vur = 3x bonus. 1.8x hasar",
         upReflectRifleDesc:"Kenara çarp, sek. 2x sekme, 0.7x hasar/sekme",
@@ -2069,7 +2069,7 @@ const LANG_DATA = {
         upDroneDesc:"Auto-targeting drone",upSawDesc:"Bouncing saw",upPoisonDesc:"Poison on kill",upLaserDesc:"Area laser",upThunderDesc:"Random lightning",
         upRapidBlasterDesc:"Fast fire, low damage. 2.2x speed / 0.6x dmg",
         upHeavyCannonDesc:"Slow but explosive. 2.5x dmg / 0.5x speed",
-        upSpreadShotDesc:"3-bullet cone. 0.7x dmg each",
+        upSpreadShotDesc:"3-bullet cone. 0.45x dmg each",
         upChainShotDesc:"Bullet jumps 3 targets. 0.8x dmg falloff",
         upPrecisionRifleDesc:"Center hit = 3x bonus. 1.8x dmg",
         upReflectRifleDesc:"Ricochets off walls. 2 bounces, 0.7x dmg each",
@@ -2175,7 +2175,7 @@ const LANG_DATA = {
         upDroneDesc:"Дрон-автонаводка",upSawDesc:"Рикошетная пила",upPoisonDesc:"Яд при смерти",upLaserDesc:"Лазер по области",upThunderDesc:"Случайная молния",
         upRapidBlasterDesc:"Быстрый огонь, низкий урон. 2.2x скорость / 0.6x урон",
         upHeavyCannonDesc:"Медленно, но мощно. 2.5x урон / 0.5x скорость",
-        upSpreadShotDesc:"Конус из 3 пуль. 0.7x урон каждая",
+        upSpreadShotDesc:"Конус из 3 пуль. 0.45x урон каждая",
         upChainShotDesc:"Пуля прыгает по 3 целям. 0.8x урон",
         upPrecisionRifleDesc:"Центр = 3x бонус. 1.8x урон",
         upReflectRifleDesc:"Рикошет от стен. 2 отскока, 0.7x урон каждый",
@@ -2836,7 +2836,7 @@ const SYNERGIES = [
 //   xpboost  → her lv: −10% gold drop rate (gs.goldMult)
 //   heal     → her lv: −8% max HP (min 8)
 //
-// MULTI-SHOT: Ekstra mermiler 0.70× hasar yapar (ücretsiz değil).
+// MULTI-SHOT: Ekstra mermiler 0.45× hasar yapar (spread shot balanced).
 // PIERCE: Her ek isabet sonrası −20% hasar, taban %50.
 // XP BOOST: Toplam XP çarpanı hard cap: ×1.30 (snowball kapatıldı).
 // CRIT: Çarpanı 2.0× sabit (upgrade edilemez). Cap: %38.
@@ -4540,16 +4540,16 @@ function pickType(level){
 }
 
 function spawnEnemy(S){
-    // Dynamic enemy cap — scales with time so late game has genuine pressure
-    // 0-2min: 8, 2-5min: 12, 5-8min: 16, 8-12min: 20, 12-18min: 25, 18min+: 32 (MAX_ENEMIES)
+    // Dynamic enemy cap — ARCADE: higher caps early for constant pressure
+    // 0-1min: 12, 1-3min: 16, 3-6min: 20, 6-10min: 24, 10-15min: 28, 15min+: 32 (MAX_ENEMIES)
     const _capMin = GS ? GS.t / 60000 : 0;
     const _dynamicCap =
-        _capMin < 2  ? 8  :
-        _capMin < 5  ? Math.round(Phaser.Math.Linear(8,  12, (_capMin-2)/3))  :
-        _capMin < 8  ? Math.round(Phaser.Math.Linear(12, 16, (_capMin-5)/3))  :
-        _capMin < 12 ? Math.round(Phaser.Math.Linear(16, 20, (_capMin-8)/4))  :
-        _capMin < 18 ? Math.round(Phaser.Math.Linear(20, 25, (_capMin-12)/6)) :
-        Math.min(MAX_ENEMIES, Math.round(25 + (_capMin-18)*1.2)); // creeps to 32 by ~25min
+        _capMin < 1  ? 12 :
+        _capMin < 3  ? Math.round(Phaser.Math.Linear(12, 16, (_capMin-1)/2))  :
+        _capMin < 6  ? Math.round(Phaser.Math.Linear(16, 20, (_capMin-3)/3))  :
+        _capMin < 10 ? Math.round(Phaser.Math.Linear(20, 24, (_capMin-6)/4))  :
+        _capMin < 15 ? Math.round(Phaser.Math.Linear(24, 28, (_capMin-10)/5)) :
+        Math.min(MAX_ENEMIES, Math.round(28 + (_capMin-15)*0.8));
     if(!S.pyramids || S.pyramids.countActive(true) >= _dynamicCap) return; // single authoritative check
     const gs=GS;
 
@@ -5519,20 +5519,20 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
 function updateDifficultyTick(S){
     const gs=GS, min=gs.t/60000;
 
-    // SPAWN DELAY (ms): continues scaling past minute 10 — no more flat floor
-    // 0dk=1400 → 2dk=1000 → 4dk=800 → 7dk=650 → 10dk=520 → 15dk=420 → 20dk=340 → min=280
+    // SPAWN DELAY (ms): ARCADE FIX — much faster early game, intense from the start
+    // 0dk=850 → 1dk=750 → 2dk=650 → 4dk=550 → 7dk=450 → 10dk=380 → 15dk=320 → 20dk=280 → min=240
     const spawnBase =
-        min < 1  ? Phaser.Math.Linear(1400, 1200, min)        :
-        min < 2  ? Phaser.Math.Linear(1200, 1000, min-1)      :
-        min < 4  ? Phaser.Math.Linear(1000,  800, (min-2)/2)  :
-        min < 7  ? Phaser.Math.Linear( 800,  650, (min-4)/3)  :
-        min < 10 ? Phaser.Math.Linear( 650,  520, (min-7)/3)  :
-        min < 15 ? Phaser.Math.Linear( 520,  420, (min-10)/5) :
-        min < 20 ? Phaser.Math.Linear( 420,  340, (min-15)/5) :
-        Math.max(280, 340 - (min-20)*6); // asymptotes near 280ms ~23min
+        min < 1  ? Phaser.Math.Linear( 850,  750, min)        :
+        min < 2  ? Phaser.Math.Linear( 750,  650, min-1)      :
+        min < 4  ? Phaser.Math.Linear( 650,  550, (min-2)/2)  :
+        min < 7  ? Phaser.Math.Linear( 550,  450, (min-4)/3)  :
+        min < 10 ? Phaser.Math.Linear( 450,  380, (min-7)/3)  :
+        min < 15 ? Phaser.Math.Linear( 380,  320, (min-10)/5) :
+        min < 20 ? Phaser.Math.Linear( 320,  280, (min-15)/5) :
+        Math.max(240, 280 - (min-20)*6);
 
     const pm={ calm:1.35, wave:1.0, swarm:0.85, rush:0.72, chaos:0.60 };
-    gs.spawnDelay = Math.max(280, Math.round(spawnBase * (pm[gs.directorPhase]||1.0))); // floor 280ms matches 23min+ asymptote
+    gs.spawnDelay = Math.max(240, Math.round(spawnBase * (pm[gs.directorPhase]||1.0)));
 
     // LEVEL-BASED: sadece hız artar, spawn delay artık level'dan ETKİLENMEZ
     // (çift scaling sorunu düzeltildi — eskiden hem zaman hem level spawn'u hızlandırıyordu)
@@ -5549,39 +5549,39 @@ function updateDifficultyTick(S){
     if(gs.health <= 3) gs.spawnDelay = Math.min(gs.spawnDelay + 180, spawnBase * 1.20);
     if(gs.health <= 1) gs.spawnDelay = Math.min(gs.spawnDelay + 120, spawnBase * 1.40);
 
-    // DÜŞMAN HIZI (px/s): BALANCE FIX — raised cap 185→230, ramp continues past minute 15
-    // 0dk=55 → 1dk=70 → 3dk=95 → 6dk=125 → 10dk=158 → 15dk=188 → 25dk=220 → max=230
+    // DÜŞMAN HIZI (px/s): ARCADE FIX — early game much faster, no more boring start
+    // 0dk=95 → 1dk=115 → 3dk=138 → 6dk=160 → 10dk=185 → 15dk=210 → 25dk=235 → max=245
     const baseSpeed =
-        min < 1  ? Phaser.Math.Linear( 55,  70, min)        :
-        min < 3  ? Phaser.Math.Linear( 70,  95, (min-1)/2)  :
-        min < 6  ? Phaser.Math.Linear( 95, 125, (min-3)/3)  :
-        min < 10 ? Phaser.Math.Linear(125, 158, (min-6)/4)  :
-        min < 15 ? Phaser.Math.Linear(158, 188, (min-10)/5) :
-        min < 25 ? Phaser.Math.Linear(188, 220, (min-15)/10):  // was capped at 185 — now keeps scaling
-        Math.min(230, 220 + (min-25)*1.0);                      // cap raised 185→230
-    gs.pyramidSpeed = Math.min(230, baseSpeed * lvSpdMult);
+        min < 1  ? Phaser.Math.Linear( 95, 115, min)        :
+        min < 3  ? Phaser.Math.Linear(115, 138, (min-1)/2)  :
+        min < 6  ? Phaser.Math.Linear(138, 160, (min-3)/3)  :
+        min < 10 ? Phaser.Math.Linear(160, 185, (min-6)/4)  :
+        min < 15 ? Phaser.Math.Linear(185, 210, (min-10)/5) :
+        min < 25 ? Phaser.Math.Linear(210, 235, (min-15)/10):
+        Math.min(245, 235 + (min-25)*1.0);
+    gs.pyramidSpeed = Math.min(245, baseSpeed * lvSpdMult);
 }
 
 function runDirector(S){
     const gs=GS, min=gs.t/60000, hp=gs.health/gs.maxHealth;
     const phases=["calm","wave","swarm","rush","chaos"];
 
-    // Yeniden dengelenmiş fazlar:
-    //   0:00-0:45 → TAM calm
-    //   0:45-2:00 → çoğunlukla calm (%70), bazen wave
-    //   2:00-4:00 → wave ağırlıklı, calm azalıyor
-    //   4:00+     → ağırlık sistemi devreye girer
+    // ARCADE: shorter calm phase, faster ramp
+    //   0:00-0:30 → TAM calm
+    //   0:30-1:00 → çoğunlukla calm (%50), bazen wave
+    //   1:00-2:30 → wave ağırlıklı, calm azalıyor
+    //   2:30+     → ağırlık sistemi devreye girer
 
-    if(min < 0.75){ gs.directorPhase="calm"; return; }
-    if(min < 2.0)  { gs.directorPhase=Math.random()<0.70?"calm":"wave"; return; }
-    if(min < 4.0)  { gs.directorPhase=Math.random()<0.35?"calm":"wave"; return; }
+    if(min < 0.50){ gs.directorPhase="calm"; return; }
+    if(min < 1.0)  { gs.directorPhase=Math.random()<0.50?"calm":"wave"; return; }
+    if(min < 2.5)  { gs.directorPhase=Math.random()<0.25?"calm":"wave"; return; }
 
-    // 4min+: weighted system — phases ramp up over time, no ceiling on chaos
-    const calmW  = hp < 0.30 ? 5.0 : Math.max(0.3, 2.5 - min*0.10); // calm fades out faster in late game
+    // 2.5min+: weighted system — phases ramp up faster, arcade pressure
+    const calmW  = hp < 0.30 ? 5.0 : Math.max(0.3, 2.0 - min*0.12);
     const waveW  = 3.0;
-    const swarmW = min > 5.0  ? Math.min(2.5, (min-5.0)  * 0.40) : 0;
-    const rushW  = min > 7.0  ? Math.min(2.2, (min-7.0)  * 0.35) : 0;
-    const chaosW = min > 10.0 ? Math.min(2.5, (min-10.0) * 0.20) : 0; // starts earlier (was 12min), uncapped
+    const swarmW = min > 3.0  ? Math.min(2.5, (min-3.0)  * 0.50) : 0;
+    const rushW  = min > 5.0  ? Math.min(2.2, (min-5.0)  * 0.40) : 0;
+    const chaosW = min > 8.0  ? Math.min(2.5, (min-8.0)  * 0.25) : 0;
 
     const wts=[calmW, waveW, swarmW, rushW, chaosW];
     const tot=wts.reduce((a,b)=>a+b,0);
@@ -8733,58 +8733,117 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── SOL / SAĞ BUTONLAR — sağa hizalı, ateş butonu solunda ──────────
-            const leftG  = this.add.graphics().setDepth(800).setScrollFactor(0);
-            const rightG = this.add.graphics().setDepth(800).setScrollFactor(0);
+            // ── SANAL JOYSTICK — Yatay, ince, Vampire Survivors tarzı ──────────
+            // Track (arka plan) + Thumb (sürüklenen düğme)
+            const JOY_W = 160, JOY_H = 38, JOY_R = 19;
+            const JOY_THUMB_W = 44, JOY_THUMB_H = 32, JOY_THUMB_R = 14;
+            const JOY_X = W_MB - JOY_W/2 - 6; // sağa hizalı
+            const JOY_Y = BTN_Y;
+            const JOY_DEAD = 8; // dead zone px — hassasiyeti azalt
+            const JOY_HALFTRACK = (JOY_W - JOY_THUMB_W) / 2;
 
-            const _drawDirBtn = (gfx, cx, label, pressed, borderCol) => {
-                gfx.clear();
-                // Gölge
-                gfx.fillStyle(0x000000, pressed ? 0.0 : 0.25);
-                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 2, DIR_BTN_Y - DIR_BTN_H/2 + 4, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
-                // Ana body
-                gfx.fillStyle(0x1a1a2e, pressed ? 0.90 : 0.55);
-                gfx.fillRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
-                // Üst shine
-                gfx.fillStyle(0xffffff, pressed ? 0.04 : 0.10);
-                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 4, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 8, DIR_BTN_H * 0.38, DIR_BTN_R * 0.7);
-                // Border
-                gfx.lineStyle(pressed ? 2 : 1.5, borderCol, pressed ? 0.95 : 0.50);
-                gfx.strokeRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
-                // Inner glow
-                if(pressed){
-                    gfx.lineStyle(4, borderCol, 0.18);
-                    gfx.strokeRoundedRect(cx - DIR_BTN_W/2 + 3, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 6, DIR_BTN_H - 6, DIR_BTN_R - 2);
+            const joyG = this.add.graphics().setDepth(800).setScrollFactor(0);
+            let _joyThumbX = 0; // -1..1 arası normalize edilmiş konum
+            let _joyActivePtr = null;
+
+            const _drawJoystick = (thumbNorm) => {
+                joyG.clear();
+                // Track gölge
+                joyG.fillStyle(0x000000, 0.25);
+                joyG.fillRoundedRect(JOY_X - JOY_W/2 + 2, JOY_Y - JOY_H/2 + 3, JOY_W, JOY_H, JOY_R);
+                // Track ana body
+                joyG.fillStyle(0x1a1a2e, 0.55);
+                joyG.fillRoundedRect(JOY_X - JOY_W/2, JOY_Y - JOY_H/2, JOY_W, JOY_H, JOY_R);
+                // Track üst shine
+                joyG.fillStyle(0xffffff, 0.08);
+                joyG.fillRoundedRect(JOY_X - JOY_W/2 + 4, JOY_Y - JOY_H/2 + 3, JOY_W - 8, JOY_H * 0.35, JOY_R * 0.7);
+                // Track border
+                joyG.lineStyle(1.5, 0x5588ff, 0.40);
+                joyG.strokeRoundedRect(JOY_X - JOY_W/2, JOY_Y - JOY_H/2, JOY_W, JOY_H, JOY_R);
+                // Sol/sağ ok ikonları
+                const arrowAlpha = 0.25;
+                joyG.fillStyle(0xffffff, arrowAlpha);
+                const leftAx = JOY_X - JOY_W/2 + 16, rightAx = JOY_X + JOY_W/2 - 16;
+                joyG.fillTriangle(leftAx-6, JOY_Y, leftAx+3, JOY_Y-6, leftAx+3, JOY_Y+6);
+                joyG.fillTriangle(rightAx+6, JOY_Y, rightAx-3, JOY_Y-6, rightAx-3, JOY_Y+6);
+
+                // Thumb (sürüklenen düğme)
+                const thumbOffset = thumbNorm * JOY_HALFTRACK;
+                const thumbCX = JOY_X + thumbOffset;
+                const isActive = Math.abs(thumbNorm) > 0.05;
+                // Thumb gölge
+                if(!isActive){
+                    joyG.fillStyle(0x000000, 0.15);
+                    joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2 + 1, JOY_Y - JOY_THUMB_H/2 + 2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
                 }
-                // Ok ikonu
-                gfx.fillStyle(0xffffff, pressed ? 0.95 : 0.60);
-                const ax = cx, ay = DIR_BTN_Y;
-                if(label === "left"){
-                    gfx.fillTriangle(ax-12, ay, ax+6, ay-9, ax+6, ay+9);
-                } else {
-                    gfx.fillTriangle(ax+12, ay, ax-6, ay-9, ax-6, ay+9);
+                // Thumb body
+                joyG.fillStyle(isActive ? 0x3366cc : 0x2a2a4e, isActive ? 0.92 : 0.75);
+                joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2, JOY_Y - JOY_THUMB_H/2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
+                // Thumb shine
+                joyG.fillStyle(0xffffff, isActive ? 0.15 : 0.08);
+                joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2 + 4, JOY_Y - JOY_THUMB_H/2 + 3, JOY_THUMB_W - 8, JOY_THUMB_H * 0.38, JOY_THUMB_R * 0.6);
+                // Thumb border
+                joyG.lineStyle(isActive ? 2 : 1.5, 0x5588ff, isActive ? 0.90 : 0.50);
+                joyG.strokeRoundedRect(thumbCX - JOY_THUMB_W/2, JOY_Y - JOY_THUMB_H/2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
+                if(isActive){
+                    joyG.lineStyle(3, 0x5588ff, 0.15);
+                    joyG.strokeRoundedRect(thumbCX - JOY_THUMB_W/2 + 2, JOY_Y - JOY_THUMB_H/2 + 2, JOY_THUMB_W - 4, JOY_THUMB_H - 4, JOY_THUMB_R - 2);
                 }
             };
-            _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff);
-            _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff);
+            _drawJoystick(0);
 
-            let _leftActivePtr = null, _rightActivePtr = null;
+            // Joystick hit area — biraz daha büyük
+            const joyHit = this.add.rectangle(JOY_X, JOY_Y, JOY_W + 20, JOY_H + 24, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive({ draggable: false });
 
-            const leftHit = this.add.rectangle(LEFT_X,  DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
-                .setDepth(802).setScrollFactor(0).setInteractive();
-            const rightHit = this.add.rectangle(RIGHT_X, DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
-                .setDepth(802).setScrollFactor(0).setInteractive();
+            const _processJoyPointer = (ptr) => {
+                // Pointer X'i joystick koordinatına çevir
+                const localX = ptr.x - JOY_X;
+                // Dead zone uygula
+                let norm = 0;
+                if(Math.abs(localX) > JOY_DEAD){
+                    norm = Phaser.Math.Clamp((localX - Math.sign(localX)*JOY_DEAD) / (JOY_HALFTRACK - JOY_DEAD), -1, 1);
+                }
+                // Hassasiyet eğrisi — linear değil, küçük hareketleri yumuşat
+                norm = Math.sign(norm) * Math.pow(Math.abs(norm), 1.3);
+                _joyThumbX = norm;
+                this._mobileLeft  = norm < -0.15;
+                this._mobileRight = norm >  0.15;
+                // Analog hız desteği — tam basılı değilse yavaşla
+                this._mobileAnalog = norm;
+                _drawJoystick(norm);
+            };
 
-            leftHit.on("pointerdown",  (ptr) => { _leftActivePtr = ptr.id; this._mobileLeft = true;  _drawDirBtn(leftG,  LEFT_X,  "left",  true,  0x5588ff); });
-            leftHit.on("pointerup",    (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
-            leftHit.on("pointerout",   (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
+            joyHit.on("pointerdown", (ptr) => {
+                _joyActivePtr = ptr.id;
+                _processJoyPointer(ptr);
+            });
+            joyHit.on("pointermove", (ptr) => {
+                if(ptr.id === _joyActivePtr) _processJoyPointer(ptr);
+            });
+            joyHit.on("pointerup", (ptr) => {
+                if(ptr.id === _joyActivePtr){
+                    _joyActivePtr = null;
+                    _joyThumbX = 0;
+                    this._mobileLeft = false;
+                    this._mobileRight = false;
+                    this._mobileAnalog = 0;
+                    _drawJoystick(0);
+                }
+            });
+            joyHit.on("pointerout", (ptr) => {
+                if(ptr.id === _joyActivePtr){
+                    _joyActivePtr = null;
+                    _joyThumbX = 0;
+                    this._mobileLeft = false;
+                    this._mobileRight = false;
+                    this._mobileAnalog = 0;
+                    _drawJoystick(0);
+                }
+            });
 
-            rightHit.on("pointerdown", (ptr) => { _rightActivePtr = ptr.id; this._mobileRight = true; _drawDirBtn(rightG, RIGHT_X, "right", true,  0x5588ff); });
-            rightHit.on("pointerup",   (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
-            rightHit.on("pointerout",  (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
-
-            this._btnLeft  = { g: leftG,  lbl: null, hit: leftHit  };
-            this._btnRight = { g: rightG, lbl: null, hit: rightHit };
+            this._btnLeft  = { g: joyG, lbl: null, hit: joyHit };
+            this._btnRight = { g: joyG, lbl: null, hit: joyHit };
         }
         // ── MOBİL KONTROL SONU ───────────────────────────────────────
 
@@ -9136,11 +9195,11 @@ class SceneGame extends Phaser.Scene {
     update(time,delta){
         const gs=GS;
         if(!gs||gs.gameOver){
-            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;}
+            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileAnalog=0;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
             return;
         }
         if(gs.pickingUpgrade){
-            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;}
+            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileAnalog=0;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
             return;
         }
         if(!this.player||!this.player.active) return;
@@ -9239,7 +9298,12 @@ class SceneGame extends Phaser.Scene {
             this._spaceHoldTime=(this._spaceHoldTime||0)+delta;
             if(this._spaceHoldTime>2200) this._spaceCutOff=true;
         } else { this._spaceHoldTime=0; this._spaceCutOff=false; }
-        if((this.spaceKey&&this.spaceKey.isDown&&!this._spaceCutOff&&this._shootTimer>=gs.shootDelay)||(this._mobileFire&&this._shootTimer>=gs.shootDelay)){
+        // MOBİL ATEŞ CUTOFF — PC ile aynı davranış (2200ms sonra dur)
+        if(this._mobileFire){
+            this._mobileFireHoldTime=(this._mobileFireHoldTime||0)+delta;
+            if(this._mobileFireHoldTime>2200) this._mobileFireCutOff=true;
+        } else { this._mobileFireHoldTime=0; this._mobileFireCutOff=false; }
+        if((this.spaceKey&&this.spaceKey.isDown&&!this._spaceCutOff&&this._shootTimer>=gs.shootDelay)||(this._mobileFire&&!this._mobileFireCutOff&&this._shootTimer>=gs.shootDelay)){
             this._shootTimer=0;
             doShoot(this);
         }
@@ -9281,8 +9345,13 @@ function movePlayer(S,delta){
     const sp=gs.moveSpeed||200;
     // Mirror controls event: yön ters çevrilir
     const _mirror=gs._mirrorControls?-1:1;
-    if(leftDown && !rightDown)  vx=-sp*_mirror;
-    if(rightDown && !leftDown)  vx=sp*_mirror;
+    // Analog joystick desteği — mobilde kademeli hız
+    if(S._mobileAnalog !== undefined && Math.abs(S._mobileAnalog) > 0.15){
+        vx = sp * S._mobileAnalog * _mirror;
+    } else {
+        if(leftDown && !rightDown)  vx=-sp*_mirror;
+        if(rightDown && !leftDown)  vx=sp*_mirror;
+    }
     // İkisi aynı anda basılıysa: dur (0 kalır)
 
     // Knockback
@@ -9382,10 +9451,10 @@ function doShoot(S){
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.01,vy*0.62,1.0,0xff6600,"cannon");
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
-        const ang=sp*0.38;
-        fireBulletRaw(S,px,py,0,vy,0.7,0xcc44ff,"spread");
-        fireBulletRaw(S,px,py,-ang,vy*0.92,0.7,0xcc44ff,"spread");
-        fireBulletRaw(S,px,py, ang,vy*0.92,0.7,0xcc44ff,"spread");
+        const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
+        fireBulletRaw(S,px,py,0,vy,0.45,0xcc44ff,"spread"); // BALANCE: 0.7→0.45 per bullet (total 1.35x vs old 2.1x)
+        fireBulletRaw(S,px,py,-ang,vy*0.88,0.45,0xcc44ff,"spread");
+        fireBulletRaw(S,px,py, ang,vy*0.88,0.45,0xcc44ff,"spread");
     } else if(wt==="chain_shot"){
         NT_SFX.play("shoot_chain");
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.02,vy,0.8,0x44aaff,"chain");
@@ -9403,9 +9472,9 @@ function doShoot(S){
         }
     } else if(gs._evoTriCannon){
         NT_SFX.play("shoot_spread");
-        fireBulletRaw(S,px,py,-sp*0.4,vy,0.65);
-        fireBulletRaw(S,px,py,0,vy,0.65);
-        fireBulletRaw(S,px,py,sp*0.4,vy,0.65);
+        fireBulletRaw(S,px,py,-sp*0.4,vy,0.50);
+        fireBulletRaw(S,px,py,0,vy,0.50);
+        fireBulletRaw(S,px,py,sp*0.4,vy,0.50);
     } else {
         NT_SFX.play("shoot_default");
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.03,vy,1.0);
