@@ -2946,7 +2946,7 @@ const SYNERGIES = [
 
 const BASE_DAMAGE      = 1.2;
 const BASE_SHOOT_DELAY = 170;
-const BASE_MOVE_SPEED  = 278; // was 260 — slightly faster for arcade feel
+const BASE_MOVE_SPEED  = 310; // was 265 — increased for faster movement
 const BASE_CRIT_MULT   = 2.0; // SABİT — upgrade edilemez
 
 // ── Upgrade buff tables — steeper per-level diminishing returns ──────────
@@ -3511,13 +3511,16 @@ function buildTextures(S){
    // ── MERMİLER — hepsi aynı ince dikdörtgen form, sadece renk/detay farklı ──
     // Boyut: 6x18 (default ile aynı), hizalama merkez
 
-    // DEFAULT / RAPID — sarı, standart (6x18)
-    g.fillStyle(0x553300,1); g.fillRect(2,0,2,2);
-    g.fillStyle(0xaa6600,1); g.fillRect(2,2,2,3);
-    g.fillStyle(0xffcc00,1); g.fillRect(2,5,2,9);
-    g.fillStyle(0xffee55,1); g.fillRect(2,5,1,6);
-    g.fillStyle(0xaa8800,1); g.fillRect(2,14,2,2);
-    g.fillStyle(0x553300,0.6); g.fillRect(2,16,2,2);
+    // DEFAULT / RAPID — sarı, standart v2 (6x18) — daha parlak gradient
+    g.fillStyle(0x443300,1); g.fillRect(2,0,2,2);       // koyu uç
+    g.fillStyle(0x886600,1); g.fillRect(2,2,2,2);       // üst geçiş
+    g.fillStyle(0xddaa00,1); g.fillRect(2,4,2,2);       // orta geçiş
+    g.fillStyle(0xffcc00,1); g.fillRect(2,6,2,7);       // parlak gövde
+    g.fillStyle(0xffee55,1); g.fillRect(2,6,1,5);       // sol highlight
+    g.fillStyle(0xffffff,0.5); g.fillRect(2,6,1,3);     // beyaz ışık
+    g.fillStyle(0xbb8800,1); g.fillRect(2,13,2,2);      // alt söner
+    g.fillStyle(0x664400,0.7); g.fillRect(2,15,2,2);    // kuyruk
+    g.fillStyle(0x442200,0.35); g.fillRect(2,17,2,1);   // soluk kuyruk
     g.generateTexture("tex_bullet",6,18); g.clear();
 
     // SPREAD — mor/pembe, parlak, belirgin (6x18)
@@ -3541,19 +3544,22 @@ function buildTextures(S){
     g.generateTexture("tex_bullet_chain",6,18); g.clear();
 
     // CANNON — füze mermisi: sivri uç, ateş izi, ince (8x22)
-    // Cannon — metalik çelik mermi
-    g.fillStyle(0xddeeff,1); g.fillTriangle(3,0,5,0,4,3);
+    // Cannon — metalik çelik mermi v2 — daha detaylı
+    g.fillStyle(0xeeffff,1); g.fillTriangle(3,0,5,0,4,2); // sivri uç parlak
     g.fillStyle(0xffffff,0.9); g.fillRect(3,0,1,2);
-    g.fillStyle(0x223344,1); g.fillRect(2,3,4,2);
-    g.fillStyle(0x445566,1); g.fillRect(2,5,4,9);
-    g.fillStyle(0x6688aa,1); g.fillRect(3,5,2,8);
-    g.fillStyle(0xaaccee,0.7); g.fillRect(3,5,1,6);
-    g.fillStyle(0x112233,1); g.fillRect(2,14,4,2);
-    g.fillStyle(0x5588bb,0.5); g.fillRect(2,14,4,1);
-    g.fillStyle(0x223344,1); g.fillRect(2,16,4,2);
-    g.fillStyle(0x4499ff,0.45); g.fillRect(3,18,2,1);
-    g.fillStyle(0x2266cc,0.35); g.fillRect(2,19,4,1);
-    g.fillStyle(0x1144aa,0.20); g.fillRect(2,20,4,1);
+    g.fillStyle(0x1a2838,1); g.fillRect(2,2,4,2);          // üst bant
+    g.fillStyle(0x3a5570,1); g.fillRect(2,4,4,10);         // ana gövde
+    g.fillStyle(0x5580a0,1); g.fillRect(3,4,2,9);          // iç parlama
+    g.fillStyle(0x88bbdd,0.7); g.fillRect(3,4,1,7);        // sol highlight
+    g.fillStyle(0xaaddee,0.5); g.fillRect(3,5,1,4);        // ince highlight
+    g.fillStyle(0x0f1822,1); g.fillRect(2,14,4,2);         // alt bant
+    g.fillStyle(0x4488bb,0.5); g.fillRect(2,14,4,1);       // bant highlight
+    g.fillStyle(0x1a2838,1); g.fillRect(2,16,4,2);         // motor bölümü
+    // Ateş izi — kademeli sönen
+    g.fillStyle(0xff8800,0.55); g.fillRect(3,18,2,1);
+    g.fillStyle(0xff6600,0.40); g.fillRect(2,19,4,1);
+    g.fillStyle(0xff4400,0.25); g.fillRect(2,20,4,1);
+    g.fillStyle(0xff2200,0.12); g.fillRect(2,21,4,1);
     g.generateTexture("tex_bullet_cannon",8,22); g.clear();
 
     // PRECISION — kırmızı, çok ince (4x22), keskin iğne hissi
@@ -3589,38 +3595,47 @@ function buildTextures(S){
     g.fillStyle(0xffffff,0.9); g.fillRect(5,0,2,1); g.fillRect(10,5,1,2); g.fillRect(5,11,2,1); g.fillRect(0,5,1,2);
     g.generateTexture("tex_blade",12,12); g.clear();
 
-    // ── SAW — Detaylı metalik testere texture ──
+    // ── SAW — Detaylı metalik testere texture v2 ──
     // Dış gölge
-    g.fillStyle(0x111111,1); g.fillCircle(10,10,10);
-    // Dış halka katmanları
-    g.fillStyle(0x3a3a3a,1); g.fillCircle(10,10,9);
-    g.fillStyle(0x5a5a5a,1); g.fillCircle(10,10,8);
-    g.fillStyle(0x787878,1); g.fillCircle(10,10,7);
-    // 10 keskin diş
-    g.fillStyle(0xdddddd,1);
+    g.fillStyle(0x080808,1); g.fillCircle(10,10,10);
+    // Dış halka katmanları — daha pürüzsüz gradient
+    g.fillStyle(0x2a2a2a,1); g.fillCircle(10,10,9.5);
+    g.fillStyle(0x484848,1); g.fillCircle(10,10,9);
+    g.fillStyle(0x5e5e5e,1); g.fillCircle(10,10,8);
+    g.fillStyle(0x707070,1); g.fillCircle(10,10,7);
+    // 10 keskin diş — çift katmanlı (gölge + parlak)
     for(let i=0;i<10;i++){
         const a=Phaser.Math.DegToRad(i*36);
         const a2=Phaser.Math.DegToRad(i*36+14);
+        // Diş gölgesi
+        g.fillStyle(0x999999,1);
         g.fillTriangle(10,10,
             10+Math.cos(a)*10, 10+Math.sin(a)*10,
             10+Math.cos(a2)*7, 10+Math.sin(a2)*7);
+        // Diş parlak kenarı
+        g.fillStyle(0xdddddd,1);
+        g.fillTriangle(10,10,
+            10+Math.cos(a)*9.5, 10+Math.sin(a)*9.5,
+            10+Math.cos(a2)*6.8, 10+Math.sin(a2)*6.8);
     }
-    // Diş highlight
-    g.fillStyle(0xffffff,0.4);
+    // Diş ucu highlight — ışık yansıması
+    g.fillStyle(0xffffff,0.55);
     for(let i=0;i<10;i++){
         const a=Phaser.Math.DegToRad(i*36);
-        g.fillRect(10+Math.cos(a)*9-0.5, 10+Math.sin(a)*9-0.5, 1, 1);
+        g.fillRect(10+Math.cos(a)*9-0.5, 10+Math.sin(a)*9-0.5, 1.5, 1.5);
     }
-    // Hub
-    g.fillStyle(0x222222,1); g.fillCircle(10,10,5);
-    g.fillStyle(0x444444,1); g.fillCircle(10,10,4);
-    g.fillStyle(0x666666,1); g.fillCircle(10,10,3);
-    // Hub artı
-    g.fillStyle(0x888888,1); g.fillRect(8,9,4,2); g.fillRect(9,8,2,4);
+    // Hub — çelik merkez
+    g.fillStyle(0x181818,1); g.fillCircle(10,10,5);
+    g.fillStyle(0x333333,1); g.fillCircle(10,10,4);
+    g.fillStyle(0x555555,1); g.fillCircle(10,10,3);
+    g.fillStyle(0x777777,1); g.fillCircle(10,10,2.5);
+    // Hub artı — vida izi
+    g.fillStyle(0x999999,1); g.fillRect(8,9.5,4,1); g.fillRect(9.5,8,1,4);
     // Merkez cıvata
-    g.fillStyle(0xaaaaaa,1); g.fillCircle(10,10,1);
-    // Highlight
-    g.fillStyle(0xffffff,0.5); g.fillCircle(7,7,1);
+    g.fillStyle(0xbbbbbb,1); g.fillCircle(10,10,1);
+    // Highlight — lens flare efekti
+    g.fillStyle(0xffffff,0.7); g.fillCircle(7,7,1.2);
+    g.fillStyle(0xffffff,0.3); g.fillCircle(8,8,0.7);
     g.generateTexture("tex_saw",20,20); g.clear();
 
     // ── DRONE — 28x28, detaylı pixel sanat dron ──
@@ -4766,7 +4781,7 @@ function spawnEnemy(S){
             p.body.setSize(91, 68).setOffset(22, 23);
             break;
         case"fast":      p.hp=hpFor(5,gs.level,0.45);  p.setDisplaySize(78,64).setTint(0xFF6644).setVelocityY(spd*1.7); break;
-        case"tank":      p.hp=hpFor(28,gs.level,1.8);  p.armor=1;p.setDisplaySize(98,80).setVelocityY(spd*0.55); break;
+        case"tank":      p.hp=hpFor(20,gs.level,1.2);  p.armor=1;p.setDisplaySize(98,80).setVelocityY(spd*0.55); break;
         case"shield":    p.hp=hpFor(8,gs.level,0.45);  p.shield=true;p.armor=1;p.setDisplaySize(78,64).setVelocityY(spd*0.72); break;
         case"split":     p.hp=hpFor(7,gs.level,0.4);   p.split=true;p.setDisplaySize(78,64).setVelocityY(spd*1.0); break;
         case"swarm":     p.hp=1;p.swarm=true;p.setDisplaySize(59,48).setVelocityY(spd*1.0); break;
@@ -6328,7 +6343,7 @@ function renderUI(S){
                 S._evoHintText = S.add.text(360-4, 52, "⚡ EVO", {
                     font:"bold 9px LilitaOne, Arial, sans-serif",
                     color:"#ffee44", stroke:"#000", strokeThickness:2, padding:{x:2,y:1}
-                }).setOrigin(1,0).setDepth(60).setAlpha(0);
+                }).setOrigin(1,0).setDepth(60).setScrollFactor(0).setAlpha(0);
             }
             // Pulse alpha
             const _pulse = 0.55 + Math.sin(gs.t * 0.006) * 0.45;
@@ -8761,7 +8776,7 @@ class SceneGame extends Phaser.Scene {
         this.player.play("anim_idle");
 
         this.playerGlow=this.add.graphics().setDepth(19);
-        this.hpBarGfx=this.add.graphics().setDepth(21);
+        this.hpBarGfx=this.add.graphics().setDepth(21).setScrollFactor(0);
 
         // ── FİZİK GRUPLARI ──
         this.pyramids=this.physics.add.group({classType:Phaser.Physics.Arcade.Sprite,runChildUpdate:false,maxSize:MAX_ENEMIES+10});
@@ -9582,22 +9597,6 @@ function movePlayer(S,delta){
             if(_curAnim !== "anim_run") S.player.play("anim_run",true);
             S.player.setFlipX(vx<0);
             NT_SFX.footstepTick(true);
-            // ── PLAYER TRAIL — afterimage ghost effect ──
-            if(!_IS_MOBILE_EARLY && _perfMode==="high"){
-                S._trailTimer = (S._trailTimer||0) + delta;
-                if(S._trailTimer > 55){ // her 55ms bir iz
-                    S._trailTimer = 0;
-                    const trail = S.add.graphics().setDepth(4);
-                    trail.x = S.player.x; trail.y = S.player.y;
-                    // Basit siluet — küçük dikey çubuk
-                    const trailCol = gs.combo >= 10 ? 0xff6644 : gs.combo >= 5 ? 0xffaa44 : 0x88bbff;
-                    trail.fillStyle(trailCol, 0.25);
-                    trail.fillRoundedRect(-6, -14, 12, 28, 3);
-                    S.tweens.add({targets:trail, alpha:0, scaleX:0.3, scaleY:0.7,
-                        duration:180, ease:"Quad.easeOut",
-                        onComplete:()=>{try{trail.destroy();}catch(e){}}});
-                }
-            }
         } else {
             if(_curAnim !== "anim_idle") S.player.play("anim_idle",true);
             S._trailTimer = 0;
@@ -9668,7 +9667,7 @@ function doShoot(S){
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
         NT_SFX.play("shoot_cannon");
-        fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.01,vy*0.62,1.0,0xff6600,"cannon");
+        fireBulletRaw(S,px,py,0,vy*0.62,1.0,0xff6600,"cannon");
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
         const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
@@ -9993,6 +9992,9 @@ function tickWeapons(S,delta){
         S.sawGroup.getChildren().forEach((sw,i)=>{
             if(i<slv){
                 sw.setActive(true).setVisible(true);
+                // ── LEVEL-BASED RENK — Saw ──
+                const _sawTints = [0xaaddff, 0xff8844, 0xff44aa];
+                sw.setTint(_sawTints[Math.min(slv-1, _sawTints.length-1)]);
                 sw.angle+=16;
                 // Her 3-5 saniyede rastgele yeni yön — tek yörüngede sıkışmayı önle
                 sw._sawDirTimer=(sw._sawDirTimer||0)+delta;
@@ -10064,12 +10066,20 @@ function doLightning(S){
         const ex=t.x, ey=t.y-8;
         const sx=prev.x, sy=prev.y;
 
-        // ── GLOW KATMANI — kalın mavi dış parıltı
+        // ── LEVEL-BASED RENK — Lightning ──
+        const _ltColors = [
+            {glow2:0x2244ff, glow1:0x44aaff, outer:0x4488ff, mid:0xaaddff, core:0xffffff, flash1:0xffffff, flash2:0xffee44, hit:0xaaddff},
+            {glow2:0x0088aa, glow1:0x22ddee, outer:0x22ccdd, mid:0x88ffff, core:0xffffff, flash1:0xffffff, flash2:0x44ffee, hit:0x88ffff},
+            {glow2:0x886600, glow1:0xffcc44, outer:0xffaa22, mid:0xffee88, core:0xffffff, flash1:0xffffff, flash2:0xffff88, hit:0xffee88},
+        ];
+        const _lc = _ltColors[Math.min(lv-1, _ltColors.length-1)];
+
+        // ── GLOW KATMANI — kalın dış parıltı
         const glow2=S.add.graphics().setDepth(19);
-        glow2.lineStyle(8,0x2244ff,0.06);
+        glow2.lineStyle(8,_lc.glow2,0.06);
         glow2.beginPath(); glow2.moveTo(sx,sy); glow2.lineTo(ex,ey); glow2.strokePath();
         const glow1=S.add.graphics().setDepth(20);
-        glow1.lineStyle(4,0x44aaff,0.15);
+        glow1.lineStyle(4,_lc.glow1,0.15);
         glow1.beginPath(); glow1.moveTo(sx,sy); glow1.lineTo(ex,ey); glow1.strokePath();
 
         // ── ZIGZAG BOLT — 8 adım, gerçek elektrik hissi
@@ -10092,21 +10102,21 @@ function doLightning(S){
             return bolt;
         };
 
-        const boltOuter = _drawBolt(3, 0x4488ff, 0.6, 12); // mavi dış
-        const boltMid   = _drawBolt(2, 0xaaddff, 0.8, 8);  // açık mavi orta
-        const boltCore  = _drawBolt(1, 0xffffff, 1.0, 5);  // beyaz çekirdek
+        const boltOuter = _drawBolt(3, _lc.outer, 0.6, 12); // dış
+        const boltMid   = _drawBolt(2, _lc.mid, 0.8, 8);  // orta
+        const boltCore  = _drawBolt(1, _lc.core, 1.0, 5);  // beyaz çekirdek
 
-        // ── HEDEF HIT FLASH — sarı-beyaz patlama
+        // ── HEDEF HIT FLASH — patlama
         const flash=S.add.graphics().setDepth(23);
-        flash.fillStyle(0xffffff,0.7); flash.fillCircle(ex,ey,6);
-        flash.fillStyle(0xffee44,0.5); flash.fillCircle(ex,ey,10);
+        flash.fillStyle(_lc.flash1,0.7); flash.fillCircle(ex,ey,6);
+        flash.fillStyle(_lc.flash2,0.5); flash.fillCircle(ex,ey,10);
         // Hit parçacıkları
         for(let _i=0;_i<5;_i++){
             const _pa=Phaser.Math.DegToRad(_i*72+Phaser.Math.Between(-15,15));
             const _spd=Phaser.Math.Between(12,28);
             const _pp=S.add.graphics().setDepth(23);
             _pp.x=ex; _pp.y=ey;
-            _pp.fillStyle(0xaaddff,0.9); _pp.fillRect(-1,-1,2,2);
+            _pp.fillStyle(_lc.hit,0.9); _pp.fillRect(-1,-1,2,2);
             S.tweens.add({targets:_pp,
                 x:ex+Math.cos(_pa)*_spd, y:ey+Math.sin(_pa)*_spd,
                 alpha:0, scaleX:0, scaleY:0,
@@ -10144,32 +10154,46 @@ function doLaser(S){
                 bx=Phaser.Math.Between(30,330);
             }
 
-            // ── Uyarı: kırmızı tarama çizgisi + nabız ──
+            // ── LEVEL-BASED RENK — Laser ──
+            const _laserColors = [
+                {warn1:0xff0000,warn2:0xff2200,aim1:0xff0000,aim2:0xff6600,
+                 core:0xffffff,kor:0xff4400,glow:0xff0000,outer:0xff2200,
+                 impLine:0xff4400,impFill:0xff6600,flame1:0xff4400,flame2:0xffcc00},
+                {warn1:0xff6600,warn2:0xff8800,aim1:0xff6600,aim2:0xffaa00,
+                 core:0xffffff,kor:0xff8800,glow:0xff4400,outer:0xff6600,
+                 impLine:0xff8800,impFill:0xffaa00,flame1:0xff8800,flame2:0xffee44},
+                {warn1:0x4488ff,warn2:0x2266dd,aim1:0x4488ff,aim2:0x88ccff,
+                 core:0xffffff,kor:0x88ccff,glow:0x2266dd,outer:0x4488ff,
+                 impLine:0x88ccff,impFill:0xaaddff,flame1:0x4488ff,flame2:0xeeffff},
+            ];
+            const _lsC = _laserColors[Math.min(lv-1, _laserColors.length-1)];
+
+            // Uyarı: tarama çizgisi + nabız
             const warn=S.add.graphics().setDepth(22);
-            warn.lineStyle(2,0xff0000,0.8); warn.lineBetween(bx,0,bx,640);
-            warn.lineStyle(8,0xff2200,0.2); warn.lineBetween(bx,0,bx,640);
+            warn.lineStyle(2,_lsC.warn1,0.8); warn.lineBetween(bx,0,bx,640);
+            warn.lineStyle(8,_lsC.warn2,0.2); warn.lineBetween(bx,0,bx,640);
             // Tarama efekti — warn yukarıdan aşağı tarar
             S.tweens.add({targets:warn,alpha:0,duration:200,onComplete:()=>warn.destroy()});
 
             // Hedef üzerinde nişan halkası
             if(tgt&&tgt.active){
                 const aim=S.add.graphics().setDepth(23);
-                aim.lineStyle(2,0xff0000,0.9); aim.strokeCircle(tgt.x,tgt.y,20);
-                aim.lineStyle(1,0xff6600,0.7); aim.strokeCircle(tgt.x,tgt.y,12);
+                aim.lineStyle(2,_lsC.aim1,0.9); aim.strokeCircle(tgt.x,tgt.y,20);
+                aim.lineStyle(1,_lsC.aim2,0.7); aim.strokeCircle(tgt.x,tgt.y,12);
                 S.tweens.add({targets:aim,scaleX:0.3,scaleY:0.3,alpha:0,duration:200,ease:"Quad.easeIn",onComplete:()=>aim.destroy()});
             }
 
             // 180ms sonra asıl lazer
             S.time.delayedCall(180,()=>{
                 const lg=S.add.graphics().setDepth(25);
-                // Katman 1: Parlak beyaz çekirdek
-                lg.lineStyle(3+lv,0xffffff,1.0); lg.lineBetween(bx,0,bx,640);
-                // Katman 2: Kırmızı-turuncu kor
-                lg.lineStyle(6+lv*2,0xff4400,0.85); lg.lineBetween(bx,0,bx,640);
+                // Katman 1: Parlak çekirdek
+                lg.lineStyle(3+lv,_lsC.core,1.0); lg.lineBetween(bx,0,bx,640);
+                // Katman 2: Kor
+                lg.lineStyle(6+lv*2,_lsC.kor,0.85); lg.lineBetween(bx,0,bx,640);
                 // Katman 3: Geniş glow
-                lg.lineStyle(18+lv*5,0xff0000,0.18); lg.lineBetween(bx,0,bx,640);
+                lg.lineStyle(18+lv*5,_lsC.glow,0.18); lg.lineBetween(bx,0,bx,640);
                 // Katman 4: Dış ışık yayılımı
-                lg.lineStyle(32+lv*8,0xff2200,0.07); lg.lineBetween(bx,0,bx,640);
+                lg.lineStyle(32+lv*8,_lsC.outer,0.07); lg.lineBetween(bx,0,bx,640);
 
                 // Hasar azaltıldı: lv1:2x, lv2:2.8x, lv3:3.8x (eskiden 3x/4x/5.5x)
                 const laserDmgMult=2.0+lv*0.9;
@@ -10187,13 +10211,13 @@ function doLaser(S){
                 // Zemin çarpma — yatık ellips, dolu büyük daire YOK
                 const imp=S.add.graphics().setDepth(24);
                 imp.x=bx; imp.y=GROUND_Y;
-                imp.lineStyle(2,0xff4400,0.8); imp.strokeEllipse(0,0,24+lv*6,6);
-                imp.fillStyle(0xff6600,0.5); imp.fillEllipse(0,0,16+lv*4,4);
+                imp.lineStyle(2,_lsC.impLine,0.8); imp.strokeEllipse(0,0,24+lv*6,6);
+                imp.fillStyle(_lsC.impFill,0.5); imp.fillEllipse(0,0,16+lv*4,4);
                 // Zemin alev dilleri — azaltıldı
                 for(let _gi=0;_gi<2+lv;_gi++){
                     const _ga=Phaser.Math.DegToRad(150+_gi*25+Phaser.Math.Between(-12,12));
                     const _gsp=S.add.graphics().setDepth(24);
-                    _gsp.fillStyle(_gi%2===0?0xff4400:0xffcc00,0.75);
+                    _gsp.fillStyle(_gi%2===0?_lsC.flame1:_lsC.flame2,0.75);
                     _gsp.fillTriangle(-2,0,2,0,0,-Phaser.Math.Between(10,20+lv*4));
                     _gsp.x=bx+Math.cos(_ga)*(8+_gi*6); _gsp.y=GROUND_Y+Math.sin(_ga)*3;
                     S.tweens.add({targets:_gsp,y:_gsp.y-Phaser.Math.Between(15,30),alpha:0,scaleX:0.1,duration:220,ease:"Quad.easeOut",onComplete:()=>_gsp.destroy()});
@@ -10216,21 +10240,28 @@ function doThunderStrike(S){
             const _thunderDmg = Math.min(gs.damage * 0.65, BASE_DAMAGE * (0.70 + lv * 0.20));
             applyDmg(S,te,_thunderDmg,false);
             const bx=te.x;
-            // Uyarı — ince sarı
+            // ── LEVEL-BASED RENK — Thunder ──
+            const _thColors = [
+                {warn:0xffee00,bolt1:0xffffff,bolt2:0xffee44,bolt3:0xffcc00,imp1:0xffffff,imp2:0xffcc00},
+                {warn:0x44aaff,bolt1:0xffffff,bolt2:0x44bbff,bolt3:0x2288dd,imp1:0xffffff,imp2:0x44bbff},
+                {warn:0xcc44ff,bolt1:0xffffff,bolt2:0xbb55ff,bolt3:0x8822cc,imp1:0xffffff,imp2:0xbb55ff},
+            ];
+            const _thC = _thColors[Math.min(lv-1, _thColors.length-1)];
+            // Uyarı — ince
             const warn=S.add.graphics().setDepth(20);
-            warn.lineStyle(1,0xffee00,0.6); warn.lineBetween(bx,0,bx,te.y);
+            warn.lineStyle(1,_thC.warn,0.6); warn.lineBetween(bx,0,bx,te.y);
             S.tweens.add({targets:warn,alpha:0,duration:80,onComplete:()=>warn.destroy()});
             S.time.delayedCall(80,()=>{
                 // Gök gürültüsü çakması
                 const tg=S.add.graphics().setDepth(22);
-                tg.lineStyle(5,0xffffff,1.0);  tg.lineBetween(bx,0,bx,te.y);
-                tg.lineStyle(3,0xffee44,0.9);  tg.lineBetween(bx,0,bx,te.y);
-                tg.lineStyle(12,0xffcc00,0.18); tg.lineBetween(bx,0,bx,te.y);
-                // Çarpma noktası — dolu daire yerine ince halka
+                tg.lineStyle(5,_thC.bolt1,1.0);  tg.lineBetween(bx,0,bx,te.y);
+                tg.lineStyle(3,_thC.bolt2,0.9);  tg.lineBetween(bx,0,bx,te.y);
+                tg.lineStyle(12,_thC.bolt3,0.18); tg.lineBetween(bx,0,bx,te.y);
+                // Çarpma noktası
                 const imp=S.add.graphics().setDepth(22);
                 imp.x=bx; imp.y=te.y;
-                imp.lineStyle(2,0xffffff,0.85); imp.strokeCircle(0,0,7);
-                imp.lineStyle(1,0xffcc00,0.6);  imp.strokeCircle(0,0,12);
+                imp.lineStyle(2,_thC.imp1,0.85); imp.strokeCircle(0,0,7);
+                imp.lineStyle(1,_thC.imp2,0.6);  imp.strokeCircle(0,0,12);
                 S.cameras.main.shake(20,0.003);
                 S.tweens.add({targets:[tg,imp],alpha:0,duration:140,onComplete:()=>{try{tg.destroy();imp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
             });
@@ -10240,6 +10271,9 @@ function doThunderStrike(S){
 // [OPT] cache kullan — her frame getMatching yerine _activeEnemies
 const ae=S._activeEnemies&&S._activeEnemies.length>0?S._activeEnemies:S.pyramids.getMatching("active",true);
 S.droneGroup.getChildren().forEach((d,i)=>{if(i>=lv){d.setActive(false).setVisible(false);return;}d.setActive(true).setVisible(true);
+    // ── LEVEL-BASED RENK — Drone ──
+    const _droneTints = [0x66bbff, 0x44ff88, 0xff66aa];
+    d.setTint(_droneTints[Math.min(lv-1, _droneTints.length-1)]);
     const angle=gs.orbitAngle*0.55+i*(Math.PI*2/lv);
     d.setPosition(S.player.x+Math.cos(angle)*90,S.player.y-22+Math.sin(angle)*45);
     d._spinAngle=(d._spinAngle||0)+1.8;
@@ -12141,7 +12175,7 @@ function killEnemy(S,p,giveXP){
     }
 
     // Health drop — rare, only from elites/tanks
-    const healDropChance = p.isBoss?0:p.elite?0.05:p.obsidian?0.04:p.tank||p.armored?0.04:p.glacier||p.inferno?0.03:p.swarm||p.type==="minion"?0:0.015;
+    const healDropChance = p.isBoss?0:p.elite?0.07:p.obsidian?0.06:p.tank||p.armored?0.06:p.glacier||p.inferno?0.05:p.swarm||p.type==="minion"?0:0.025;
     if(Math.random()<healDropChance){
         const hDrop=S.add.image(px,py-8,"tex_heart").setDepth(18).setScale(1.0);
         let hLife=5500;
@@ -13756,6 +13790,14 @@ function triggerResonance(S,src,depth){
 function doExplosion(S,x,y){
     const gs=GS, lv=UPGRADES.explosive.level, r=44+lv*12;
     const _isHeavy = gs && gs.activeWeapon === "heavy_cannon";
+
+    // ── LEVEL-BASED RENK — Explosive ──
+    const _expColors = [
+        {ring1:0xff8800,ring2:0xff4400,ember1:0xff6600,ember2:0xffcc00,smoke:0x333333},
+        {ring1:0xff2244,ring2:0xcc0022,ember1:0xff4455,ember2:0xff8866,smoke:0x442222},
+    ];
+    const _exC = _expColors[Math.min(lv-1, _expColors.length-1)];
+
     // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
         try{
@@ -13795,14 +13837,14 @@ function doExplosion(S,x,y){
     // Ana patlama halkası — azaltıldı
     const eg=S.add.graphics().setDepth(21);
     eg.x=x; eg.y=y;
-    eg.fillStyle(0xff8800,0.45); eg.fillCircle(0,0,r*0.55);
-    if(!_IS_MOBILE_EARLY){ eg.fillStyle(0xff4400,0.30); eg.fillCircle(0,0,r); }
+    eg.fillStyle(_exC.ring1,0.45); eg.fillCircle(0,0,r*0.55);
+    if(!_IS_MOBILE_EARLY){ eg.fillStyle(_exC.ring2,0.30); eg.fillCircle(0,0,r); }
     S.tweens.add({targets:eg,scaleX:1.8,scaleY:1.8,alpha:0,duration:220,ease:"Quad.easeOut",onComplete:()=>eg.destroy()});
     // Duman bulutu — SKIP on mobile
     if(!_IS_MOBILE_EARLY){
     const smoke=S.add.graphics().setDepth(20);
     smoke.x=x; smoke.y=y-8;
-    smoke.fillStyle(0x333333,0.14); smoke.fillCircle(0,0,r*0.4);
+    smoke.fillStyle(_exC.smoke,0.14); smoke.fillCircle(0,0,r*0.4);
     S.tweens.add({targets:smoke,y:smoke.y-14,scaleX:1.4,scaleY:1.4,alpha:0,duration:380,onComplete:()=>smoke.destroy()});
     }
     // Kor parçacıkları — SKIP on mobile
@@ -13811,7 +13853,7 @@ function doExplosion(S,x,y){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         const sp=Phaser.Math.Between(40,r*0.9);
         const dp=S.add.graphics().setDepth(20);
-        dp.fillStyle(i%2===0?0xff6600:0xffcc00,0.85);
+        dp.fillStyle(i%2===0?_exC.ember1:_exC.ember2,0.85);
         dp.fillRect(-1,-1,Phaser.Math.Between(2,4),Phaser.Math.Between(2,4));
         dp.x=x; dp.y=y;
         S.tweens.add({targets:dp,x:x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp,alpha:0,duration:Phaser.Math.Between(160,320),ease:"Quad.easeOut",onComplete:()=>dp.destroy()});
@@ -13892,11 +13934,29 @@ function spawnPoisonCloudAt(S,x,y,lv){
     // Büyütülmüş radius
     const r=55+lv*18;
 
-    // ── Anında ortaya çıkış efekti — yeşil patlaması ──
+    // ── LEVEL-BASED RENK SİSTEMİ ──
+    const POISON_COLORS = [
+        // Level 1: Yeşil (klasik zehir)
+        {main:0x44ff44, fill1:0x00bb33, fill2:0x00cc44, fill3:0x33ff66,
+         particles:[0x00cc44,0x22dd55,0x44ff66,0x00aa33,0x66ff88,0x88ffaa,0x00ff55],
+         outline:0x00cc44, outlineIn:0x44ff44, outlineDeep:0x88ffaa,
+         core:0x00aa33, bubble:0x44ff44, bubbleStroke:0x88ffaa,
+         popMain:0x44ff44, popMid:0xaaffaa, tint:0x55ff55, pip:0x44ff44},
+        // Level 2: Mor-Toxic (gelişmiş zehir)
+        {main:0xcc44ff, fill1:0x7700bb, fill2:0x8822cc, fill3:0xaa44ee,
+         particles:[0x9933dd,0xaa44ee,0xbb55ff,0x7722cc,0xcc66ff,0xdd88ff,0x8833ee],
+         outline:0x9933dd, outlineIn:0xbb55ff, outlineDeep:0xdd88ff,
+         core:0x7700bb, bubble:0xbb55ff, bubbleStroke:0xdd88ff,
+         popMain:0xcc44ff, popMid:0xddaaff, tint:0xaa66ff, pip:0xbb55ff},
+    ];
+    const ci = Math.min(lv, POISON_COLORS.length) - 1;
+    const C = POISON_COLORS[Math.max(0, ci)];
+
+    // ── Anında ortaya çıkış efekti ──
     const pop=S.add.graphics().setDepth(20);
     pop.x=x; pop.y=y;
-    pop.fillStyle(0x44ff44,0.65); pop.fillCircle(0,0,r*0.7);
-    pop.fillStyle(0xaaffaa,0.45);  pop.fillCircle(0,0,r*0.35);
+    pop.fillStyle(C.popMain,0.65); pop.fillCircle(0,0,r*0.7);
+    pop.fillStyle(C.popMid,0.45);  pop.fillCircle(0,0,r*0.35);
     pop.fillStyle(0xffffff,0.20);  pop.fillCircle(0,0,r*0.15);
     S.tweens.add({targets:pop,scaleX:1.8,scaleY:1.8,alpha:0,duration:320,ease:"Quad.easeOut",onComplete:()=>pop.destroy()});
 
@@ -13905,13 +13965,13 @@ function spawnPoisonCloudAt(S,x,y,lv){
 
     // Yarı saydam dolgu halkaları — bulut hissi
     const fill=S.add.graphics().setDepth(7);
-    fill.fillStyle(0x00bb33,0.22); fill.fillCircle(x,y,r);
-    fill.fillStyle(0x00cc44,0.14); fill.fillCircle(x,y,r*0.65);
-    fill.fillStyle(0x33ff66,0.08); fill.fillCircle(x,y,r*0.35);
+    fill.fillStyle(C.fill1,0.22); fill.fillCircle(x,y,r);
+    fill.fillStyle(C.fill2,0.14); fill.fillCircle(x,y,r*0.65);
+    fill.fillStyle(C.fill3,0.08); fill.fillCircle(x,y,r*0.35);
     ptcls.push(fill);
 
     // Zehir partikülleri
-    const colors=[0x00cc44,0x22dd55,0x44ff66,0x00aa33,0x66ff88,0x88ffaa,0x00ff55];
+    const colors=C.particles;
     for(let i=0;i<38;i++){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         const dist=Phaser.Math.Between(4,r*0.92);
@@ -13935,14 +13995,14 @@ function spawnPoisonCloudAt(S,x,y,lv){
 
     // Dış + iç çerçeve
     const outline=S.add.graphics().setDepth(8);
-    outline.lineStyle(2.5,0x00cc44,0.7); outline.strokeCircle(x,y,r);
-    outline.lineStyle(1.2,0x44ff44,0.35); outline.strokeCircle(x,y,r*0.6);
-    outline.lineStyle(0.8,0x88ffaa,0.18); outline.strokeCircle(x,y,r*0.3);
+    outline.lineStyle(2.5,C.outline,0.7); outline.strokeCircle(x,y,r);
+    outline.lineStyle(1.2,C.outlineIn,0.35); outline.strokeCircle(x,y,r*0.6);
+    outline.lineStyle(0.8,C.outlineDeep,0.18); outline.strokeCircle(x,y,r*0.3);
     ptcls.push(outline);
 
     // Merkez glow
     const core=S.add.graphics().setDepth(8);
-    core.fillStyle(0x00aa33,0.20); core.fillCircle(x,y,r*0.55);
+    core.fillStyle(C.core,0.20); core.fillCircle(x,y,r*0.55);
     ptcls.push(core);
 
     // ── Yükselen kabarcıklar ──
@@ -13950,8 +14010,8 @@ function spawnPoisonCloudAt(S,x,y,lv){
         const bx=x+Phaser.Math.Between(-r*0.7,r*0.7);
         const by=y+Phaser.Math.Between(-r*0.5,r*0.5);
         const bub=S.add.graphics().setDepth(10);
-        bub.fillStyle(0x44ff44,0.55); bub.fillCircle(0,0,Phaser.Math.Between(2,5));
-        bub.lineStyle(0.8,0x88ffaa,0.4); bub.strokeCircle(0,0,Phaser.Math.Between(2,5)+1);
+        bub.fillStyle(C.bubble,0.55); bub.fillCircle(0,0,Phaser.Math.Between(2,5));
+        bub.lineStyle(0.8,C.bubbleStroke,0.4); bub.strokeCircle(0,0,Phaser.Math.Between(2,5)+1);
         bub.x=bx; bub.y=by;
         ptcls.push(bub);
         S.tweens.add({
@@ -13967,6 +14027,8 @@ function spawnPoisonCloudAt(S,x,y,lv){
 
     // ── DOT hasarı + yavaşlatma ──
     const slowedEnemies=new Set();
+    const _poisonTint = C.tint;
+    const _poisonPip = C.pip;
     const dotEv=S.time.addEvent({delay:320,repeat:10,callback:()=>{
         if(GS.gameOver) return;
         const _dotEnemies=S._activeEnemies&&S._activeEnemies.length>0?S._activeEnemies:S.pyramids.getMatching("active",true);
@@ -13985,12 +14047,12 @@ function spawnPoisonCloudAt(S,x,y,lv){
                     e.body.velocity.y=e._poisonOrigVY*0.3;
                     e.body.velocity.x=e._poisonOrigVX*0.3;
                     e._poisonSlowed=true;
-                    e.setTint(0x55ff55);
+                    e.setTint(_poisonTint);
                 }
                 if(Math.random()<0.5){
                     const pip=S.add.graphics().setDepth(17);
                     pip.x=e.x; pip.y=e.y-6;
-                    pip.fillStyle(0x44ff44,0.8); pip.fillRect(-1.5,-2,3,6);
+                    pip.fillStyle(_poisonPip,0.8); pip.fillRect(-1.5,-2,3,6);
                     S.tweens.add({targets:pip,y:pip.y-14,alpha:0,duration:300,onComplete:()=>pip.destroy()});
                 }
             } else if(e._poisonSlowed){
