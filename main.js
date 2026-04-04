@@ -4998,12 +4998,15 @@ function tickEnemies(S){
             // ── PHYSICAL MOTION: sway + wobble rotation ──────────
             if(p.type!=="kamikaze"&&p.type!=="zigzag"&&p.type!=="titan"&&p.type!=="colossus"&&p.type!=="volt"){
                 if(p._windPhase===undefined){ p._windPhase=Math.random()*Math.PI*2; p._wobblePhase=Math.random()*Math.PI*2; }
-                // Lateral sway
-                const sway=Math.sin(gs.t*0.0018+p._windPhase)*8;
-                p.body.velocity.x=Phaser.Math.Linear(p.body.velocity.x,sway,0.04);
+                // [MOBILE PERF] Lateral sway mobilede skip — Math.sin + Linear her frame pahalı
+                if(!_IS_MOBILE_EARLY){
+                    const sway=Math.sin(gs.t*0.0018+p._windPhase)*8;
+                    p.body.velocity.x=Phaser.Math.Linear(p.body.velocity.x,sway,0.04);
+                }
 
                 // ── JELLY ANGLE: damped spring oscillation after hit ──
-                if(p._jellyActive){
+                // [MOBILE PERF] mobilede jelly spring ve wobble devre dışı — her frame setAngle pahalı
+                if(!_IS_MOBILE_EARLY && p._jellyActive){
                     // Spring physics: vel += -stiffness*angle; angle += vel; vel *= damping
                     // At 60fps, damping=0.88 means ~50% energy after 5 frames (~83ms) — visible oscillation
                     // stiffness=0.12 gives ~3 oscillations before dying out (~400ms total)
@@ -5026,7 +5029,7 @@ function tickEnemies(S){
                     if(p.type!=="spinner"&&p.type!=="inferno"){
                         try{ p.setAngle(p._jellyAngle); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
                     }
-                } else if(p.type!=="spinner"&&p.type!=="inferno"){
+                } else if(!_IS_MOBILE_EARLY && p.type!=="spinner"&&p.type!=="inferno"){
                     // Normal wobble when not in jelly spring
                     p._wobblePhase=(p._wobblePhase||0)+dt*0.0022;
                     const wobbleAng=Math.sin(p._wobblePhase)*3.5;
@@ -5092,7 +5095,10 @@ function tickEnemies(S){
         // Volt: zigzag + periyodik hızlanma
         if(p.volt&&!p.spawnProtected){
             p._voltPhase=(p._voltPhase||0)+dt*0.004;
-            try{p.body.velocity.x=Math.sin(p._voltPhase)*90;}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+            // [MOBILE PERF] mobilede her 2 frame'de bir güncelle
+            if(!_IS_MOBILE_EARLY||!(p._voltSkip=!p._voltSkip)){
+                try{p.body.velocity.x=Math.sin(p._voltPhase)*90;}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+            }
             if(Math.random()<0.004){try{p.setVelocityY(Math.min((p.body.velocity.y||0)*1.18,GS.pyramidSpeed*1.5));}catch(e){console.warn("[NT] Hata yutuldu:",e)}}
         }
         // Inferno: kendi ekseninde yavaş, sabit 360 dönüş
@@ -5108,7 +5114,7 @@ function tickEnemies(S){
             try{if(!p._staggering)p.setAlpha(pulse);}catch(e){console.warn("[NT] Hata yutuldu:",e)}
         }
         // Glacier: buz parcaciği efekti
-        if(p.glacier&&!p.spawnProtected&&Math.random()<0.003){
+        if(p.glacier&&!p.spawnProtected&&!_IS_MOBILE_EARLY&&Math.random()<0.003){
             const fg=S.add.graphics().setDepth(5);
             fg.x=p.x+Phaser.Math.Between(-12,12); fg.y=p.y+Phaser.Math.Between(-8,8);
             fg.lineStyle(1,0x88ddff,0.55); fg.lineBetween(0,0,Phaser.Math.Between(-6,6),Phaser.Math.Between(-6,6));
@@ -5265,7 +5271,7 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         dmg=Math.max(0.5,dmg-enemy.armor);
     }
     // [v11] KNOCKBACK — hasarla ölçeklendirildi + yüksek knockback'te kısa stun
-    if(gs.knockback>0&&!enemy.frozen&&enemy.body){
+    if(gs.knockback>0&&!enemy.frozen&&enemy.body&&enemy.body.enable){ // [CRASH FIX] body.enable kontrolü
         const kbF = gs.knockback * 80 + dmg * 18;
         enemy.body.velocity.y=Math.max(-kbF, enemy.body.velocity.y - kbF);
         enemy.body.velocity.x = Phaser.Math.Linear(enemy.body.velocity.x, _hitDir * kbF * 0.4, 0.5);
@@ -5291,7 +5297,7 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
     // Normal: 12ms physics pause only (weight without slow-mo)
     // Kill: handled below in enemy.hp<=0 block
     const _now=Date.now();
-    const _canFreeze = !gs._microFreeze && !gs.pickingUpgrade && _upgradeLock===0;
+    const _canFreeze = !_IS_MOBILE_EARLY && !gs._microFreeze && !gs.pickingUpgrade && _upgradeLock===0; // [MOBILE PERF] mobilede physics.pause devre dışı
 
     if(crit && _canFreeze && (!gs._lastMicroFreeze || _now-gs._lastMicroFreeze > 500)){
         gs._microFreeze=true;
@@ -5365,7 +5371,7 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
             enemy.x = Math.round(cleanX + newOffset);
             enemy.y = Math.round(_py);
 
-            if(enemy.body){
+            if(enemy.body&&enemy.body.enable&&enemy.active){ // [CRASH FIX] body devre dışıysa reset yapma
                 enemy.body.reset(enemy.x, enemy.y);
                 enemy.body.checkCollision.none=false;
                 // Break frame'de de tam genişlik — daraltma yapmıyoruz
@@ -5413,7 +5419,7 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         // Small elastic pushback in hit direction
         const _pushX = _hitDir * (crit ? 22 : 12);
         const _pushY = crit ? -8 : -3;
-        if(enemy.body){
+        if(enemy.body && enemy.body.enable){
             enemy.body.velocity.x = Phaser.Math.Linear(enemy.body.velocity.x, _pushX, 0.35);
             enemy.body.velocity.y = Math.min(enemy.body.velocity.y, _pushY);
         }
@@ -5447,6 +5453,19 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         const _osY = crit ? 1.14 : 1.09;
 
         try{
+            if(_IS_MOBILE_EARLY){
+                // [MOBILE PERF] Mobilede 3 phase yerine tek hızlı squash+settle — 3 tween → 1 tween
+                S.tweens.add({
+                    targets: enemy,
+                    scaleX: _rx * _sqX, scaleY: _ry * _sqY,
+                    duration: 55, ease: "Quad.easeOut",
+                    yoyo: true, hold: 18,
+                    onComplete: ()=>{
+                        if(enemy.active){ enemy.scaleX=_rx; enemy.scaleY=_ry; }
+                        enemy._staggering = false;
+                    }
+                });
+            } else {
             // Phase 1 — IMPACT SQUASH: fast flatten (55ms)
             S.tweens.add({
                 targets: enemy,
@@ -5502,24 +5521,30 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
                 repeat: 1,
                 onComplete: ()=>{ if(enemy.active) enemy.x = _origX; }
             });
+            } // end desktop jelly
         }catch(e){console.warn("[NT] Hata yutuldu:",e)}
 
         // Jelly angle spring — larger impulse so wobble is visible
+        if(!_IS_MOBILE_EARLY){ // [MOBILE PERF] jelly angle spring desktop only
         const _impulse = _hitDir * (crit ? 12 : 6);
         enemy._jellyAngle  = (enemy._jellyAngle || 0) + _impulse;
         enemy._jellyVel    = _impulse * 0.85;
         enemy._jellyActive = true;
+        }
 
         // Release staggering after all phases (~360ms total)
+        // [MOBILE PERF] mobilede tween onComplete içinde yapılıyor, burası sadece desktop için
+        if(!_IS_MOBILE_EARLY){
         S.time.delayedCall(crit ? 360 : 300, ()=>{
             if(enemy.active) enemy._staggering = false;
         });
+        }
     }
 
     // ── HIT PARTICLES — color-matched sparks ─────────────────
     if(enemy.active && _dmgNumCount < MAX_DMG_NUMS){
         const _hcol = enemy._originalTint || 0xffffff;
-        const _pcount = crit ? 5 : 2;
+        const _pcount = _IS_MOBILE_EARLY ? (crit ? 2 : 0) : (crit ? 5 : 2); // [MOBILE PERF] mobilede çok az parçacık
         for(let _pi=0;_pi<_pcount;_pi++){
             const _pa = Phaser.Math.DegToRad(Phaser.Math.Between(200,340));
             const _ps = Phaser.Math.Between(crit?30:15, crit?65:35);
@@ -5553,8 +5578,8 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         // görünür hale gelsin — aksi hâlde flash fark edilmez
         if(_savedAlpha < 0.88) enemy.setAlpha(Math.min(1.0, _savedAlpha + 0.50));
 
-        // Crit VFX: halka + kıvılcım — throttled (80ms)
-        if(crit){
+        // Crit VFX: halka + kıvılcım — throttled (80ms), [MOBILE PERF] mobilede skip
+        if(crit && !_IS_MOBILE_EARLY){
             const now2=Date.now();
             const lastCritVfx=enemy._lastCritVfx||0;
             if(now2-lastCritVfx>80){
@@ -5602,8 +5627,8 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
         const _shakeAmt = enemy._isMiniBoss ? 0.007 : 0.004;
         const _shakeDur = enemy._isMiniBoss ? 40   : 28;
         S.cameras.main.shake(_shakeDur, _shakeAmt);
-        // Slight zoom punch on crit — snappy in, smooth out
-        if(!enemy._isMiniBoss && rawDmg > 2.0){
+        // Slight zoom punch on crit — snappy in, smooth out — [MOBILE PERF] mobilede yok
+        if(!enemy._isMiniBoss && rawDmg > 2.0 && !_IS_MOBILE_EARLY){
             try{
                 S.cameras.main.zoomTo(1.04, 40, "Quad.easeOut");
                 setTimeout(()=>{ try{ S.cameras.main.zoomTo(1.0, 100, "Quad.easeIn"); }catch(e){console.warn("[NT] Hata yutuldu:",e)} }, 40);
@@ -6697,6 +6722,8 @@ function spawnDamageText(S, x, y, value, isCrit){
     if(!S||!S.add) return;
     if(window._nt_dmg_nums===false) return;
     if(_dmgNumCount>=MAX_DMG_NUMS) return;
+    // [MOBILE PERF] mobilede normal hit hasar sayısı gösterilmez; sadece crit
+    if(_IS_MOBILE_EARLY && !isCrit) return;
     _dmgNumCount++;
 
     const ox = Phaser.Math.Between(-10,10);
@@ -7227,7 +7254,7 @@ function doExplodeVFX(S,x,y,col,sizeScale){
 
 function spawnHitDebris(S,x,y,type,isCrit){
     if(!S || !canSpawnParticle(isCrit?"high":"normal")) return;
-    // MOBILE PERF: skip non-crit hit debris entirely on mobile
+    // [MOBILE PERF] mobilede normal hit debris tamamen yok, crit için sadece halka
     if(_IS_MOBILE_EARLY && !isCrit) return;
 
     const typeC={normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,kamikaze:0xFFBB55,ghost:0xDDBBFF,
@@ -7249,7 +7276,7 @@ function spawnHitDebris(S,x,y,type,isCrit){
         br.strokeCircle(0,0,isCrit?6:4);
         S.tweens.add({targets:br,scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,alpha:0,
             duration:isCrit?180:120,ease:"Quad.easeOut",onComplete:()=>br.destroy()});
-        if(isCrit){
+        if(isCrit && !_IS_MOBILE_EARLY){ // [MOBILE PERF] ikinci halka mobilede yok
             const br2=S.add.graphics().setDepth(21);
             br2.x=x; br2.y=y;
             br2.lineStyle(1.2,0xffffff,0.55); br2.strokeCircle(0,0,3);
@@ -7257,6 +7284,9 @@ function spawnHitDebris(S,x,y,type,isCrit){
                 ease:"Cubic.easeOut",onComplete:()=>br2.destroy()});
         }
     }
+
+    // [MOBILE PERF] Çizgi parçacıklar ve chip parçacıklar mobilede yok
+    if(_IS_MOBILE_EARLY) return;
 
     // ── Çizgi parçacıklar ─────────────────────────────────────
     const lineCnt=isCrit?7:4;
@@ -8594,11 +8624,13 @@ class SceneGame extends Phaser.Scene {
 
         // [SETTINGS] Ekran sarsıntısı ayarı — shake çağrılarını override et
         // Global intensity cap: max 0.008 — gözü yormayan kontrollü shake
+        // [MOBILE PERF] mobilede shake yarıya indirildi — GPU/CPU yük azaltma
         const _origShake=this.cameras.main.shake.bind(this.cameras.main);
         this.cameras.main.shake=function(duration,intensity,...args){
             if(window._nt_screen_shake===false) return;
-            const safeIntensity=Math.min(intensity||0, 0.008); // hard cap
-            const safeDuration=Math.min(duration||0, 120);     // max 120ms
+            const _mobMult = _IS_MOBILE_EARLY ? 0.4 : 1.0;
+            const safeIntensity=Math.min((intensity||0)*_mobMult, 0.008); // hard cap
+            const safeDuration=Math.min((duration||0)*_mobMult, _IS_MOBILE_EARLY?60:120);
             if(safeIntensity<=0) return;
             return _origShake(safeDuration,safeIntensity,...args);
         };
@@ -9323,7 +9355,8 @@ class SceneGame extends Phaser.Scene {
         // [OPT] _activeEnemies cache — getMatching her frame yerine 60ms'de bir çalışır
         // Tüm combat fonksiyonları bu cache'i kullanır → GC baskısı belirgin azalır
         this._activeEnemies=[];
-        this.time.addEvent({delay:60,loop:true,callback:()=>{
+        const _cacheDelay = _IS_MOBILE_EARLY ? 120 : 60; // [MOBILE PERF] mobilede daha seyrek cache güncelleme
+        this.time.addEvent({delay:_cacheDelay,loop:true,callback:()=>{
             if(!GS||GS.gameOver) return;
             this._activeEnemies=this.pyramids.getMatching("active",true);
         }});
@@ -13860,11 +13893,14 @@ function doExplosion(S,x,y){
     }
     }
     S.cameras.main.shake(22,0.004);
-    // Alan hasarı — [OPT] cache kullan
-    const _expEnemies=S._activeEnemies&&S._activeEnemies.length>0?S._activeEnemies:S.pyramids.getMatching("active",true);
+    // Alan hasarı — [CRASH FIX] cache değil fresh list: heavy_cannon+üçgen crash'ini önler
+    // Cache 60ms gecikmeli → az önce öldürülen düşman hâlâ active görünebilir → body null → crash
+    const _expEnemies=S.pyramids.getMatching("active",true);
     for(let _ei=0;_ei<_expEnemies.length;_ei++){
         const e=_expEnemies[_ei];
-        if(!e||!e.active) continue;
+        // [CRASH FIX] body.enable + checkCollision.none kontrolü — devre dışı body'ye erişim önlenir
+        if(!e||!e.active||!e.body||!e.body.enable||e.body.checkCollision.none) continue;
+        if(e.spawnProtected) continue;
         const dx=e.x-x, dy=e.y-y, d=Math.sqrt(dx*dx+dy*dy);
         if(d<r+e.displayWidth*0.5){
             const falloff=Math.max(0.3,1-(d/r)*0.6);
@@ -14685,6 +14721,9 @@ function tickVFX(S,delta){
         if(NT_VFX.vignette) NT_VFX.vignette.setAlpha(0.30);
     }
 
+    // [MOBILE PERF] Combo aura ve ambient dust mobilede devre dışı — her frame Graphics.clear+draw çok pahalı
+    if(_IS_MOBILE_EARLY) return;
+
     // Combo aura
     const combo=GS.combo||0;
     if(combo>=3&&S.player&&S.player.active){
@@ -14872,6 +14911,17 @@ function vfxSmokeHit(S, ex, ey){
 function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
     if(!S||!_POOL) return;
     ex=_snap(ex); ey=_snap(ey);
+    // [MOBILE PERF] mobilede sadece tek ring — 3 layer + smoke tamamen skip
+    if(_IS_MOBILE_EARLY){
+        if(!isCrit) return; // normal hit mobilede hiç VFX yok
+        const ring=_POOL.get(23); if(ring){
+            ring.lineStyle(1.8,0xffee00,0.80);
+            ring.strokeCircle(0,0,4);
+            ring.setPosition(ex,ey);
+            _pt(S,ring,{scaleX:2.8,scaleY:2.8,alpha:0,duration:130,ease:"Quad.easeOut"});
+        }
+        return;
+    }
     // Directional bias — sparks fly away from bullet origin
     const hitDir=(bulletAngle!==undefined)?bulletAngle:Math.PI*1.5;
     const sparkCount=isCrit?8:5;
@@ -14920,6 +14970,7 @@ function vfxNormalHit(S,ex,ey,isCrit,bulletAngle){
 // ── Enemy squash micro-animation on hit ─────────────────────────
 function vfxEnemySquash(S,e){
     if(!S||!e||!e.active) return;
+    if(_IS_MOBILE_EARLY) return; // [MOBILE PERF] squash tween mobilede yok — killTweensOf+3 tween pahalı
     // [FIX] Önceki squash tween'lerini iptal et — üst üste birikmesini engelle
     S.tweens.killTweensOf(e);
     // [FIX] Orijinal scale'i her zaman taze oku — birikmeden kaynaklanan drift'i engelle
@@ -15486,7 +15537,7 @@ function _startPhaserGame(){
         type:Phaser.AUTO, width:360, height:640,
         backgroundColor:"#000000",
         parent:"game-container",
-        physics:{default:"arcade",arcade:{gravity:{y:0},debug:false,overlapBias:24,tileBias:16}},
+        physics:{default:"arcade",arcade:{gravity:{y:0},debug:false,overlapBias:_IS_MOBILE_EARLY?12:24,tileBias:_IS_MOBILE_EARLY?8:16}}, // [MOBILE PERF]
         scene:[SceneMainMenu, SceneGame],
         scale:{
             mode:Phaser.Scale.FIT,
@@ -15502,7 +15553,7 @@ function _startPhaserGame(){
             antialiasGL:    false,
             pixelArt:       true,
             roundPixels:    true,
-            resolution:     Math.min(window.devicePixelRatio || 1, 2),
+            resolution:     _IS_MOBILE_EARLY ? 1 : Math.min(window.devicePixelRatio || 1, 2), // [MOBILE PERF] mobilede resolution:1 → GPU yükü yarıya düşer
             powerPreference:"high-performance"
         },
         callbacks:{
