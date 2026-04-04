@@ -1409,6 +1409,105 @@ const NT_SFX = (function(){
             _noise(t,0.014,_vol(0.08),3000,10000,_uiBus);
         },
 
+        // ── UPGRADE PICKUP SOUNDS — category-based ──────────────────
+        upgrade_weapon(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Metalik silah sesi — kısa, güçlü
+            _osc("sawtooth",_vary(220), t, 0.12, _vol(0.28), _vary(440));
+            _osc("square",  _vary(330), t+0.04, 0.10, _vol(0.20), _vary(165));
+            _osc("sine",    _vary(660), t+0.08, 0.14, _vol(0.22), _vary(880));
+            _noise(t, 0.06, _vol(0.18), 1200, 8000);
+        },
+        upgrade_passive(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Yumuşak güçlenme — sıcak, tatlı
+            _osc("sine",    _vary(440), t, 0.18, _vol(0.26), _vary(660));
+            _osc("triangle",_vary(554), t+0.06, 0.14, _vol(0.18), _vary(880));
+            _osc("sine",    _vary(880), t+0.12, 0.12, _vol(0.14));
+            _noise(t+0.05, 0.04, _vol(0.10), 4000, 14000);
+        },
+        upgrade_heal(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // İyileşme — yukarı doğru kristal arpej
+            [523, 659, 784, 1047].forEach((f,i)=>{
+                _osc("sine", f, t+i*0.055, 0.12, _vol(0.22));
+            });
+            _noise(t+0.15, 0.06, _vol(0.08), 6000, 16000);
+        },
+        upgrade_defensive(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Kalkan / savunma — derin bass + zırh sesi
+            _osc("sine",    _vary(110), t, 0.20, _vol(0.30), _vary(55));
+            _osc("triangle",_vary(220), t+0.03, 0.15, _vol(0.20), _vary(330));
+            _noise(t, 0.08, _vol(0.16), 800, 4000);
+            _osc("sine",    _vary(440), t+0.10, 0.10, _vol(0.14));
+        },
+        upgrade_utility(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Hız/XP gibi utility — kısa bip bip
+            _osc("sine",    _vary(660), t, 0.06, _vol(0.22), _vary(880));
+            _osc("triangle",_vary(880), t+0.07, 0.06, _vol(0.18));
+            _noise(t, 0.03, _vol(0.08), 5000, 12000);
+        },
+
+        // ── COUNTDOWN SOUNDS — 3, 2, 1, GO! ──────────────────────
+        countdown_tick(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",    _vary(440), t, 0.08, _vol(0.35));
+            _osc("triangle",_vary(440), t, 0.06, _vol(0.18), _vary(220));
+            _noise(t, 0.02, _vol(0.10), 3000, 8000);
+        },
+        countdown_go(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Yükselen arpej — heyecan veren başlangıç
+            [440, 554, 660, 880, 1100].forEach((f,i)=>{
+                _osc("sawtooth", f, t+i*0.04, 0.10, _vol(0.32), f*1.5);
+                _osc("sine",     f, t+i*0.04, 0.12, _vol(0.20));
+            });
+            _noise(t+0.15, 0.08, _vol(0.20), 4000, 16000);
+            _osc("sine", 55, t+0.18, 0.25, _vol(0.40), 28);
+        },
+
+        // ── COMBO MİLESTONE — 5x, 10x, 15x, 20x+ ───────────────
+        combo_milestone(tier=1){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            const baseF = 330 + tier * 80;
+            // Yükselen kristal akor
+            [0, 4, 7].forEach((semi,i)=>{
+                const f = baseF * Math.pow(2, semi/12);
+                _osc("sine",     f, t+i*0.035, 0.12, _vol(0.22 + tier*0.03));
+                _osc("triangle", f*2, t+i*0.035, 0.08, _vol(0.10));
+            });
+            if(tier >= 3) _osc("sine", baseF*2, t+0.15, 0.20, _vol(0.18), baseF*3);
+            _noise(t+0.08, 0.04, _vol(0.08 + tier*0.02), 5000, 14000);
+        },
+
+        // ── PLAYER DASH — hızlı hareket sesi ─────────────────────
+        player_dash(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _noise(t, 0.06, _vol(0.12), 2000, 8000);
+            _osc("sine", _vary(200), t, 0.04, _vol(0.10), _vary(80));
+        },
+
+        // ── FIRST BLOOD — ilk öldürme ────────────────────────────
+        first_blood(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",     _vary(440), t, 0.15, _vol(0.28), _vary(660));
+            _osc("sawtooth", _vary(330), t+0.05, 0.12, _vol(0.22), _vary(660));
+            _osc("sine",     _vary(880), t+0.12, 0.18, _vol(0.18));
+            _noise(t+0.08, 0.06, _vol(0.14), 3000, 12000);
+        },
+
         // ── BOSS SPAWN (dramatic, alarming) ──────────────────────
         boss_spawn(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
@@ -2634,7 +2733,8 @@ function applyTimedBuff(gs, key, multiplier, duration, S){
 // ═══════════════════════════════════════════════════════════════
 // ★ PERFORMANS — Global FPS Monitor + Particle Budget
 // ═══════════════════════════════════════════════════════════════
-let _perfMode = "high"; // "high" | "low"
+const _IS_MOBILE_EARLY = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+let _perfMode = _IS_MOBILE_EARLY ? "low" : "high"; // "high" | "low" — mobile starts low
 let _fpsSamples = [];
 
 function updatePerfMode(fps){
@@ -2642,7 +2742,9 @@ function updatePerfMode(fps){
     if(_fpsSamples.length > 60) _fpsSamples.shift();
     if(_fpsSamples.length < 30) return;
     const avg = _fpsSamples.reduce((a,b)=>a+b,0)/_fpsSamples.length;
-    _perfMode = avg < 35 ? "low" : "high";
+    // Mobile: higher threshold (50fps), desktop: 35fps
+    const threshold = _IS_MOBILE_EARLY ? 50 : 35;
+    _perfMode = avg < threshold ? "low" : "high";
 }
 
 // Particle budget — low mode'da daha az efekt
@@ -2844,7 +2946,7 @@ const SYNERGIES = [
 
 const BASE_DAMAGE      = 1.2;
 const BASE_SHOOT_DELAY = 170;
-const BASE_MOVE_SPEED  = 260;
+const BASE_MOVE_SPEED  = 278; // was 260 — slightly faster for arcade feel
 const BASE_CRIT_MULT   = 2.0; // SABİT — upgrade edilemez
 
 // ── Upgrade buff tables — steeper per-level diminishing returns ──────────
@@ -2956,14 +3058,16 @@ function calcStats(gs){
     // At base 1.2 with max shop: baseDmg ≈ 1.44 → ceiling = 3.8/1.44 = 2.64× base
     // Enemies at minute 20 have 3.3× HP → they survive 1-2 hits as intended
     const rawFinalDmg = baseDmg * (1 + softDmgBonus);
-    const finalDmg   = Math.min(3.8, Math.max(baseDmg * 0.70, rawFinalDmg)); // [BALANCE] floor: baz hasarın %70'i
+    // BUILD BALANCE: minimum damage floor scales with level — weak builds catch up
+    const levelMinDmg = baseDmg * (0.70 + Math.min(0.50, (gs.level||1) * 0.03)); // lv1=0.73x, lv10=1.0x, lv15=1.15x
+    const finalDmg   = Math.min(3.8, Math.max(levelMinDmg, rawFinalDmg));
 
     // ── ATTACK SPEED FLOOR: 180ms hard minimum (was 175ms) ──
     // This stops rapid-fire builds from erasing enemies before they enter the screen
     const finalShoot = Math.max(180, baseShoot / (1 + Math.max(0, softAtkBonus)));
 
-    // Move speed hard cap 280 px/s (was 285)
-    const finalSpd   = Math.min(280, baseMov * (1 + Math.max(-0.30, rawSpdBonus)));
+    // Move speed hard cap 295 px/s (was 280)
+    const finalSpd   = Math.min(295, baseMov * (1 + Math.max(-0.30, rawSpdBonus)));
 
     return { damage:finalDmg, shootDelay:finalShoot, moveSpeed:finalSpd, critChance:totalCrit };
 }
@@ -2985,7 +3089,7 @@ function syncStatsFromPipeline(gs){
     } else if(wt==="spread_shot"){
         gs.damage    *= 0.75;                                // ×0.70 dmgM per bullet, 3 bullets
     } else if(wt==="chain_shot"){
-        gs.damage    *= 0.82;                                // was 0.85 — single target weaker, 3-target stays good
+        gs.damage    *= 0.92;                                // BALANCE: was 0.82, buffed for reliable chain build
     } else if(wt==="precision_rifle"){
         gs.damage    *= 1.35;                                // was 1.4 — slight nerf, perfect-hit 2.8x still rewarding
         gs.shootDelay = Math.max(140, gs.shootDelay / 0.85); // floor 140ms (was 130ms)
@@ -3425,6 +3529,16 @@ function buildTextures(S){
     g.fillStyle(0x880088,1); g.fillRect(2,14,2,2);        // alt söner
     g.fillStyle(0x330044,0.7); g.fillRect(2,16,2,2);      // kuyruk
     g.generateTexture("tex_bullet_spread",6,18); g.clear();
+
+    // CHAIN — mavi/cyan, elektrik hissi (6x18)
+    g.fillStyle(0x001133,1); g.fillRect(2,0,2,2);         // koyu mavi uç
+    g.fillStyle(0x003388,1); g.fillRect(2,2,2,3);         // mavi gövde üst
+    g.fillStyle(0x44aaff,1); g.fillRect(2,5,2,9);         // parlak mavi ana
+    g.fillStyle(0x88ddff,1); g.fillRect(2,5,1,6);         // açık mavi highlight
+    g.fillStyle(0xffffff,0.6); g.fillRect(2,6,1,3);       // beyaz parlaması
+    g.fillStyle(0x2266aa,1); g.fillRect(2,14,2,2);        // alt söner
+    g.fillStyle(0x113366,0.7); g.fillRect(2,16,2,2);      // kuyruk
+    g.generateTexture("tex_bullet_chain",6,18); g.clear();
 
     // CANNON — füze mermisi: sivri uç, ateş izi, ince (8x22)
     // Cannon — metalik çelik mermi
@@ -5549,17 +5663,17 @@ function updateDifficultyTick(S){
     if(gs.health <= 3) gs.spawnDelay = Math.min(gs.spawnDelay + 180, spawnBase * 1.20);
     if(gs.health <= 1) gs.spawnDelay = Math.min(gs.spawnDelay + 120, spawnBase * 1.40);
 
-    // DÜŞMAN HIZI (px/s): ARCADE FIX — early game much faster, no more boring start
-    // 0dk=95 → 1dk=115 → 3dk=138 → 6dk=160 → 10dk=185 → 15dk=210 → 25dk=235 → max=245
+    // DÜŞMAN HIZI (px/s): ARCADE — slightly toned down for comfort
+    // 0dk=88 → 1dk=108 → 3dk=132 → 6dk=155 → 10dk=180 → 15dk=205 → 25dk=230 → max=240
     const baseSpeed =
-        min < 1  ? Phaser.Math.Linear( 95, 115, min)        :
-        min < 3  ? Phaser.Math.Linear(115, 138, (min-1)/2)  :
-        min < 6  ? Phaser.Math.Linear(138, 160, (min-3)/3)  :
-        min < 10 ? Phaser.Math.Linear(160, 185, (min-6)/4)  :
-        min < 15 ? Phaser.Math.Linear(185, 210, (min-10)/5) :
-        min < 25 ? Phaser.Math.Linear(210, 235, (min-15)/10):
-        Math.min(245, 235 + (min-25)*1.0);
-    gs.pyramidSpeed = Math.min(245, baseSpeed * lvSpdMult);
+        min < 1  ? Phaser.Math.Linear( 88, 108, min)        :
+        min < 3  ? Phaser.Math.Linear(108, 132, (min-1)/2)  :
+        min < 6  ? Phaser.Math.Linear(132, 155, (min-3)/3)  :
+        min < 10 ? Phaser.Math.Linear(155, 180, (min-6)/4)  :
+        min < 15 ? Phaser.Math.Linear(180, 205, (min-10)/5) :
+        min < 25 ? Phaser.Math.Linear(205, 230, (min-15)/10):
+        Math.min(240, 230 + (min-25)*1.0);
+    gs.pyramidSpeed = Math.min(240, baseSpeed * lvSpdMult);
 }
 
 function runDirector(S){
@@ -7034,22 +7148,26 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         ring1.setPosition(x,y);
         _pt(S,ring1,{scaleX:4.5*sz,scaleY:4.5*sz,alpha:0,duration:340,ease:"Quad.easeOut"});
     }
-    // Second ring (delayed)
+    // Second ring (delayed) — SKIP on mobile
+    if(!_IS_MOBILE_EARLY){
     S.time.delayedCall(42,()=>{
         const ring2=_POOL.get(22); if(!ring2) return;
         ring2.lineStyle(1.5,col2,0.60); ring2.strokeCircle(0,0,8);
         ring2.setPosition(x,y);
         _pt(S,ring2,{scaleX:6*sz,scaleY:6*sz,alpha:0,duration:440,ease:"Sine.easeOut"});
     });
-    // Colour orb centre
+    }
+    // Colour orb centre — SKIP on mobile
+    if(!_IS_MOBILE_EARLY){
     const orb=_POOL.get(23); if(orb){
         orb.fillStyle(col2,0.85); orb.fillCircle(0,0,8*sz);
         orb.fillStyle(0xffffff,0.55); orb.fillCircle(-2*sz,-2*sz,3*sz);
         orb.setPosition(x,y);
         _pt(S,orb,{scaleX:1.8,scaleY:1.8,alpha:0,duration:215,ease:"Quad.easeOut"});
     }
+    }
     // Debris shards (pooled triangles via lines) — mobilde azalt
-    const debrisCount=_IS_MOBILE ? 3 : (sz>=1.5?8:6);
+    const debrisCount=_IS_MOBILE ? 1 : (sz>=1.5?8:6);
     for(let i=0;i<debrisCount;i++){
         const dp=_POOL.get(22); if(!dp) break;
         const ang=(i/debrisCount)*Math.PI*2+Phaser.Math.FloatBetween(-0.3,0.3);
@@ -7066,7 +7184,7 @@ function doExplodeVFX(S,x,y,col,sizeScale){
             duration:Phaser.Math.Between(340,580),delay:i*14,ease:"Quad.easeOut"});
     }
     // Sparks (pooled) — mobilde azalt
-    const sparkCount=_IS_MOBILE ? 2 : (sz>=1.5?8:5);
+    const sparkCount=_IS_MOBILE ? 0 : (sz>=1.5?8:5);
     for(let i=0;i<sparkCount;i++){
         S.time.delayedCall(i*16,()=>{
             const sp=_POOL.get(23); if(!sp) return;
@@ -7080,7 +7198,8 @@ function doExplodeVFX(S,x,y,col,sizeScale){
                 duration:Phaser.Math.Between(175,310),ease:"Quad.easeOut"});
         });
     }
-    // Ground stain
+    // Ground stain — SKIP on mobile
+    if(!_IS_MOBILE_EARLY){
     S.time.delayedCall(80,()=>{
         const st=_POOL.get(5); if(!st) return;
         st.fillStyle(0x111111,0.32);
@@ -7088,10 +7207,13 @@ function doExplodeVFX(S,x,y,col,sizeScale){
         st.setPosition(x,y);
         _pt(S,st,{alpha:0,duration:1700,delay:380,ease:"Sine.easeIn"});
     });
+    } // end mobile skip ground stain
 }
 
 function spawnHitDebris(S,x,y,type,isCrit){
     if(!S || !canSpawnParticle(isCrit?"high":"normal")) return;
+    // MOBILE PERF: skip non-crit hit debris entirely on mobile
+    if(_IS_MOBILE_EARLY && !isCrit) return;
 
     const typeC={normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,kamikaze:0xFFBB55,ghost:0xDDBBFF,
         split:0xFFEE44,swarm:0xFFBB66,elder:0xFFCC44,spinner:0xFF55DD,armored:0x9977FF,bomber:0xFF9966,
@@ -7786,6 +7908,13 @@ class SceneMainMenu extends Phaser.Scene {
         // [FIX] Pause → Main Menu → Play arası _goGameFired sıfırla
         // scene.start() aynı instance'ı yeniden kullandığı için önceki true değeri kalıyordu
         this._goGameFired = false;
+
+        // [SOUND FIX] Main menu'ye dönünce müzik ve ambiyans her zaman aktif olsun
+        try{
+            NT_SFX.startMusic();
+            NT_SFX.setMusicState("menu", 1.0);
+            NT_SFX.startWindAmbience();
+        }catch(e){ console.warn("[NT] Menu müzik init hatası:", e); }
 
         const W=360,H=640,CX=180;
 
@@ -8499,7 +8628,7 @@ class SceneGame extends Phaser.Scene {
             maxHealth: 6+(GOLD_UPGRADES.find(u=>u.id==="start_hp")?.level||0)*3,
             damage: 1.2*(1+(GOLD_UPGRADES.find(u=>u.id==="start_dmg")?.level||0)*0.15), // erken oyun: biraz daha güçlü başla
             _baseDamage: 1.2*(1+(GOLD_UPGRADES.find(u=>u.id==="start_dmg")?.level||0)*0.15), // [BALANCE] stored for soft cap reference
-            moveSpeed: 230*(1+(GOLD_UPGRADES.find(u=>u.id==="start_spd")?.level||0)*0.10),
+            moveSpeed: 248*(1+(GOLD_UPGRADES.find(u=>u.id==="start_spd")?.level||0)*0.10),
             shootDelay:170,        // erken oyun daha responsive (was 190)
             bulletSpeed:480, bulletScale:1.0, splitLevel:0, pierceCount:0,
             critChance:(GOLD_UPGRADES.find(u=>u.id==="crit_start")?.level||0)*0.05,
@@ -8673,18 +8802,18 @@ class SceneGame extends Phaser.Scene {
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
-            // ── TÜM BUTONLAR SAĞ TARAFA HİZALI ──
-            const BTN_Y = H_MB - 30;
+            // ── TÜM BUTONLAR SAĞ TARAFA HİZALI — yukarı alındı, biraz büyütüldü ──
+            const BTN_Y = H_MB - 52;
             this.input.addPointer(3);
 
-            const DIR_BTN_W = 78, DIR_BTN_H = 44, DIR_BTN_R = 10;
-            const FIRE_W = 88, FIRE_H = 44, FIRE_R = 10;
+            const DIR_BTN_W = 84, DIR_BTN_H = 50, DIR_BTN_R = 12;
+            const FIRE_W = 94, FIRE_H = 50, FIRE_R = 12;
             const BTN_GAP = 4;
 
             // Soldan sağa: Fire (en solda) → Left → Right (en sağda)
-            const FIRE_X  = FIRE_W/2 + 6;                                // en solda
-            const LEFT_X  = W_MB - 6 - DIR_BTN_W - 10 - DIR_BTN_W/2; // sağdan ikinci (yürüme butonları arası boşluk)
-            const RIGHT_X = W_MB - DIR_BTN_W/2 - 6;                     // en sağda
+            const FIRE_X  = FIRE_W/2 + 8;
+            const LEFT_X  = W_MB - 8 - DIR_BTN_W - 10 - DIR_BTN_W/2;
+            const RIGHT_X = W_MB - DIR_BTN_W/2 - 8;
             const FIRE_Y  = BTN_Y;
             const DIR_BTN_Y = BTN_Y;
 
@@ -8733,117 +8862,58 @@ class SceneGame extends Phaser.Scene {
 
             this._btnFire = { g: fireG, lbl: null, hit: fireHit };
 
-            // ── SANAL JOYSTICK — Yatay, ince, Vampire Survivors tarzı ──────────
-            // Track (arka plan) + Thumb (sürüklenen düğme)
-            const JOY_W = 160, JOY_H = 38, JOY_R = 19;
-            const JOY_THUMB_W = 44, JOY_THUMB_H = 32, JOY_THUMB_R = 14;
-            const JOY_X = W_MB - JOY_W/2 - 6; // sağa hizalı
-            const JOY_Y = BTN_Y;
-            const JOY_DEAD = 8; // dead zone px — hassasiyeti azalt
-            const JOY_HALFTRACK = (JOY_W - JOY_THUMB_W) / 2;
+            // ── SOL / SAĞ BUTONLAR — sağa hizalı, ateş butonu solunda ──────────
+            const leftG  = this.add.graphics().setDepth(800).setScrollFactor(0);
+            const rightG = this.add.graphics().setDepth(800).setScrollFactor(0);
 
-            const joyG = this.add.graphics().setDepth(800).setScrollFactor(0);
-            let _joyThumbX = 0; // -1..1 arası normalize edilmiş konum
-            let _joyActivePtr = null;
-
-            const _drawJoystick = (thumbNorm) => {
-                joyG.clear();
-                // Track gölge
-                joyG.fillStyle(0x000000, 0.25);
-                joyG.fillRoundedRect(JOY_X - JOY_W/2 + 2, JOY_Y - JOY_H/2 + 3, JOY_W, JOY_H, JOY_R);
-                // Track ana body
-                joyG.fillStyle(0x1a1a2e, 0.55);
-                joyG.fillRoundedRect(JOY_X - JOY_W/2, JOY_Y - JOY_H/2, JOY_W, JOY_H, JOY_R);
-                // Track üst shine
-                joyG.fillStyle(0xffffff, 0.08);
-                joyG.fillRoundedRect(JOY_X - JOY_W/2 + 4, JOY_Y - JOY_H/2 + 3, JOY_W - 8, JOY_H * 0.35, JOY_R * 0.7);
-                // Track border
-                joyG.lineStyle(1.5, 0x5588ff, 0.40);
-                joyG.strokeRoundedRect(JOY_X - JOY_W/2, JOY_Y - JOY_H/2, JOY_W, JOY_H, JOY_R);
-                // Sol/sağ ok ikonları
-                const arrowAlpha = 0.25;
-                joyG.fillStyle(0xffffff, arrowAlpha);
-                const leftAx = JOY_X - JOY_W/2 + 16, rightAx = JOY_X + JOY_W/2 - 16;
-                joyG.fillTriangle(leftAx-6, JOY_Y, leftAx+3, JOY_Y-6, leftAx+3, JOY_Y+6);
-                joyG.fillTriangle(rightAx+6, JOY_Y, rightAx-3, JOY_Y-6, rightAx-3, JOY_Y+6);
-
-                // Thumb (sürüklenen düğme)
-                const thumbOffset = thumbNorm * JOY_HALFTRACK;
-                const thumbCX = JOY_X + thumbOffset;
-                const isActive = Math.abs(thumbNorm) > 0.05;
-                // Thumb gölge
-                if(!isActive){
-                    joyG.fillStyle(0x000000, 0.15);
-                    joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2 + 1, JOY_Y - JOY_THUMB_H/2 + 2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
+            const _drawDirBtn = (gfx, cx, label, pressed, borderCol) => {
+                gfx.clear();
+                // Gölge
+                gfx.fillStyle(0x000000, pressed ? 0.0 : 0.25);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 2, DIR_BTN_Y - DIR_BTN_H/2 + 4, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Ana body
+                gfx.fillStyle(0x1a1a2e, pressed ? 0.90 : 0.55);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Üst shine
+                gfx.fillStyle(0xffffff, pressed ? 0.04 : 0.10);
+                gfx.fillRoundedRect(cx - DIR_BTN_W/2 + 4, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 8, DIR_BTN_H * 0.38, DIR_BTN_R * 0.7);
+                // Border
+                gfx.lineStyle(pressed ? 2 : 1.5, borderCol, pressed ? 0.95 : 0.50);
+                gfx.strokeRoundedRect(cx - DIR_BTN_W/2, DIR_BTN_Y - DIR_BTN_H/2, DIR_BTN_W, DIR_BTN_H, DIR_BTN_R);
+                // Inner glow
+                if(pressed){
+                    gfx.lineStyle(4, borderCol, 0.18);
+                    gfx.strokeRoundedRect(cx - DIR_BTN_W/2 + 3, DIR_BTN_Y - DIR_BTN_H/2 + 3, DIR_BTN_W - 6, DIR_BTN_H - 6, DIR_BTN_R - 2);
                 }
-                // Thumb body
-                joyG.fillStyle(isActive ? 0x3366cc : 0x2a2a4e, isActive ? 0.92 : 0.75);
-                joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2, JOY_Y - JOY_THUMB_H/2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
-                // Thumb shine
-                joyG.fillStyle(0xffffff, isActive ? 0.15 : 0.08);
-                joyG.fillRoundedRect(thumbCX - JOY_THUMB_W/2 + 4, JOY_Y - JOY_THUMB_H/2 + 3, JOY_THUMB_W - 8, JOY_THUMB_H * 0.38, JOY_THUMB_R * 0.6);
-                // Thumb border
-                joyG.lineStyle(isActive ? 2 : 1.5, 0x5588ff, isActive ? 0.90 : 0.50);
-                joyG.strokeRoundedRect(thumbCX - JOY_THUMB_W/2, JOY_Y - JOY_THUMB_H/2, JOY_THUMB_W, JOY_THUMB_H, JOY_THUMB_R);
-                if(isActive){
-                    joyG.lineStyle(3, 0x5588ff, 0.15);
-                    joyG.strokeRoundedRect(thumbCX - JOY_THUMB_W/2 + 2, JOY_Y - JOY_THUMB_H/2 + 2, JOY_THUMB_W - 4, JOY_THUMB_H - 4, JOY_THUMB_R - 2);
+                // Ok ikonu — biraz daha büyük
+                gfx.fillStyle(0xffffff, pressed ? 0.95 : 0.60);
+                const ax = cx, ay = DIR_BTN_Y;
+                if(label === "left"){
+                    gfx.fillTriangle(ax-14, ay, ax+7, ay-10, ax+7, ay+10);
+                } else {
+                    gfx.fillTriangle(ax+14, ay, ax-7, ay-10, ax-7, ay+10);
                 }
             };
-            _drawJoystick(0);
+            _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff);
+            _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff);
 
-            // Joystick hit area — biraz daha büyük
-            const joyHit = this.add.rectangle(JOY_X, JOY_Y, JOY_W + 20, JOY_H + 24, 0xffffff, 0.001)
-                .setDepth(802).setScrollFactor(0).setInteractive({ draggable: false });
+            let _leftActivePtr = null, _rightActivePtr = null;
 
-            const _processJoyPointer = (ptr) => {
-                // Pointer X'i joystick koordinatına çevir
-                const localX = ptr.x - JOY_X;
-                // Dead zone uygula
-                let norm = 0;
-                if(Math.abs(localX) > JOY_DEAD){
-                    norm = Phaser.Math.Clamp((localX - Math.sign(localX)*JOY_DEAD) / (JOY_HALFTRACK - JOY_DEAD), -1, 1);
-                }
-                // Hassasiyet eğrisi — linear değil, küçük hareketleri yumuşat
-                norm = Math.sign(norm) * Math.pow(Math.abs(norm), 1.3);
-                _joyThumbX = norm;
-                this._mobileLeft  = norm < -0.15;
-                this._mobileRight = norm >  0.15;
-                // Analog hız desteği — tam basılı değilse yavaşla
-                this._mobileAnalog = norm;
-                _drawJoystick(norm);
-            };
+            const leftHit = this.add.rectangle(LEFT_X,  DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive();
+            const rightHit = this.add.rectangle(RIGHT_X, DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
+                .setDepth(802).setScrollFactor(0).setInteractive();
 
-            joyHit.on("pointerdown", (ptr) => {
-                _joyActivePtr = ptr.id;
-                _processJoyPointer(ptr);
-            });
-            joyHit.on("pointermove", (ptr) => {
-                if(ptr.id === _joyActivePtr) _processJoyPointer(ptr);
-            });
-            joyHit.on("pointerup", (ptr) => {
-                if(ptr.id === _joyActivePtr){
-                    _joyActivePtr = null;
-                    _joyThumbX = 0;
-                    this._mobileLeft = false;
-                    this._mobileRight = false;
-                    this._mobileAnalog = 0;
-                    _drawJoystick(0);
-                }
-            });
-            joyHit.on("pointerout", (ptr) => {
-                if(ptr.id === _joyActivePtr){
-                    _joyActivePtr = null;
-                    _joyThumbX = 0;
-                    this._mobileLeft = false;
-                    this._mobileRight = false;
-                    this._mobileAnalog = 0;
-                    _drawJoystick(0);
-                }
-            });
+            leftHit.on("pointerdown",  (ptr) => { _leftActivePtr = ptr.id; this._mobileLeft = true;  _drawDirBtn(leftG,  LEFT_X,  "left",  true,  0x5588ff); });
+            leftHit.on("pointerup",    (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
+            leftHit.on("pointerout",   (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
 
-            this._btnLeft  = { g: joyG, lbl: null, hit: joyHit };
-            this._btnRight = { g: joyG, lbl: null, hit: joyHit };
+            rightHit.on("pointerdown", (ptr) => { _rightActivePtr = ptr.id; this._mobileRight = true; _drawDirBtn(rightG, RIGHT_X, "right", true,  0x5588ff); });
+            rightHit.on("pointerup",   (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
+            rightHit.on("pointerout",  (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
+
+            this._btnLeft  = { g: leftG,  lbl: null, hit: leftHit  };
+            this._btnRight = { g: rightG, lbl: null, hit: rightHit };
         }
         // ── MOBİL KONTROL SONU ───────────────────────────────────────
 
@@ -9005,6 +9075,48 @@ class SceneGame extends Phaser.Scene {
                     gs.combo=Math.min(20,gs.combo+1); gs.comboTimer=1500;
                     gs.comboDmgBoost=Math.min(1.20,1+gs.combo*0.010); // referans
                     syncStatsFromPipeline(gs); // [v9.2]
+                    // ── COMBO MILESTONE VFX + SFX ──
+                    if(gs.combo===5 || gs.combo===10 || gs.combo===15 || gs.combo===20){
+                        const _cmTier = gs.combo===5?1:gs.combo===10?2:gs.combo===15?3:4;
+                        NT_SFX.play("combo_milestone",_cmTier);
+                        // Milestone — küçük renkli halka
+                        if(!_IS_MOBILE_EARLY){
+                            const _cmColors = [0x44ddff, 0xaaff44, 0xff8844, 0xff44aa]; // cyan, lime, orange, pink
+                            const _cmCol = _cmColors[_cmTier-1] || 0xffdd44;
+                            const cr=_S.add.graphics().setDepth(28);
+                            cr.x=_S.player.x; cr.y=_S.player.y;
+                            cr.lineStyle(2, _cmCol, 0.85);
+                            cr.strokeCircle(0,0,10);
+                            _S.tweens.add({targets:cr, scaleX:2.2+_cmTier*0.3, scaleY:2.2+_cmTier*0.3, alpha:0,
+                                duration:300, ease:"Quad.easeOut",
+                                onComplete:()=>{try{cr.destroy();}catch(e){}}});
+                        }
+                        // Milestone text — küçük ve temiz
+                        const _cmLbl = gs.combo+"x";
+                        const _cmTxtCols = ["#44ddff","#aaff44","#ff8844","#ff44aa"];
+                        const _cmTxt = _S.add.text(_S.player.x, _S.player.y-40, _cmLbl, {
+                            fontFamily:"LilitaOne",
+                            fontSize:(13+_cmTier)+"px",
+                            color: _cmTxtCols[_cmTier-1] || "#ffdd44",
+                            stroke:"#000000", strokeThickness:2
+                        }).setOrigin(0.5).setDepth(30).setAlpha(0).setScale(0.6);
+                        _S.tweens.add({targets:_cmTxt, alpha:1, scaleX:1, scaleY:1, duration:180, ease:"Back.easeOut"});
+                        _S.tweens.add({targets:_cmTxt, alpha:0, y:_cmTxt.y-25, duration:450, delay:400, ease:"Quad.easeIn",
+                            onComplete:()=>{try{_cmTxt.destroy();}catch(e){}}});
+                    }
+                    // ── FIRST BLOOD ──
+                    if(gs.kills===1 && gs.combo===1){
+                        NT_SFX.play("first_blood");
+                        const fbLang = CURRENT_LANG==="en"?"FIRST BLOOD!":CURRENT_LANG==="ru"?"ПЕРВАЯ КРОВЬ!":"İLK KAN!";
+                        const fbTxt = _S.add.text(180, 200, fbLang, {
+                            fontFamily:"LilitaOne",
+                            fontSize:"22px",
+                            color:"#ff4444", stroke:"#000000", strokeThickness:4
+                        }).setOrigin(0.5).setDepth(30).setAlpha(0).setScale(0.3);
+                        _S.tweens.add({targets:fbTxt, alpha:1, scaleX:1.2, scaleY:1.2, duration:300, ease:"Back.easeOut"});
+                        _S.tweens.add({targets:fbTxt, alpha:0, y:160, scaleX:1.5, scaleY:1.5, duration:800, delay:600, ease:"Quad.easeIn",
+                            onComplete:()=>{try{fbTxt.destroy();}catch(e){}}});
+                    }
                     // Combo 15+ → high_combo müzik geçişi
                     if(gs.combo===15 && !gs.bossActive){
                         NT_SFX.setMusicState("high_combo", 1.5);
@@ -9050,18 +9162,43 @@ class SceneGame extends Phaser.Scene {
                         if(!ce.active||_visited.has(ce)||ce.spawnProtected) continue;
                         const _dx=ce.x-lastX, _dy=ce.y-lastY;
                         const _d=Math.sqrt(_dx*_dx+_dy*_dy);
-                        // [BUG FIX] Radius 160→260 — daha geniş arama alanı, sekme daha güvenilir
-                        if(_d<260&&_d<nearD){nearD=_d;nearest=ce;}
+                        if(_d<280&&_d<nearD){nearD=_d;nearest=ce;}
                     }
                     if(!nearest) return;
-                    // Chain VFX — blue lightning line
+                    // Chain VFX — segmented electric lightning arc
                     const lg=_S.add.graphics().setDepth(18);
-                    lg.lineStyle(2,0x44aaff,0.9);
-                    lg.lineBetween(lastX,lastY,nearest.x,nearest.y);
-                    _S.tweens.add({targets:lg,alpha:0,duration:180,onComplete:()=>{try{lg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-                    // Damage falloff per bounce
-                    const falloff=Math.pow(0.72,b._chainCount); // [BUG FIX] 0.65→0.72 — daha güçlü sekme hasarı
-                    applyDmg(_S,nearest,GS.damage*0.85*falloff,false);
+                    const dx=nearest.x-lastX, dy=nearest.y-lastY;
+                    const dist=Math.sqrt(dx*dx+dy*dy);
+                    const segments=Math.max(3,Math.floor(dist/18));
+                    // Main thick arc
+                    lg.lineStyle(3,0x44aaff,0.95);
+                    lg.beginPath(); lg.moveTo(lastX,lastY);
+                    for(let si=1;si<segments;si++){
+                        const t=si/segments;
+                        const mx=lastX+dx*t+(Math.random()-0.5)*14;
+                        const my=lastY+dy*t+(Math.random()-0.5)*14;
+                        lg.lineTo(mx,my);
+                    }
+                    lg.lineTo(nearest.x,nearest.y); lg.strokePath();
+                    // Secondary thin bright core
+                    lg.lineStyle(1.5,0xaaddff,0.8);
+                    lg.beginPath(); lg.moveTo(lastX,lastY);
+                    for(let si=1;si<segments;si++){
+                        const t=si/segments;
+                        const mx=lastX+dx*t+(Math.random()-0.5)*8;
+                        const my=lastY+dy*t+(Math.random()-0.5)*8;
+                        lg.lineTo(mx,my);
+                    }
+                    lg.lineTo(nearest.x,nearest.y); lg.strokePath();
+                    // Impact flash at target
+                    const flash=_S.add.graphics().setDepth(19);
+                    flash.fillStyle(0x88ddff,0.8); flash.fillCircle(nearest.x,nearest.y,8);
+                    _S.tweens.add({targets:flash,alpha:0,scaleX:2,scaleY:2,duration:120,onComplete:()=>{try{flash.destroy();}catch(e){}}});
+                    _S.tweens.add({targets:lg,alpha:0,duration:220,onComplete:()=>{try{lg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+                    // BALANCE: reduced falloff — chain stays strong
+                    const falloff=Math.pow(0.88,b._chainCount); // was 0.72 — too aggressive
+                    applyDmg(_S,nearest,GS.damage*0.95*falloff,false); // was 0.85
+                    NT_SFX.play("shoot_chain"); // chain bounce sound
                     // Chain Lightning synergy — trigger lightning on bounce
                     if(GS._synergyChainLightning) doLightning(_S);
                     _visited.add(nearest);
@@ -9181,6 +9318,75 @@ class SceneGame extends Phaser.Scene {
         this.cameras.main.fadeIn(350,0,0,0);
         NT_SFX.setMusicState("gameplay", 0.5);
 
+        // ── 3-2-1 COUNTDOWN + TUTORIAL TIP ───────────────────────
+        // Oyun başlamadan önce geri sayım göster, spawn'ları duraklat
+        GS._countdownActive = true;
+        if(this.spawnEvent) this.spawnEvent.paused = true;
+        this.physics.pause();
+
+        const _cdDepth = 850;
+        const CX_CD = 180, CY_CD = 280;
+
+        // Arka plan overlay (yarı saydam)
+        const cdOverlay = this.add.rectangle(180, 320, 360, 640, 0x000000, 0.45).setDepth(_cdDepth-1);
+
+        // Tutorial tip — ortadan vurma ipucu
+        const tipLang = CURRENT_LANG === "en" ? "🎯 Hit enemies at the CENTER for 2x DAMAGE!" :
+                        CURRENT_LANG === "ru" ? "🎯 Бейте врагов в ЦЕНТР для 2x УРОНА!" :
+                        "🎯 Düşmanları TAM ORTADAN vur = 2x HASAR!";
+        const tipTxt = this.add.text(CX_CD, CY_CD + 90, tipLang, {
+            fontFamily: "LilitaOne",
+            fontSize: "15px",
+            color: "#ffdd44",
+            stroke: "#000000", strokeThickness: 3,
+            align: "center", wordWrap: { width: 300 }
+        }).setOrigin(0.5).setDepth(_cdDepth+1).setAlpha(0);
+        this.tweens.add({targets:tipTxt, alpha:1, duration:400, delay:200});
+
+        // Countdown sayıları
+        const countdownSequence = (step) => {
+            if(!this.scene.isActive()) return;
+            if(step > 0){
+                // 3, 2, 1 göster
+                NT_SFX.play("countdown_tick");
+                const numTxt = this.add.text(CX_CD, CY_CD, step.toString(), {
+                    fontFamily: "LilitaOne",
+                    fontSize: "72px",
+                    color: step===3 ? "#ff6644" : step===2 ? "#ffaa22" : "#44ff88",
+                    stroke: "#000000", strokeThickness: 6
+                }).setOrigin(0.5).setDepth(_cdDepth+2).setAlpha(0).setScale(0.3);
+                this.tweens.add({targets:numTxt, alpha:1, scaleX:1, scaleY:1, duration:250, ease:"Back.easeOut"});
+                this.tweens.add({targets:numTxt, alpha:0, scaleX:2.5, scaleY:2.5, duration:350, delay:400, ease:"Quad.easeIn",
+                    onComplete:()=>{ try{numTxt.destroy();}catch(e){} }});
+                this.time.delayedCall(750, ()=>countdownSequence(step-1));
+            } else {
+                // GO!
+                NT_SFX.play("countdown_go");
+                const goLang = CURRENT_LANG === "en" ? "GO!" :
+                               CURRENT_LANG === "ru" ? "ВПЕРЁД!" : "BAŞLA!";
+                const goTxt = this.add.text(CX_CD, CY_CD, goLang, {
+                    fontFamily: "LilitaOne",
+                    fontSize: "64px",
+                    color: "#44ffaa",
+                    stroke: "#000000", strokeThickness: 5
+                }).setOrigin(0.5).setDepth(_cdDepth+2).setAlpha(0).setScale(0.4);
+                this.tweens.add({targets:goTxt, alpha:1, scaleX:1.2, scaleY:1.2, duration:200, ease:"Back.easeOut"});
+                this.tweens.add({targets:goTxt, alpha:0, scaleX:3, scaleY:3, duration:400, delay:350, ease:"Quad.easeIn",
+                    onComplete:()=>{ try{goTxt.destroy();}catch(e){} }});
+                // Tip fade out
+                this.tweens.add({targets:tipTxt, alpha:0, duration:400, delay:200, onComplete:()=>{try{tipTxt.destroy();}catch(e){}}});
+                // Overlay fade
+                this.tweens.add({targets:cdOverlay, alpha:0, duration:500, delay:100, onComplete:()=>{try{cdOverlay.destroy();}catch(e){}}});
+                // Oyunu başlat!
+                this.time.delayedCall(300, ()=>{
+                    GS._countdownActive = false;
+                    this.physics.resume();
+                    if(this.spawnEvent) this.spawnEvent.paused = false;
+                });
+            }
+        };
+        this.time.delayedCall(400, ()=>countdownSequence(3));
+
         // Smooth filter — tüm silah mermi texture'ları
         this.time.delayedCall(150,()=>{
             ["pyramid","pyramid_break","pause_button",
@@ -9195,14 +9401,16 @@ class SceneGame extends Phaser.Scene {
     update(time,delta){
         const gs=GS;
         if(!gs||gs.gameOver){
-            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileAnalog=0;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
+            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
             return;
         }
         if(gs.pickingUpgrade){
-            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileAnalog=0;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
+            if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
             return;
         }
         if(!this.player||!this.player.active) return;
+        // Countdown sırasında hareket/ateş engelle
+        if(gs._countdownActive) return;
 
         // ── AAA VFX TICK ──
         tickVFX(this,delta);
@@ -9219,7 +9427,7 @@ class SceneGame extends Phaser.Scene {
 
         // Spawn delay dinamik güncelle — threshold 20ms so rate changes apply quickly
         if(this.spawnEvent){
-            const newDelay=Math.max(280,gs.spawnDelay);
+            const newDelay=Math.max(240,gs.spawnDelay);
             if(Math.abs(this.spawnEvent.delay-newDelay)>20){
                 this.spawnEvent.reset({delay:newDelay,loop:true,callback:()=>{if(!GS.gameOver&&!GS.pickingUpgrade){runDirector(this);spawnEnemy(this);}}});
             }
@@ -9345,13 +9553,8 @@ function movePlayer(S,delta){
     const sp=gs.moveSpeed||200;
     // Mirror controls event: yön ters çevrilir
     const _mirror=gs._mirrorControls?-1:1;
-    // Analog joystick desteği — mobilde kademeli hız
-    if(S._mobileAnalog !== undefined && Math.abs(S._mobileAnalog) > 0.15){
-        vx = sp * S._mobileAnalog * _mirror;
-    } else {
-        if(leftDown && !rightDown)  vx=-sp*_mirror;
-        if(rightDown && !leftDown)  vx=sp*_mirror;
-    }
+    if(leftDown && !rightDown)  vx=-sp*_mirror;
+    if(rightDown && !leftDown)  vx=sp*_mirror;
     // İkisi aynı anda basılıysa: dur (0 kalır)
 
     // Knockback
@@ -9379,8 +9582,25 @@ function movePlayer(S,delta){
             if(_curAnim !== "anim_run") S.player.play("anim_run",true);
             S.player.setFlipX(vx<0);
             NT_SFX.footstepTick(true);
+            // ── PLAYER TRAIL — afterimage ghost effect ──
+            if(!_IS_MOBILE_EARLY && _perfMode==="high"){
+                S._trailTimer = (S._trailTimer||0) + delta;
+                if(S._trailTimer > 55){ // her 55ms bir iz
+                    S._trailTimer = 0;
+                    const trail = S.add.graphics().setDepth(4);
+                    trail.x = S.player.x; trail.y = S.player.y;
+                    // Basit siluet — küçük dikey çubuk
+                    const trailCol = gs.combo >= 10 ? 0xff6644 : gs.combo >= 5 ? 0xffaa44 : 0x88bbff;
+                    trail.fillStyle(trailCol, 0.25);
+                    trail.fillRoundedRect(-6, -14, 12, 28, 3);
+                    S.tweens.add({targets:trail, alpha:0, scaleX:0.3, scaleY:0.7,
+                        duration:180, ease:"Quad.easeOut",
+                        onComplete:()=>{try{trail.destroy();}catch(e){}}});
+                }
+            }
         } else {
             if(_curAnim !== "anim_idle") S.player.play("anim_idle",true);
+            S._trailTimer = 0;
         }
     }
 }
@@ -9504,6 +9724,7 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
         weaponType==="precision" ? "tex_bullet_precision" :
         weaponType==="reflect"   ? "tex_bullet_reflect" :
         weaponType==="spread"    ? "tex_bullet_spread" :
+        weaponType==="chain"     ? "tex_bullet_chain" :
         "tex_bullet";
     b.setTexture(bulletTex);
     b.setPosition(x,y);
@@ -10308,7 +10529,7 @@ function levelUp(S){
                    : 1.45;
     gs.level++;
     gs.xpToNext = Math.round(gs.xpToNext * xpGrowth);
-    gs.pyramidSpeed = Math.min(230, gs.pyramidSpeed); // BALANCE FIX: raised cap 210→230
+    gs.pyramidSpeed = Math.min(240, gs.pyramidSpeed);
     S.time.timeScale = 1.0;
     // [v9.2] Pipeline sync — seviye atlayınca stat'lar yeniden hesaplanır
     syncStatsFromPipeline(gs);
@@ -11284,9 +11505,22 @@ function getUpgradePool(){
         // Kısmen tamamlanmış upgrade: devam etmeyi teşvik et (build kimliği)
         if(isPartiallyBuilt)    weight = Math.max(weight, 2);
         // Erken oyunda silah yoksa: mainweapon öner
-        if(u.type === "mainweapon" && !hasMainWeapon) weight = Math.max(weight, 2); // [BALANCE] 4→2: erken oyun mainweapon dominansı azaltıldı
+        if(u.type === "mainweapon" && !hasMainWeapon) weight = Math.max(weight, 2);
         // Geç oyunda yeni bir mainweapon önerisi daha az baskın olsun (build kuruldu)
         if(u.type === "mainweapon" && hasMainWeapon && gs && gs.level >= 8) weight = Math.min(weight, 1);
+
+        // ── BUILD BALANCE: Hasarın çok düşük kalmasını engelle ──
+        const _isDefKey = ["knockback","freeze"].includes(k);
+        // Damage upgrade'i 0 ise ve oyuncu zayıf hasar yapıyorsa, hasar upgrade'ini öner
+        const _dmgLevel = UPGRADES.damage?.level || 0;
+        const _atkLevel = UPGRADES.attack?.level || 0;
+        const _hasNoDmg = _dmgLevel === 0 && _atkLevel === 0;
+        if(_hasNoDmg && gs && gs.level >= 3 && (k === "damage" || k === "attack")){
+            weight = Math.max(weight, 3); // hasar 0 ise öncelik ver
+        }
+        // Savunma upgrade'i hiç yoksa ve can düşükse
+        const _hasNoDef = (UPGRADES.freeze?.level||0)===0 && (UPGRADES.knockback?.level||0)===0;
+        if(_hasNoDef && isWeak && _isDefKey) weight = Math.max(weight, 2);
 
         // [v11] split is compatible with all weapons — no exclusion needed
 
@@ -11461,9 +11695,40 @@ function applyUpgrade(S,key,isEvo){
 
     // [VFX v2] Upgrade pickup — glow pulse + text float
     if(S&&S.player){
+        // ── UPGRADE PICKUP SOUND — category-based ──
+        const _upCat = UPGRADES[key]?.type || "";
+        const _isHealKey = ["heal","regen","maxhp"].includes(key);
+        const _isDefKey = ["knockback","freeze","shield"].includes(key);
+        const _isUtilKey = ["speed","xpboost","size"].includes(key);
+        if(_isHealKey) NT_SFX.play("upgrade_heal");
+        else if(_isDefKey) NT_SFX.play("upgrade_defensive");
+        else if(_isUtilKey) NT_SFX.play("upgrade_utility");
+        else if(_upCat==="weapon" || _upCat==="mainweapon") NT_SFX.play("upgrade_weapon");
+        else NT_SFX.play("upgrade_passive");
         const upColor=UPGRADES[key]?.color||0x4488ff;
         const plx=_snap(S.player.x), ply=_snap(S.player.y);
         vfxLevelUpGlow(S,plx,ply,upColor);
+
+        // ── MAINWEAPON ACQUISITION — ekstra flash ve halka ──
+        if(_upCat === "mainweapon" && !_IS_MOBILE_EARLY){
+            // Beyaz ekran flash
+            const wFlash = S.add.rectangle(180, 320, 360, 640, 0xffffff, 0).setDepth(750);
+            S.tweens.add({targets:wFlash, fillAlpha:0.35, duration:80, yoyo:true, hold:40,
+                onComplete:()=>{try{wFlash.destroy();}catch(e){}}});
+            // Silah rengi halka patlaması
+            for(let wr=0;wr<3;wr++){
+                S.time.delayedCall(wr*70,()=>{
+                    const wRing = S.add.graphics().setDepth(28);
+                    wRing.x=plx; wRing.y=ply;
+                    wRing.lineStyle(3-wr, upColor, 0.9-wr*0.2);
+                    wRing.strokeCircle(0, 0, 10+wr*6);
+                    S.tweens.add({targets:wRing, scaleX:5+wr, scaleY:5+wr, alpha:0,
+                        duration:400+wr*80, ease:"Quad.easeOut",
+                        onComplete:()=>{try{wRing.destroy();}catch(e){}}});
+                });
+            }
+            S.cameras.main.shake(50, 0.004);
+        }
         const ut=S.add.text(plx,ply-30,">> "+L(UPGRADES[key]?.nameKey||key),{
             font:"bold 12px LilitaOne, Arial, sans-serif",
             color:Phaser.Display.Color.IntegerToColor(upColor).rgba,
@@ -11520,7 +11785,7 @@ function killEnemy(S,p,giveXP){
     const sandCols=debrisColMap[p.type]||[0xddaa55,0xcc9944,0xeecc77,0xbbaa66];
 
     // ── AAA ÖLÜM VFX — büyük/elite düşmanlar için ekstra efekt ──
-    if(!p.isBoss&&p.type!=="minion"&&!p._groundKill&&(p.elite||p.titan||p.colossus||p.elder||p.obsidian||p.glacier||p.inferno)){
+    if(!p.isBoss&&p.type!=="minion"&&!p._groundKill&&_perfMode==="high"&&(p.elite||p.titan||p.colossus||p.elder||p.obsidian||p.glacier||p.inferno)){
         vfxEnemyDeath(S,px,py,p.type,p.scaleX||1);
     }
 
@@ -11531,8 +11796,8 @@ function killEnemy(S,p,giveXP){
         if(!p.elite || Math.random()<0.7) S.cameras.main.shake(_shakeDur, _shakeAmt);
     }
 
-    // ── DEATH COLOR RING — quick expanding ring in enemy's color ──
-    if(!p.isBoss && p.type!=="minion" && !p._groundKill && _perfMode==="high"){
+    // ── DEATH COLOR RING — skip on mobile/low perf ──
+    if(!p.isBoss && p.type!=="minion" && !p._groundKill && _perfMode==="high" && !_IS_MOBILE_EARLY){
         const _dr = S.add.graphics().setDepth(20);
         _dr.x=px; _dr.y=py;
         _dr.lineStyle(p.elite?2.5:1.5, deathColor, 0.80);
@@ -11547,6 +11812,12 @@ function killEnemy(S,p,giveXP){
     if(!p.isBoss&&p.type!=="minion"&&!p._groundKill){
         try{
             NT_SFX.play("pixel_explode");
+            // MOBILE PERF: Skip heavy VFX on mobile — only play sprite anim
+            if(_IS_MOBILE_EARLY){
+                // Minimal mobile death: just the explosion sprite + 2 debris max
+                doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
+                // Skip vfxEnemyKillReward, particles, sparks, sand on mobile
+            } else {
             doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
             // ── VFX v2 kill reward ──
             vfxEnemyKillReward(S,px,py,p.type,p.elite,p.isBoss||false);
@@ -11595,7 +11866,8 @@ function killEnemy(S,p,giveXP){
                     onComplete:()=>_spk.destroy()});
             }
 
-            // [FREEZE FIX] Kum parçacıkları: titan:14→7, elite:11→6, normal:7→4
+            // [FREEZE FIX] Kum parçacıkları — SKIP on mobile
+            if(!_IS_MOBILE_EARLY){
             const sandCnt=p.titan||p.colossus||p.elder?7:p.elite?6:4;
             for(let _si=0;_si<sandCnt;_si++){
                 const _sa=Phaser.Math.DegToRad(Phaser.Math.Between(155,385));
@@ -11626,6 +11898,8 @@ function killEnemy(S,p,giveXP){
                 }
             }
             S.tweens.add({targets:stain,alpha:0,duration:1100,ease:"Quad.easeIn",onComplete:()=>stain.destroy()});
+            } // end !_IS_MOBILE_EARLY sand/stain block
+            } // end desktop VFX else block
 
             // ── YENİ PİRAMİT ÖZEL ÖLÜM VFX ──────────────────────────
             if(p.shadow&&!p.shadowSpawned&&giveXP){
@@ -11660,7 +11934,7 @@ function killEnemy(S,p,giveXP){
                     }
                 }
             }
-            if(p.obsidian){
+            if(p.obsidian && !_IS_MOBILE_EARLY){
                 // Kor-turuncu kıvılcım sıçraması — ateşli toz bulutu
                 for(let _f=0;_f<6;_f++){
                     const _fa=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
@@ -11676,7 +11950,7 @@ function killEnemy(S,p,giveXP){
                         onComplete:()=>_fg.destroy()});
                 }
             }
-            if(p.phantom_tri||p.volt){
+            if((p.phantom_tri||p.volt) && !_IS_MOBILE_EARLY){
                 // Gökkuşağı toz bulutu — her parçacık farklı renk, geniş açılma
                 const rbCols=[0xFF00FF,0x00FFFF,0xFFD700,0x8B00FF,0xFF8C00];
                 for(let _r=0;_r<8;_r++){
@@ -11690,7 +11964,7 @@ function killEnemy(S,p,giveXP){
                         onComplete:()=>_rc.destroy()});
                 }
             }
-            if(p.obsidian||p.glacier){
+            if((p.obsidian||p.glacier) && !_IS_MOBILE_EARLY){
                 // Mor enerji patlaması + karanlık duman halkası
                 const darkRing=S.add.graphics().setDepth(19);
                 darkRing.x=px; darkRing.y=py;
@@ -13491,9 +13765,8 @@ function doExplosion(S,x,y){
             es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
         }catch(_){}
     }
-    // ── HEAVY CANNON — ekstra exp1 animasyonları ──
-    if(_isHeavy && S.anims && S.anims.exists("anim_exp1")){
-        // Merkez + 2 offset exp1 — güçlü patlama hissi
+    // ── HEAVY CANNON — ekstra exp1 animasyonları (SKIP on mobile) ──
+    if(_isHeavy && !_IS_MOBILE_EARLY && S.anims && S.anims.exists("anim_exp1")){
         const _exp1Configs = [
             {ox:0,  oy:0,  sc:5.5, delay:0},
             {ox:-18,oy:-8, sc:3.8, delay:55},
@@ -13511,23 +13784,29 @@ function doExplosion(S,x,y){
             });
         });
     }
+    // MOBILE PERF: skip inner glow, smoke, ember particles
+    if(!_IS_MOBILE_EARLY){
     // [VFX OPT] İç parlama — daha küçük
     const inner=S.add.graphics().setDepth(22);
     inner.x=x; inner.y=y;
     inner.fillStyle(0xffffff,0.55); inner.fillCircle(0,0,r*0.18);
     S.tweens.add({targets:inner,scaleX:2.2,scaleY:2.2,alpha:0,duration:100,onComplete:()=>inner.destroy()});
+    }
     // Ana patlama halkası — azaltıldı
     const eg=S.add.graphics().setDepth(21);
     eg.x=x; eg.y=y;
     eg.fillStyle(0xff8800,0.45); eg.fillCircle(0,0,r*0.55);
-    eg.fillStyle(0xff4400,0.30); eg.fillCircle(0,0,r);
+    if(!_IS_MOBILE_EARLY){ eg.fillStyle(0xff4400,0.30); eg.fillCircle(0,0,r); }
     S.tweens.add({targets:eg,scaleX:1.8,scaleY:1.8,alpha:0,duration:220,ease:"Quad.easeOut",onComplete:()=>eg.destroy()});
-    // Duman bulutu — azaltıldı
+    // Duman bulutu — SKIP on mobile
+    if(!_IS_MOBILE_EARLY){
     const smoke=S.add.graphics().setDepth(20);
     smoke.x=x; smoke.y=y-8;
     smoke.fillStyle(0x333333,0.14); smoke.fillCircle(0,0,r*0.4);
     S.tweens.add({targets:smoke,y:smoke.y-14,scaleX:1.4,scaleY:1.4,alpha:0,duration:380,onComplete:()=>smoke.destroy()});
-    // Kor parçacıkları — 10→4 adet
+    }
+    // Kor parçacıkları — SKIP on mobile
+    if(!_IS_MOBILE_EARLY){
     for(let i=0;i<4;i++){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         const sp=Phaser.Math.Between(40,r*0.9);
@@ -13536,6 +13815,7 @@ function doExplosion(S,x,y){
         dp.fillRect(-1,-1,Phaser.Math.Between(2,4),Phaser.Math.Between(2,4));
         dp.x=x; dp.y=y;
         S.tweens.add({targets:dp,x:x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp,alpha:0,duration:Phaser.Math.Between(160,320),ease:"Quad.easeOut",onComplete:()=>dp.destroy()});
+    }
     }
     S.cameras.main.shake(22,0.004);
     // Alan hasarı — [OPT] cache kullan
@@ -13822,8 +14102,43 @@ function tickNearDeath(S){
 }
 
 function tickNearDeathPulse(S, delta){
-    // [VFX] Kırmızı ekran nabzı kaldırıldı — göz yorucu
-    // Düşük can bilgisi sadece HP bar'dan okunur
+    const gs = GS; if(!gs || gs.gameOver || !S || !S.add) return;
+    const hpRatio = gs.health / gs.maxHealth;
+
+    // ── DANGER VIGNETTE — kırmızı kenar efekti düşük canda ──
+    if(hpRatio <= 0.35){
+        if(!S._dangerVignette){
+            S._dangerVignette = S.add.graphics().setDepth(700).setScrollFactor(0);
+        }
+        const dv = S._dangerVignette;
+        dv.clear();
+        const intensity = Math.max(0, 1 - hpRatio / 0.35); // 0→1 as HP drops
+        const pulse = Math.sin(gs.t * 0.004) * 0.3 + 0.7; // slow pulse
+        const alpha = intensity * 0.22 * pulse;
+        // Kenar gölgeleri — gradient etkisi
+        // Üst kenar
+        dv.fillStyle(0xff0000, alpha * 0.8);
+        dv.fillRect(0, 0, 360, 25);
+        dv.fillStyle(0xff0000, alpha * 0.4);
+        dv.fillRect(0, 25, 360, 20);
+        // Alt kenar
+        dv.fillStyle(0xff0000, alpha * 0.8);
+        dv.fillRect(0, 615, 360, 25);
+        dv.fillStyle(0xff0000, alpha * 0.4);
+        dv.fillRect(0, 595, 360, 20);
+        // Sol kenar
+        dv.fillStyle(0xff0000, alpha * 0.6);
+        dv.fillRect(0, 0, 12, 640);
+        dv.fillStyle(0xff0000, alpha * 0.3);
+        dv.fillRect(12, 0, 10, 640);
+        // Sağ kenar
+        dv.fillStyle(0xff0000, alpha * 0.6);
+        dv.fillRect(348, 0, 12, 640);
+        dv.fillStyle(0xff0000, alpha * 0.3);
+        dv.fillRect(338, 0, 10, 640);
+    } else if(S._dangerVignette){
+        S._dangerVignette.clear();
+    }
 }
 
 // ── 3. COMBO BREAK — çöküş hissi ───────────────────────────────
