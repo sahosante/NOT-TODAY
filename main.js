@@ -9182,10 +9182,16 @@ class SceneGame extends Phaser.Scene {
             const _hitDir = b.x < enemy.x ? 1 : -1;
             applyDmg(_S,enemy,dmg,isCrit,_hitDir);
             // [v9.4] HEAVY CANNON — explosion on impact
+            // [CRASH FIX] delayedCall(0) ile bir frame ertelenince patlama:
+            // zigzag/split düşmanlar applyDmg içinde yeni sprite spawn eder;
+            // aynı frame'de doExplosion çağrılırsa collideSpriteVsGroup loop'u
+            // bozulur ve oyun donar. 0ms delay bu çakışmayı önler.
             if(b._weaponType==="cannon"&&enemy.active===false){
-                doExplosion(_S,enemy.x,enemy.y);
+                const _ex=enemy.x, _ey=enemy.y;
+                _S.time.delayedCall(0,()=>{ if(!GS||GS.gameOver) return; doExplosion(_S,_ex,_ey); });
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
-                doExplosion(_S,enemy.x,enemy.y);
+                const _ex=enemy.x, _ey=enemy.y;
+                _S.time.delayedCall(0,()=>{ if(!GS||GS.gameOver) return; doExplosion(_S,_ex,_ey); });
             }
             // [v9.4] CANNON POISON synergy — explosion leaves poison cloud
             if(b._weaponType==="cannon"&&GS._synergyCannonPoison&&!enemy.active){
@@ -13829,7 +13835,7 @@ function doExplosion(S,x,y){
         {ring1:0xff8800,ring2:0xff4400,ember1:0xff6600,ember2:0xffcc00,smoke:0x333333},
         {ring1:0xff2244,ring2:0xcc0022,ember1:0xff4455,ember2:0xff8866,smoke:0x442222},
     ];
-    const _exC = _expColors[Math.min(lv-1, _expColors.length-1)];
+    const _exC = _expColors[Math.max(0, Math.min(lv-1, _expColors.length-1))];
 
     // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
