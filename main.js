@@ -5675,8 +5675,10 @@ function updateDifficultyTick(S){
 
     // SPAWN DELAY (ms): ARCADE FIX — much faster early game, intense from the start
     // 0dk=850 → 1dk=750 → 2dk=650 → 4dk=550 → 7dk=450 → 10dk=380 → 15dk=320 → 20dk=280 → min=240
+    // [LEVEL 1 EASE] First minute spawn delay slightly increased: 850→950 start, 750→850 end
+    //                Gives new players a smoother onboarding window. All other values unchanged.
     const spawnBase =
-        min < 1  ? Phaser.Math.Linear( 850,  750, min)        :
+        min < 1  ? Phaser.Math.Linear( 950,  850, min)        :
         min < 2  ? Phaser.Math.Linear( 750,  650, min-1)      :
         min < 4  ? Phaser.Math.Linear( 650,  550, (min-2)/2)  :
         min < 7  ? Phaser.Math.Linear( 550,  450, (min-4)/3)  :
@@ -5705,8 +5707,10 @@ function updateDifficultyTick(S){
 
     // DÜŞMAN HIZI (px/s): ARCADE — slightly toned down for comfort
     // 0dk=88 → 1dk=108 → 3dk=132 → 6dk=155 → 10dk=180 → 15dk=205 → 25dk=230 → max=240
+    // [LEVEL 1 EASE] First minute speed slightly reduced: 88→76 start, 108→96 end.
+    //                Eases early pressure without disrupting mid/late game feel.
     const baseSpeed =
-        min < 1  ? Phaser.Math.Linear( 88, 108, min)        :
+        min < 1  ? Phaser.Math.Linear( 76,  96, min)        :
         min < 3  ? Phaser.Math.Linear(108, 132, (min-1)/2)  :
         min < 6  ? Phaser.Math.Linear(132, 155, (min-3)/3)  :
         min < 10 ? Phaser.Math.Linear(155, 180, (min-6)/4)  :
