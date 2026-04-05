@@ -4674,7 +4674,8 @@ function spawnEnemy(S){
     const _capMin = GS ? GS.t / 60000 : 0;
     const _dynamicCap =
         _capMin < 1  ? 12 :
-        _capMin < 3  ? Math.round(Phaser.Math.Linear(12, 16, (_capMin-1)/2))  :
+        _capMin < 2  ? Math.round(Phaser.Math.Linear(12, 13, (_capMin-1)/1))  : // [LEVEL 2 ONLY] Cap reduced: 12→13 during min1→2. Fewer simultaneous triangles. Rejoins original ramp at min=2.
+        _capMin < 3  ? Math.round(Phaser.Math.Linear(13, 16, (_capMin-2)/1))  :
         _capMin < 6  ? Math.round(Phaser.Math.Linear(16, 20, (_capMin-3)/3))  :
         _capMin < 10 ? Math.round(Phaser.Math.Linear(20, 24, (_capMin-6)/4))  :
         _capMin < 15 ? Math.round(Phaser.Math.Linear(24, 28, (_capMin-10)/5)) :
@@ -5679,7 +5680,7 @@ function updateDifficultyTick(S){
     //                Gives new players a smoother onboarding window. All other values unchanged.
     const spawnBase =
         min < 1  ? Phaser.Math.Linear( 950,  850, min)        :
-        min < 2  ? Phaser.Math.Linear( 750,  650, min-1)      :
+        min < 2  ? Phaser.Math.Linear( 820,  700, min-1)      : // [LEVEL 2 EASE] Raised: 750→820 start, 650→700 end. Fewer enemies min1→2. Rejoins at min=2.
         min < 4  ? Phaser.Math.Linear( 650,  550, (min-2)/2)  :
         min < 7  ? Phaser.Math.Linear( 550,  450, (min-4)/3)  :
         min < 10 ? Phaser.Math.Linear( 450,  380, (min-7)/3)  :
