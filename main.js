@@ -1305,14 +1305,14 @@ const NT_SFX = (function(){
             o.type="sine"; o.frequency.setValueAtTime(_vary(1100,60),t);
             o.frequency.exponentialRampToValueAtTime(_vary(780,40),t+0.040);
             g.gain.setValueAtTime(0,t);
-            g.gain.linearRampToValueAtTime(_vol(0.26),t+0.005);
+            g.gain.linearRampToValueAtTime(_vol(0.72),t+0.005);
             g.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
             o.connect(p); p.connect(g); g.connect(_uiBus);
             o.start(t); o.stop(t+0.065);
             // Second harmonic tail
-            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.14), null, _uiBus);
+            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.42), null, _uiBus);
             // Crisp click noise
-            _noise(t, 0.010, _vol(0.12), 4500, 14000, _uiBus);
+            _noise(t, 0.010, _vol(0.38), 4500, 14000, _uiBus);
         },
 
         // ── MENU HOVER ────────────────────────────────────────────
@@ -8888,6 +8888,26 @@ class SceneGame extends Phaser.Scene {
                     fireG.lineStyle(4, 0xff4422, 0.18);
                     fireG.strokeRoundedRect(FIRE_X - FIRE_W/2 + 3, FIRE_Y - FIRE_H/2 + 3, FIRE_W - 6, FIRE_H - 6, FIRE_R - 2);
                 }
+                // ── MERMİ İKONU — yatay, sağa doğru ──
+                const bAlpha = pressed ? 1.0 : 0.82;
+                const bx = FIRE_X, by = FIRE_Y;
+                // Ateş izleri (sol taraf — 3 çizgi)
+                const trailAlpha = pressed ? 0.55 : 0.38;
+                fireG.lineStyle(2, 0xff8844, trailAlpha);
+                fireG.lineBetween(bx - 20, by - 5, bx - 8, by - 5);
+                fireG.lineStyle(2.5, 0xff6622, trailAlpha + 0.1);
+                fireG.lineBetween(bx - 22, by,     bx - 8, by);
+                fireG.lineStyle(2, 0xff8844, trailAlpha);
+                fireG.lineBetween(bx - 20, by + 5, bx - 8, by + 5);
+                // Mermi gövdesi (yuvarlak uçlu dikdörtgen)
+                fireG.fillStyle(0xffdd88, bAlpha);
+                fireG.fillRoundedRect(bx - 7, by - 5, 18, 10, 4);
+                // Mermi ucu (sağ taraf — sivri)
+                fireG.fillStyle(0xffbb44, bAlpha);
+                fireG.fillTriangle(bx + 11, by - 5, bx + 11, by + 5, bx + 19, by);
+                // Mermi üst parlaması
+                fireG.fillStyle(0xffffff, pressed ? 0.20 : 0.35);
+                fireG.fillRoundedRect(bx - 5, by - 3, 10, 3, 2);
             };
             drawFireBtn(false);
 
@@ -9182,16 +9202,10 @@ class SceneGame extends Phaser.Scene {
             const _hitDir = b.x < enemy.x ? 1 : -1;
             applyDmg(_S,enemy,dmg,isCrit,_hitDir);
             // [v9.4] HEAVY CANNON — explosion on impact
-            // [CRASH FIX] delayedCall(0) ile bir frame ertelenince patlama:
-            // zigzag/split düşmanlar applyDmg içinde yeni sprite spawn eder;
-            // aynı frame'de doExplosion çağrılırsa collideSpriteVsGroup loop'u
-            // bozulur ve oyun donar. 0ms delay bu çakışmayı önler.
             if(b._weaponType==="cannon"&&enemy.active===false){
-                const _ex=enemy.x, _ey=enemy.y;
-                _S.time.delayedCall(0,()=>{ if(!GS||GS.gameOver) return; doExplosion(_S,_ex,_ey); });
+                doExplosion(_S,enemy.x,enemy.y);
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
-                const _ex=enemy.x, _ey=enemy.y;
-                _S.time.delayedCall(0,()=>{ if(!GS||GS.gameOver) return; doExplosion(_S,_ex,_ey); });
+                doExplosion(_S,enemy.x,enemy.y);
             }
             // [v9.4] CANNON POISON synergy — explosion leaves poison cloud
             if(b._weaponType==="cannon"&&GS._synergyCannonPoison&&!enemy.active){
@@ -13835,7 +13849,7 @@ function doExplosion(S,x,y){
         {ring1:0xff8800,ring2:0xff4400,ember1:0xff6600,ember2:0xffcc00,smoke:0x333333},
         {ring1:0xff2244,ring2:0xcc0022,ember1:0xff4455,ember2:0xff8866,smoke:0x442222},
     ];
-    const _exC = _expColors[Math.max(0, Math.min(lv-1, _expColors.length-1))];
+    const _exC = _expColors[Math.min(lv-1, _expColors.length-1)];
 
     // ── EXPLOSION SPRITE ANİMASYONU ──
     if(S.anims && S.anims.exists("anim_expl")){
