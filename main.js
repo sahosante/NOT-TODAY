@@ -7253,8 +7253,10 @@ function doExplodeVFX(S,x,y,col,sizeScale){
 }
 
 function spawnHitDebris(S,x,y,type,isCrit){
-    if(!S || !canSpawnParticle(isCrit?"high":"normal")) return;
-    // [MOBILE PERF] mobilede normal hit debris tamamen yok, crit için sadece halka
+    if(!S || !_POOL) return;
+    // [PERF] Normal vuruşları throttle et — her çarpışmada değil
+    if(!isCrit && !canSpawnParticle("normal")) return;
+    // Mobilde normal debris tamamen yok, crit'te sadece halka
     if(_IS_MOBILE_EARLY && !isCrit) return;
 
     const typeC={normal:0xFF88CC,fast:0xFF6699,tank:0xAA55FF,shield:0x55BBFF,kamikaze:0xFFBB55,ghost:0xDDBBFF,
@@ -7268,80 +7270,62 @@ function spawnHitDebris(S,x,y,type,isCrit){
         :type==="inferno"?[0xFF9977,0xFFBB88,0xFFDD99][Math.floor(Math.random()*3)]
         :(typeC[type]||0xddbb88);
 
-    // ── Impact burst halkası ──────────────────────────────────
-    {
-        const br=S.add.graphics().setDepth(22);
-        br.x=x; br.y=y;
-        br.lineStyle(isCrit?2:1.5, isCrit?baseCol:0xffffff, isCrit?0.90:0.70);
-        br.strokeCircle(0,0,isCrit?6:4);
-        S.tweens.add({targets:br,scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,alpha:0,
-            duration:isCrit?180:120,ease:"Quad.easeOut",onComplete:()=>br.destroy()});
-        if(isCrit && !_IS_MOBILE_EARLY){ // [MOBILE PERF] ikinci halka mobilede yok
-            const br2=S.add.graphics().setDepth(21);
-            br2.x=x; br2.y=y;
-            br2.lineStyle(1.2,0xffffff,0.55); br2.strokeCircle(0,0,3);
-            S.tweens.add({targets:br2,scaleX:6.0,scaleY:6.0,alpha:0,duration:240,
-                ease:"Cubic.easeOut",onComplete:()=>br2.destroy()});
+    // ── Impact burst halkası — pool tabanlı ──────────────────
+    if(_POOL){
+        const br=_POOL.get(22); if(br){
+            br.lineStyle(isCrit?2:1.5,isCrit?baseCol:0xffffff,isCrit?0.90:0.70);
+            br.strokeCircle(0,0,isCrit?6:4);
+            br.setPosition(x,y);
+            _pt(S,br,{scaleX:isCrit?4.5:3.2,scaleY:isCrit?4.5:3.2,alpha:0,
+                duration:isCrit?180:120,ease:"Quad.easeOut"});
         }
     }
 
     // [MOBILE PERF] Çizgi parçacıklar ve chip parçacıklar mobilede yok
     if(_IS_MOBILE_EARLY) return;
+    if(!_POOL) return;
 
-    // ── Çizgi parçacıklar ─────────────────────────────────────
-    const lineCnt=isCrit?7:4;
+    // ── Çizgi parçacıklar — pool, azaltılmış sayı ────────────
+    const lineCnt=isCrit?4:2;
     for(let i=0;i<lineCnt;i++){
+        const d=_POOL.get(17); if(!d) break;
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-        const sp=Phaser.Math.Between(isCrit?28:14,isCrit?85:48);
-        const col=i%3===0?baseCol:i%3===1?0xffffff:isCrit?0xffee44:baseCol;
-        const d=S.add.graphics().setDepth(17);
-        d.x=x+Phaser.Math.Between(-4,4); d.y=y+Phaser.Math.Between(-4,4);
-        d.lineStyle(isCrit?2:1.2,col,isCrit?0.90:0.80);
-        const len=isCrit?Phaser.Math.Between(3,6):Phaser.Math.Between(2,4);
+        const sp=Phaser.Math.Between(isCrit?22:10,isCrit?65:38);
+        const col=i%2===0?baseCol:0xffffff;
+        const len=isCrit?Phaser.Math.Between(3,5):Phaser.Math.Between(2,3);
+        d.lineStyle(isCrit?1.8:1.2,col,isCrit?0.88:0.78);
         d.lineBetween(0,0,Math.cos(ang)*len,Math.sin(ang)*len);
-        S.tweens.add({targets:d,x:d.x+Math.cos(ang)*sp,y:d.y+Math.sin(ang)*sp*0.6,
+        d.setPosition(x+Phaser.Math.Between(-4,4),y+Phaser.Math.Between(-4,4));
+        _pt(S,d,{x:x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp*0.6,
             scaleX:0.05,scaleY:0.05,alpha:0,
-            duration:Phaser.Math.Between(150,isCrit?340:220),
-            ease:"Quad.easeOut",onComplete:()=>d.destroy()});
+            duration:Phaser.Math.Between(130,isCrit?280:180),ease:"Quad.easeOut"});
     }
 
-    // ── Zemine düşen kırık çip parçacıklar ───────────────────
-    // Parçalar yukarı fırlar, yere düşer — yerçekimi hissi.
-    // ease:"Quad.easeIn" = hızlanan düşüş taklidi.
-    const chipCnt=isCrit?5:3;
+    // ── Chip parçacıkları — pool, azaltılmış sayı ────────────
+    const chipCnt=isCrit?3:1;
     for(let i=0;i<chipCnt;i++){
-        const sz=isCrit?Phaser.Math.Between(2,4):Phaser.Math.Between(1,3);
-        const chipCol=i%2===0?baseCol:0xffffff;
-        const ch=S.add.graphics().setDepth(16);
-        ch.x=x+Phaser.Math.Between(-6,6);
-        ch.y=y+Phaser.Math.Between(-4,4);
-        ch.fillStyle(chipCol,isCrit?0.92:0.80);
+        const ch=_POOL.get(16); if(!ch) break;
+        const sz=isCrit?Phaser.Math.Between(2,3):2;
+        ch.fillStyle(i%2===0?baseCol:0xffffff,isCrit?0.90:0.78);
         ch.fillRect(-sz/2,-sz/2,sz,sz);
-        const vx=Phaser.Math.Between(-60,60);
-        const landY=y+Phaser.Math.Between(55,110);
-        const dur=Phaser.Math.Between(200,isCrit?420:300);
-        S.tweens.add({targets:ch,
-            x:ch.x+vx*0.45,
-            y:landY,
-            angle:Phaser.Math.Between(-220,220),
-            alpha:0,scaleX:0.06,scaleY:0.06,
-            duration:dur,
-            ease:"Quad.easeIn",
-            onComplete:()=>ch.destroy()});
+        ch.setPosition(x+Phaser.Math.Between(-5,5),y+Phaser.Math.Between(-3,3));
+        const vx=Phaser.Math.Between(-50,50);
+        _pt(S,ch,{x:ch.x+vx*0.4,y:y+Phaser.Math.Between(45,90),
+            angle:Phaser.Math.Between(-180,180),alpha:0,scaleX:0.06,scaleY:0.06,
+            duration:Phaser.Math.Between(180,isCrit?360:260),ease:"Quad.easeIn"});
     }
 
-    // ── Kıvılcımlar ──────────────────────────────────────────
-    const sparkCnt=isCrit?3:1;
-    for(let i=0;i<sparkCnt;i++){
-        const sang=Phaser.Math.DegToRad(Phaser.Math.Between(-175,-5));
-        const ssp=Phaser.Math.Between(22,isCrit?60:35);
-        const sp2=S.add.graphics().setDepth(19);
-        sp2.x=x+Phaser.Math.Between(-3,3); sp2.y=y+Phaser.Math.Between(-3,3);
-        sp2.lineStyle(isCrit?1.5:1,isCrit?0xffee44:0xffffbb,isCrit?0.90:0.75);
-        sp2.lineBetween(0,isCrit?-4:-3,0,isCrit?4:3);
-        S.tweens.add({targets:sp2,x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
-            alpha:0,scaleY:0.15,duration:Phaser.Math.Between(100,isCrit?200:150),
-            ease:"Quad.easeOut",onComplete:()=>sp2.destroy()});
+    // ── Kıvılcım — pool, max 2 ────────────────────────────────
+    if(isCrit){
+        const sp2=_POOL.get(19); if(sp2){
+            const sang=Phaser.Math.DegToRad(Phaser.Math.Between(-175,-5));
+            const ssp=Phaser.Math.Between(18,50);
+            sp2.lineStyle(1.5,0xffee44,0.88);
+            sp2.lineBetween(0,-4,0,4);
+            sp2.setPosition(x+Phaser.Math.Between(-3,3),y+Phaser.Math.Between(-3,3));
+            _pt(S,sp2,{x:sp2.x+Math.cos(sang)*ssp,y:sp2.y+Math.sin(sang)*ssp*0.5,
+                alpha:0,scaleY:0.15,duration:Phaser.Math.Between(90,180),ease:"Quad.easeOut"});
+        }
     }
 }
 
@@ -11879,94 +11863,68 @@ function killEnemy(S,p,giveXP){
     if(!p.isBoss&&p.type!=="minion"&&!p._groundKill){
         try{
             NT_SFX.play("pixel_explode");
-            // MOBILE PERF: Skip heavy VFX on mobile — only play sprite anim
-            if(_IS_MOBILE_EARLY){
-                // Minimal mobile death: just the explosion sprite + 2 debris max
-                doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
-                // Skip vfxEnemyKillReward, particles, sparks, sand on mobile
-            } else {
+            // [PERF REWRITE] Ölüm VFX tamamen pool tabanlıya çevrildi.
+            // Önceki kod her ölümde 10-18 S.add.graphics() + tween yaratıyordu → frame drop.
+            // Şimdi: _POOL.get() → _pt() (otomatik release). Mobilde sadece sprite.
             doExplodeVFX(S, px, py, deathColor, p.scaleX||1);
-            // ── VFX v2 kill reward ──
-            vfxEnemyKillReward(S,px,py,p.type,p.elite,p.isBoss||false);
-            const particleCount=p.elite?8:p.titan||p.colossus||p.obsidian?10:5;
-            const rainbowDebris=[0xFF00FF,0x00FFFF,0xFFD700,0x8B00FF,0xFF8C00,0x00FF88];
-            for(let i=0;i<particleCount;i++){
-                const ang=Phaser.Math.DegToRad(i*(360/particleCount)+Phaser.Math.Between(-15,15));
-                const spd=Phaser.Math.Between(40,110)*(p.elite?1.4:1);
-                const sz=Phaser.Math.Between(2,p.elite?7:4);
-                let col;
-                if(p.volt) col=i%2===0?0xffee00:0xffffff;
-                else if(p.inferno) col=i%2===0?0xFF9977:0xFFCC88;
-                else if(p.glacier) col=i%2===0?0x44ccff:0xaaeeff;
-                else if(p.phantom_tri) col=i%2===0?0xcc44ff:0xffffff;
-                else if(p.obsidian) col=i%2===0?0x6600aa:0xcc88ff;
-                else col=i%3===0?deathColor:i%3===1?0xffffff:0xffcc44;
-                const dp=S.add.graphics().setDepth(16);
-                dp.x=px; dp.y=py;
-                const dpAng=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-                dp.lineStyle(Math.max(1,sz*0.5),col,0.9);
-                dp.lineBetween(0,0,Math.cos(dpAng)*sz,Math.sin(dpAng)*sz);
-                S.tweens.add({
-                    targets:dp,
-                    x:px+Math.cos(ang)*spd, y:py+Math.sin(ang)*spd*0.7,
-                    alpha:0, scaleX:0.1, scaleY:0.1,
-                    duration:Phaser.Math.Between(200,450),
-                    ease:"Quad.easeOut",
-                    onComplete:()=>dp.destroy()
-                });
-            }
-            // ── Kıvılcım ──
-            const dw=Math.max(12,p.displayWidth);
-            const sparkCount=p.elite?4:p.titan||p.colossus?6:2;
-            for(let _sk=0;_sk<sparkCount;_sk++){
-                const _sa2=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-                const _ss2=Phaser.Math.Between(15,dw*1.8);
-                const _spk=S.add.graphics().setDepth(22);
-                _spk.x=px; _spk.y=py;
-                _spk.fillStyle(_sk%2===0?deathColor:0xffffff,0.9);
-                _spk.fillRect(-0.8,-3,1.6,6);
-                _spk.angle=Phaser.Math.Between(0,360);
-                S.tweens.add({targets:_spk,
-                    x:px+Math.cos(_sa2)*_ss2, y:py+Math.sin(_sa2)*_ss2*0.65,
-                    alpha:0,scaleY:0.12,
-                    duration:Phaser.Math.Between(120,260),ease:"Quad.easeOut",
-                    onComplete:()=>_spk.destroy()});
-            }
-
-            // [FREEZE FIX] Kum parçacıkları — SKIP on mobile
-            if(!_IS_MOBILE_EARLY){
-            const sandCnt=p.titan||p.colossus||p.elder?7:p.elite?6:4;
-            for(let _si=0;_si<sandCnt;_si++){
-                const _sa=Phaser.Math.DegToRad(Phaser.Math.Between(155,385));
-                const _ss=Phaser.Math.Between(18,65)*(p.elite?1.5:1);
-                const _sw=Phaser.Math.Between(2,p.elite?7:5);
-                const _sd=S.add.graphics().setDepth(12);
-                _sd.x=px; _sd.y=py;
-                _sd.lineStyle(Math.max(1,_sw*0.5),sandCols[_si%4],0.85);
-                _sd.lineBetween(0,0,Math.cos(_sa)*_sw,Math.sin(_sa)*_sw);
-                S.tweens.add({targets:_sd,
-                    x:px+Math.cos(_sa)*_ss, y:py+Math.sin(_sa)*_ss*0.4+6,
-                    scaleX:0.08,scaleY:0.08,alpha:0,
-                    duration:Phaser.Math.Between(180,420),ease:"Quad.easeOut",
-                    onComplete:()=>_sd.destroy()});
-            }
-
-            // ── Zemin lekesi + hafif çatlak çizgisi ──
-            const stain=S.add.graphics().setDepth(3);
-            stain.fillStyle(0x110800,0.32);
-            stain.fillEllipse(px,GROUND_Y-1,dw*1.5,dw*0.3);
-            // Kısa çatlak çizgileri (sadece zemine yakın düşmanlar için)
-            if(py>GROUND_Y-60){
-                for(let _cr=0;_cr<3;_cr++){
-                    const _ca=Phaser.Math.DegToRad(Phaser.Math.Between(170,370));
-                    const _cl=Phaser.Math.Between(4,12);
-                    stain.lineStyle(1,0x0d0500,0.35);
-                    stain.lineBetween(px,GROUND_Y,px+Math.cos(_ca)*_cl,GROUND_Y+Math.sin(_ca)*_cl*0.3);
+            if(!_IS_MOBILE_EARLY && _POOL){
+                const dw=Math.max(12,p.displayWidth||40);
+                // ── Debris parçacıkları — pool, azaltılmış sayı ──
+                const particleCount=p.elite?5:(p.titan||p.colossus||p.obsidian)?5:3;
+                for(let i=0;i<particleCount;i++){
+                    const dp=_POOL.get(16); if(!dp) break;
+                    const ang=Phaser.Math.DegToRad(i*(360/particleCount)+Phaser.Math.Between(-15,15));
+                    const spd=Phaser.Math.Between(30,75)*(p.elite?1.3:1);
+                    let col;
+                    if(p.volt) col=i%2===0?0xffee00:0xffffff;
+                    else if(p.inferno) col=i%2===0?0xFF9977:0xFFCC88;
+                    else if(p.glacier) col=i%2===0?0x44ccff:0xaaeeff;
+                    else if(p.phantom_tri) col=i%2===0?0xcc44ff:0xffffff;
+                    else if(p.obsidian) col=i%2===0?0x6600aa:0xcc88ff;
+                    else col=i%2===0?deathColor:0xffffff;
+                    const dpAng=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+                    dp.lineStyle(1.5,col,0.88);
+                    dp.lineBetween(0,0,Math.cos(dpAng)*Phaser.Math.Between(2,p.elite?5:3),Math.sin(dpAng)*Phaser.Math.Between(2,3));
+                    dp.setPosition(px,py);
+                    _pt(S,dp,{x:px+Math.cos(ang)*spd,y:py+Math.sin(ang)*spd*0.7,
+                        alpha:0,scaleX:0.1,scaleY:0.1,duration:Phaser.Math.Between(160,320),ease:"Quad.easeOut"});
                 }
+                // ── Kıvılcım — pool, max 3 ──
+                const sparkCount=p.elite?3:(p.titan||p.colossus)?3:2;
+                for(let _sk=0;_sk<sparkCount;_sk++){
+                    const _spk=_POOL.get(22); if(!_spk) break;
+                    const _sa2=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+                    _spk.fillStyle(_sk%2===0?deathColor:0xffffff,0.9);
+                    _spk.fillRect(-0.8,-3,1.6,6);
+                    _spk.setPosition(px,py);
+                    _spk.angle=Phaser.Math.Between(0,360);
+                    _pt(S,_spk,{x:px+Math.cos(_sa2)*Phaser.Math.Between(10,dw*1.4),
+                        y:py+Math.sin(_sa2)*Phaser.Math.Between(8,dw*0.9),
+                        alpha:0,scaleY:0.12,duration:Phaser.Math.Between(100,200),ease:"Quad.easeOut"});
+                }
+                // ── Kum parçacıkları — pool, max 3 ──
+                const sandCnt=p.elite?3:2;
+                for(let _si=0;_si<sandCnt;_si++){
+                    const _sd=_POOL.get(12); if(!_sd) break;
+                    const _sa=Phaser.Math.DegToRad(Phaser.Math.Between(155,385));
+                    const _ss=Phaser.Math.Between(12,45)*(p.elite?1.3:1);
+                    const _sw=Phaser.Math.Between(2,p.elite?4:3);
+                    _sd.lineStyle(Math.max(1,_sw*0.5),sandCols[_si%4],0.80);
+                    _sd.lineBetween(0,0,Math.cos(_sa)*_sw,Math.sin(_sa)*_sw);
+                    _sd.setPosition(px,py);
+                    _pt(S,_sd,{x:px+Math.cos(_sa)*_ss,y:py+Math.sin(_sa)*_ss*0.4+4,
+                        scaleX:0.08,scaleY:0.08,alpha:0,duration:Phaser.Math.Between(140,300),ease:"Quad.easeOut"});
+                }
+                // ── Zemin lekesi — TEK pool nesnesi ──
+                const stain=_POOL.get(3); if(stain){
+                    stain.fillStyle(0x110800,0.26);
+                    stain.fillEllipse(0,0,dw*1.3,dw*0.25);
+                    stain.setPosition(px,GROUND_Y-1);
+                    _pt(S,stain,{alpha:0,duration:800,delay:200,ease:"Quad.easeIn"});
+                }
+                // ── vfxEnemyKillReward — sadece elite/boss ──
+                if(p.elite||p.isBoss) vfxEnemyKillReward(S,px,py,p.type,p.elite,p.isBoss||false);
             }
-            S.tweens.add({targets:stain,alpha:0,duration:1100,ease:"Quad.easeIn",onComplete:()=>stain.destroy()});
-            } // end !_IS_MOBILE_EARLY sand/stain block
-            } // end desktop VFX else block
 
             // ── YENİ PİRAMİT ÖZEL ÖLÜM VFX ──────────────────────────
             if(p.shadow&&!p.shadowSpawned&&giveXP){
@@ -11985,27 +11943,21 @@ function killEnemy(S,p,giveXP){
             }
             if(p.phantom_tri&&!p._splitDone){
                 // Phantom Tri: ölünce 2 küçük klon spawn eder
-                // [CRASH FIX] delayedCall(0) — aynı frame'de S.pyramids.get() çağrısı
-                // collision loop'u bozuyor (heavy cannon + phantom_tri donma). Bir frame ertele.
                 p._splitDone=true;
-                const _ptx=p.x, _pty=p.y, _ptmHP=p.maxHP;
-                S.time.delayedCall(0,()=>{
-                    if(!GS||GS.gameOver) return;
-                    for(let si=0;si<2;si++){
-                        const clone=S.pyramids.get(_ptx+(si===0?-22:22),_pty,"pyramid");
-                        if(clone){
-                            clone.setActive(true).setVisible(true);
-                            resetEF(clone);
-                            clone.hp=clone.maxHP=Math.max(1,Math.floor((_ptmHP||4)/3));
-                            clone.type="phantom_tri_shard";
-                            clone.setDisplaySize(42,34).setTint(0xcc44ff).setAlpha(0.65);
-                            clone.setVelocityY(GS.pyramidSpeed*0.9);
-                            clone._isShard=true;
-                            clone.body.enable=true;
-                            S.time.delayedCall(350,()=>{if(clone&&clone.active)clone.spawnProtected=false;});
-                        }
+                for(let si=0;si<2;si++){
+                    const clone=S.pyramids.get(p.x+(si===0?-22:22),p.y,"pyramid");
+                    if(clone){
+                        clone.setActive(true).setVisible(true);
+                        resetEF(clone);
+                        clone.hp=clone.maxHP=Math.max(1,Math.floor((p.maxHP||4)/3));
+                        clone.type="phantom_tri_shard";
+                        clone.setDisplaySize(42,34).setTint(0xcc44ff).setAlpha(0.65);
+                        clone.setVelocityY(GS.pyramidSpeed*0.9);
+                        clone._isShard=true;
+                        clone.body.enable=true;
+                        S.time.delayedCall(350,()=>{if(clone&&clone.active)clone.spawnProtected=false;});
                     }
-                });
+                }
             }
             if(p.obsidian && !_IS_MOBILE_EARLY){
                 // Kor-turuncu kıvılcım sıçraması — ateşli toz bulutu
@@ -12103,36 +12055,16 @@ function killEnemy(S,p,giveXP){
         if(p._shadowGfx){try{p._shadowGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}p._shadowGfx=null;}
     }
 
-    // [CRASH FIX] split/splitter spawn'ları delayedCall(0) ile ertelendi:
-    // Aynı frame'de S.pyramids.get() → collision group mutasyonu → Phaser loop crash.
-    if(p.split&&giveXP){
-        const _spx=px, _spy=py;
-        S.time.delayedCall(0,()=>{
-            if(!GS||GS.gameOver) return;
-            for(let i=0;i<2;i++){const sp2=S.pyramids.get(_spx+Phaser.Math.Between(-20,20),_spy-5,"pyramid");if(sp2){sp2.setActive(true).setVisible(true);resetEF(sp2);sp2.type="minion";sp2.hp=1;sp2.maxHP=1;sp2.setScale(0.55).setVelocityY(GS.pyramidSpeed*0.65);sp2.spawnProtected=false;sp2.setTint(0xffcc44);sp2.body.setSize(20,20).setOffset(5,5);}}
-        });
-    }
-    if(p.splitter&&giveXP){
-        const _spx=px, _spy=py;
-        S.time.delayedCall(0,()=>{
-            if(!GS||GS.gameOver) return;
-            for(let i=0;i<3;i++){const ss=S.pyramids.get(_spx+Phaser.Math.Between(-22,22),_spy-5,"pyramid");if(ss){ss.setActive(true).setVisible(true);resetEF(ss);ss.type="minion";ss.hp=1;ss.maxHP=1;ss.setScale(0.48).setVelocityY(GS.pyramidSpeed*0.72);ss.spawnProtected=false;ss.setTint(0xff4422);ss.body.setSize(18,18).setOffset(5,5);}}
-        });
-    }
+    if(p.split&&giveXP){for(let i=0;i<2;i++){const sp2=S.pyramids.get(px+Phaser.Math.Between(-20,20),py-5,"pyramid");if(sp2){sp2.setActive(true).setVisible(true);resetEF(sp2);sp2.type="minion";sp2.hp=1;sp2.maxHP=1;sp2.setScale(0.55).setVelocityY(GS.pyramidSpeed*0.65);sp2.spawnProtected=false;sp2.setTint(0xffcc44);sp2.body.setSize(20,20).setOffset(5,5);}}}
+    if(p.splitter&&giveXP){for(let i=0;i<3;i++){const ss=S.pyramids.get(px+Phaser.Math.Between(-22,22),py-5,"pyramid");if(ss){ss.setActive(true).setVisible(true);resetEF(ss);ss.type="minion";ss.hp=1;ss.maxHP=1;ss.setScale(0.48).setVelocityY(GS.pyramidSpeed*0.72);ss.spawnProtected=false;ss.setTint(0xff4422);ss.body.setSize(18,18).setOffset(5,5);}}}
 
     // ADIM 3: Heavy Cannon splash hasarı — öldürülen düşmanın yakınındakilere %40 hasar
-    // [CRASH FIX] delayedCall(0) — splash applyDmg → killEnemy → split spawn zinciri
-    // aynı frame'de olursa collision group değişir → Phaser loop crash.
     if(gs.activeWeapon === "heavy_cannon" && giveXP && !p._isMiniBoss){
-        const _splashPx=px, _splashPy=py;
-        S.time.delayedCall(0,()=>{
-            if(!GS||GS.gameOver) return;
-            const _splashList = S._activeEnemies || [];
-            _splashList.forEach(e => {
-                if(!e || !e.active || e === p) return;
-                const dx = e.x - _splashPx, dy = e.y - _splashPy;
-                if(dx*dx + dy*dy < 60*60) applyDmg(S, e, GS.damage * 0.28, false);
-            });
+        const _splashList = S._activeEnemies || [];
+        _splashList.forEach(e => {
+            if(!e || !e.active || e === p) return;
+            const dx = e.x - px, dy = e.y - py;
+            if(dx*dx + dy*dy < 60*60) applyDmg(S, e, gs.damage * 0.28, false); // [BALANCE] 0.40→0.28: geç oyun küme dominansı azaltıldı
         });
     }
 
@@ -14693,7 +14625,7 @@ function initVFX(S){
     if(!S||!S.add) return;
     NT_VFX._scene=S;
     NT_VFX._initialized=true;
-    _POOL=new ParticlePool(S,120);
+    _POOL=new ParticlePool(S,160);
 
     // Vignette (static, drawn once)
     NT_VFX.vignette=S.add.graphics().setDepth(199).setAlpha(0.30);
