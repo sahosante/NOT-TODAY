@@ -1305,14 +1305,14 @@ const NT_SFX = (function(){
             o.type="sine"; o.frequency.setValueAtTime(_vary(1100,60),t);
             o.frequency.exponentialRampToValueAtTime(_vary(780,40),t+0.040);
             g.gain.setValueAtTime(0,t);
-            g.gain.linearRampToValueAtTime(_vol(0.72),t+0.005);
+            g.gain.linearRampToValueAtTime(_vol(0.26),t+0.005);
             g.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
             o.connect(p); p.connect(g); g.connect(_uiBus);
             o.start(t); o.stop(t+0.065);
             // Second harmonic tail
-            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.42), null, _uiBus);
+            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.14), null, _uiBus);
             // Crisp click noise
-            _noise(t, 0.010, _vol(0.38), 4500, 14000, _uiBus);
+            _noise(t, 0.010, _vol(0.12), 4500, 14000, _uiBus);
         },
 
         // ── MENU HOVER ────────────────────────────────────────────
@@ -8888,26 +8888,6 @@ class SceneGame extends Phaser.Scene {
                     fireG.lineStyle(4, 0xff4422, 0.18);
                     fireG.strokeRoundedRect(FIRE_X - FIRE_W/2 + 3, FIRE_Y - FIRE_H/2 + 3, FIRE_W - 6, FIRE_H - 6, FIRE_R - 2);
                 }
-                // ── MERMİ İKONU — yatay, sağa doğru ──
-                const bAlpha = pressed ? 1.0 : 0.82;
-                const bx = FIRE_X, by = FIRE_Y;
-                // Ateş izleri (sol taraf — 3 çizgi)
-                const trailAlpha = pressed ? 0.55 : 0.38;
-                fireG.lineStyle(2, 0xff8844, trailAlpha);
-                fireG.lineBetween(bx - 20, by - 5, bx - 8, by - 5);
-                fireG.lineStyle(2.5, 0xff6622, trailAlpha + 0.1);
-                fireG.lineBetween(bx - 22, by,     bx - 8, by);
-                fireG.lineStyle(2, 0xff8844, trailAlpha);
-                fireG.lineBetween(bx - 20, by + 5, bx - 8, by + 5);
-                // Mermi gövdesi (yuvarlak uçlu dikdörtgen)
-                fireG.fillStyle(0xffdd88, bAlpha);
-                fireG.fillRoundedRect(bx - 7, by - 5, 18, 10, 4);
-                // Mermi ucu (sağ taraf — sivri)
-                fireG.fillStyle(0xffbb44, bAlpha);
-                fireG.fillTriangle(bx + 11, by - 5, bx + 11, by + 5, bx + 19, by);
-                // Mermi üst parlaması
-                fireG.fillStyle(0xffffff, pressed ? 0.20 : 0.35);
-                fireG.fillRoundedRect(bx - 5, by - 3, 10, 3, 2);
             };
             drawFireBtn(false);
 
@@ -12005,21 +11985,27 @@ function killEnemy(S,p,giveXP){
             }
             if(p.phantom_tri&&!p._splitDone){
                 // Phantom Tri: ölünce 2 küçük klon spawn eder
+                // [CRASH FIX] delayedCall(0) — aynı frame'de S.pyramids.get() çağrısı
+                // collision loop'u bozuyor (heavy cannon + phantom_tri donma). Bir frame ertele.
                 p._splitDone=true;
-                for(let si=0;si<2;si++){
-                    const clone=S.pyramids.get(p.x+(si===0?-22:22),p.y,"pyramid");
-                    if(clone){
-                        clone.setActive(true).setVisible(true);
-                        resetEF(clone);
-                        clone.hp=clone.maxHP=Math.max(1,Math.floor((p.maxHP||4)/3));
-                        clone.type="phantom_tri_shard";
-                        clone.setDisplaySize(42,34).setTint(0xcc44ff).setAlpha(0.65);
-                        clone.setVelocityY(GS.pyramidSpeed*0.9);
-                        clone._isShard=true;
-                        clone.body.enable=true;
-                        S.time.delayedCall(350,()=>{if(clone&&clone.active)clone.spawnProtected=false;});
+                const _ptx=p.x, _pty=p.y, _ptmHP=p.maxHP;
+                S.time.delayedCall(0,()=>{
+                    if(!GS||GS.gameOver) return;
+                    for(let si=0;si<2;si++){
+                        const clone=S.pyramids.get(_ptx+(si===0?-22:22),_pty,"pyramid");
+                        if(clone){
+                            clone.setActive(true).setVisible(true);
+                            resetEF(clone);
+                            clone.hp=clone.maxHP=Math.max(1,Math.floor((_ptmHP||4)/3));
+                            clone.type="phantom_tri_shard";
+                            clone.setDisplaySize(42,34).setTint(0xcc44ff).setAlpha(0.65);
+                            clone.setVelocityY(GS.pyramidSpeed*0.9);
+                            clone._isShard=true;
+                            clone.body.enable=true;
+                            S.time.delayedCall(350,()=>{if(clone&&clone.active)clone.spawnProtected=false;});
+                        }
                     }
-                }
+                });
             }
             if(p.obsidian && !_IS_MOBILE_EARLY){
                 // Kor-turuncu kıvılcım sıçraması — ateşli toz bulutu
@@ -12117,16 +12103,36 @@ function killEnemy(S,p,giveXP){
         if(p._shadowGfx){try{p._shadowGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}p._shadowGfx=null;}
     }
 
-    if(p.split&&giveXP){for(let i=0;i<2;i++){const sp2=S.pyramids.get(px+Phaser.Math.Between(-20,20),py-5,"pyramid");if(sp2){sp2.setActive(true).setVisible(true);resetEF(sp2);sp2.type="minion";sp2.hp=1;sp2.maxHP=1;sp2.setScale(0.55).setVelocityY(GS.pyramidSpeed*0.65);sp2.spawnProtected=false;sp2.setTint(0xffcc44);sp2.body.setSize(20,20).setOffset(5,5);}}}
-    if(p.splitter&&giveXP){for(let i=0;i<3;i++){const ss=S.pyramids.get(px+Phaser.Math.Between(-22,22),py-5,"pyramid");if(ss){ss.setActive(true).setVisible(true);resetEF(ss);ss.type="minion";ss.hp=1;ss.maxHP=1;ss.setScale(0.48).setVelocityY(GS.pyramidSpeed*0.72);ss.spawnProtected=false;ss.setTint(0xff4422);ss.body.setSize(18,18).setOffset(5,5);}}}
+    // [CRASH FIX] split/splitter spawn'ları delayedCall(0) ile ertelendi:
+    // Aynı frame'de S.pyramids.get() → collision group mutasyonu → Phaser loop crash.
+    if(p.split&&giveXP){
+        const _spx=px, _spy=py;
+        S.time.delayedCall(0,()=>{
+            if(!GS||GS.gameOver) return;
+            for(let i=0;i<2;i++){const sp2=S.pyramids.get(_spx+Phaser.Math.Between(-20,20),_spy-5,"pyramid");if(sp2){sp2.setActive(true).setVisible(true);resetEF(sp2);sp2.type="minion";sp2.hp=1;sp2.maxHP=1;sp2.setScale(0.55).setVelocityY(GS.pyramidSpeed*0.65);sp2.spawnProtected=false;sp2.setTint(0xffcc44);sp2.body.setSize(20,20).setOffset(5,5);}}
+        });
+    }
+    if(p.splitter&&giveXP){
+        const _spx=px, _spy=py;
+        S.time.delayedCall(0,()=>{
+            if(!GS||GS.gameOver) return;
+            for(let i=0;i<3;i++){const ss=S.pyramids.get(_spx+Phaser.Math.Between(-22,22),_spy-5,"pyramid");if(ss){ss.setActive(true).setVisible(true);resetEF(ss);ss.type="minion";ss.hp=1;ss.maxHP=1;ss.setScale(0.48).setVelocityY(GS.pyramidSpeed*0.72);ss.spawnProtected=false;ss.setTint(0xff4422);ss.body.setSize(18,18).setOffset(5,5);}}
+        });
+    }
 
     // ADIM 3: Heavy Cannon splash hasarı — öldürülen düşmanın yakınındakilere %40 hasar
+    // [CRASH FIX] delayedCall(0) — splash applyDmg → killEnemy → split spawn zinciri
+    // aynı frame'de olursa collision group değişir → Phaser loop crash.
     if(gs.activeWeapon === "heavy_cannon" && giveXP && !p._isMiniBoss){
-        const _splashList = S._activeEnemies || [];
-        _splashList.forEach(e => {
-            if(!e || !e.active || e === p) return;
-            const dx = e.x - px, dy = e.y - py;
-            if(dx*dx + dy*dy < 60*60) applyDmg(S, e, gs.damage * 0.28, false); // [BALANCE] 0.40→0.28: geç oyun küme dominansı azaltıldı
+        const _splashPx=px, _splashPy=py;
+        S.time.delayedCall(0,()=>{
+            if(!GS||GS.gameOver) return;
+            const _splashList = S._activeEnemies || [];
+            _splashList.forEach(e => {
+                if(!e || !e.active || e === p) return;
+                const dx = e.x - _splashPx, dy = e.y - _splashPy;
+                if(dx*dx + dy*dy < 60*60) applyDmg(S, e, GS.damage * 0.28, false);
+            });
         });
     }
 
