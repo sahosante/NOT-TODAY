@@ -4683,6 +4683,35 @@ function spawnEnemy(S){
     if(!S.pyramids || S.pyramids.countActive(true) >= _dynamicCap) return; // single authoritative check
     const gs=GS;
 
+    // ── WAVE PACING — breathing windows between spawn bursts ────────
+    // After a wave of N enemies, insert a short pause (skip ticks).
+    // Keeps spawning intentional and rhythmic instead of constant spam.
+    gs._waveCount = (gs._waveCount || 0);
+    gs._wavePause = (gs._wavePause || 0);
+    if(gs._wavePause > 0){
+        gs._wavePause--;
+        return; // breathing gap — no spawn this tick
+    }
+    gs._waveCount++;
+    // Wave size and gap length per director phase
+    const _waveSize =
+        gs.directorPhase==="calm"  ? 3 :
+        gs.directorPhase==="wave"  ? 4 :
+        gs.directorPhase==="swarm" ? 5 :
+        gs.directorPhase==="rush"  ? 6 : 7; // chaos
+    const _gapTicks =
+        gs.directorPhase==="calm"  ? 3 :
+        gs.directorPhase==="wave"  ? 2 :
+        gs.directorPhase==="swarm" ? 2 :
+        gs.directorPhase==="rush"  ? 1 : 1; // chaos — minimal gap
+    // Early levels get one extra gap tick for softer pressure
+    const _earlyBonus = (gs.level <= 2) ? 1 : 0;
+    if(gs._waveCount >= _waveSize){
+        gs._waveCount = 0;
+        gs._wavePause = _gapTicks + _earlyBonus;
+    }
+    // ── END WAVE PACING ─────────────────────────────────────────────
+
     let x,at=0;
     // [OPT] getChildren().some() yerine _activeEnemies cache kullan — O(n) pahalı kontrol
     const _spawnCache=S._activeEnemies||[];
@@ -5679,8 +5708,8 @@ function updateDifficultyTick(S){
     // [LEVEL 1 EASE] First minute spawn delay slightly increased: 850→950 start, 750→850 end
     //                Gives new players a smoother onboarding window. All other values unchanged.
     const spawnBase =
-        min < 1  ? Phaser.Math.Linear( 950,  850, min)        :
-        min < 2  ? Phaser.Math.Linear( 820,  700, min-1)      : // [LEVEL 2 EASE] Raised: 750→820 start, 650→700 end. Fewer enemies min1→2. Rejoins at min=2.
+        min < 1  ? Phaser.Math.Linear(1050,  920, min)        : // [LEVEL 1 EASE v2] 950→1050 start, 850→920 end — more breathing room in first minute
+        min < 2  ? Phaser.Math.Linear( 880,  740, min-1)      : // [LEVEL 2 EASE v2] 820→880 start, 700→740 end — gentler ramp in second minute
         min < 4  ? Phaser.Math.Linear( 650,  550, (min-2)/2)  :
         min < 7  ? Phaser.Math.Linear( 550,  450, (min-4)/3)  :
         min < 10 ? Phaser.Math.Linear( 450,  380, (min-7)/3)  :
@@ -5711,8 +5740,8 @@ function updateDifficultyTick(S){
     // [LEVEL 1 EASE] First minute speed slightly reduced: 88→76 start, 108→96 end.
     //                Eases early pressure without disrupting mid/late game feel.
     const baseSpeed =
-        min < 1  ? Phaser.Math.Linear( 76,  96, min)        :
-        min < 3  ? Phaser.Math.Linear(108, 132, (min-1)/2)  :
+        min < 1  ? Phaser.Math.Linear( 68,  88, min)        : // [LEVEL 1 EASE v2] 76→68 start, 96→88 end — slightly slower first minute
+        min < 3  ? Phaser.Math.Linear( 98, 132, (min-1)/2)  : // [LEVEL 2 EASE v2] 108→98 start — gentler pickup into min2
         min < 6  ? Phaser.Math.Linear(132, 155, (min-3)/3)  :
         min < 10 ? Phaser.Math.Linear(155, 180, (min-6)/4)  :
         min < 15 ? Phaser.Math.Linear(180, 205, (min-10)/5) :
@@ -9186,9 +9215,14 @@ class SceneGame extends Phaser.Scene {
             // b.x < enemy.x → mermi soldan geliyor → piramit sağa iter
             const _hitDir = b.x < enemy.x ? 1 : -1;
             applyDmg(_S,enemy,dmg,isCrit,_hitDir);
-            // [v9.4] HEAVY CANNON — explosion on impact
-            if(b._weaponType==="cannon"&&enemy.active===false){
-                doExplosion(_S,enemy.x,enemy.y);
+            // [BUFF] HEAVY CANNON — explosion on every hit (not only on kill)
+            // Rate-limited to 100ms so rapid-fire corner cases don't stack too many VFX
+            if(b._weaponType==="cannon"){
+                const _cNow=Date.now();
+                if(!_S._lastCannonExp || _cNow-_S._lastCannonExp > 100){
+                    _S._lastCannonExp=_cNow;
+                    doExplosion(_S,enemy.x,enemy.y);
+                }
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
                 doExplosion(_S,enemy.x,enemy.y);
             }
@@ -9495,7 +9529,7 @@ class SceneGame extends Phaser.Scene {
         if(!gs._spikeActive && !gs.bossActive && !gs.miniBossActive && gs.t > 60000){
             const _spikeInterval = 60000; // every 60 seconds
             if(!gs._lastSpikeTime) gs._lastSpikeTime = 0;
-            if(gs.t - gs._lastSpikeTime >= _spikeInterval){
+            if(gs.t - gs._lastSpikeTime >= _spikeInterval && gs.t >= 120000){ // [LEVEL 2 MID-SPIKE FIX] Suppress SURGE during Level 2 (min1→2). Fires normally from min2+ onward.
                 gs._lastSpikeTime = gs.t;
                 gs._spikeActive = true;
                 // Force rush/chaos phase during spike
@@ -9705,7 +9739,7 @@ function doShoot(S){
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
         NT_SFX.play("shoot_cannon");
-        fireBulletRaw(S,px,py,0,vy*0.62,1.0,0xff6600,"cannon");
+        fireBulletRaw(S,px,py,0,vy*0.62,1.35,0xff6600,"cannon"); // [BUFF] dmgM 1.0→1.35 — heavier direct hit
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
         const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
@@ -9786,7 +9820,7 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
     if(weaponType==="reflect")  { bScale*=0.85; bSpread=0; }
 
     // Hitbox silah tipine göre — piramit içinden geçmesin
-    if(weaponType==="cannon")    { b.body.setSize(5,18).setOffset(1,2); }  // 8x22 füze
+    if(weaponType==="cannon")    { b.body.setSize(8,20).setOffset(0,1); }  // [BUFF] 5x18→8x20 — wider hitbox, more reliable contact
     else if(weaponType==="reflect"){ b.body.setSize(7,16).setOffset(0,1); }
     else if(weaponType==="precision"){ b.body.setSize(5,18).setOffset(0,1); }
     else                         { b.body.setSize(7,16).setOffset(0,1); }
@@ -13800,7 +13834,9 @@ function triggerResonance(S,src,depth){
     }
 }
 function doExplosion(S,x,y){
-    const gs=GS, lv=UPGRADES.explosive.level, r=44+lv*12;
+    const gs=GS, lv=UPGRADES.explosive.level;
+    // [BUFF] Heavy cannon always gets +40% explosion radius — satisfying splash, not dependent on Explosive upgrade
+    const r=(44+lv*12) * (gs.activeWeapon==="heavy_cannon" ? 1.40 : 1.0);
     const _isHeavy = gs && gs.activeWeapon === "heavy_cannon";
 
     // ── LEVEL-BASED RENK — Explosive ──
@@ -13871,7 +13907,10 @@ function doExplosion(S,x,y){
         S.tweens.add({targets:dp,x:x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp,alpha:0,duration:Phaser.Math.Between(160,320),ease:"Quad.easeOut",onComplete:()=>dp.destroy()});
     }
     }
-    S.cameras.main.shake(22,0.004);
+    // [BUFF] Heavy cannon: stronger shake for satisfying feedback
+    const _shakeAmt = gs.activeWeapon==="heavy_cannon" ? 0.0065 : 0.004;
+    const _shakeDur = gs.activeWeapon==="heavy_cannon" ? 30      : 22;
+    S.cameras.main.shake(_shakeDur,_shakeAmt);
     // Alan hasarı — [CRASH FIX] cache değil fresh list: heavy_cannon+üçgen crash'ini önler
     // Cache 60ms gecikmeli → az önce öldürülen düşman hâlâ active görünebilir → body null → crash
     const _expEnemies=S.pyramids.getMatching("active",true);
@@ -13883,7 +13922,9 @@ function doExplosion(S,x,y){
         const dx=e.x-x, dy=e.y-y, d=Math.sqrt(dx*dx+dy*dy);
         if(d<r+e.displayWidth*0.5){
             const falloff=Math.max(0.3,1-(d/r)*0.6);
-            applyDmg(S,e,gs.damage*(1.2+lv*0.35)*falloff,d<r*0.4);
+            // [BUFF] Heavy cannon splash hits harder — 1.2→1.55 base multiplier
+            const _splashMult = gs.activeWeapon==="heavy_cannon" ? 1.55+lv*0.35 : 1.2+lv*0.35;
+            applyDmg(S,e,gs.damage*_splashMult*falloff,d<r*0.4);
         }
     }
     if(GS._evoPlagueBearer) spawnPoisonCloud(S,x,y); // [OPT] GS flag kullan
