@@ -1863,6 +1863,1108 @@ let PLAYER_GEMS=parseInt(secureGet("nt_gems","0","0"));
 function addGems(n){PLAYER_GEMS=Math.max(0,PLAYER_GEMS+n);secureSet("nt_gems",PLAYER_GEMS);}
 function spendGems(n){if(PLAYER_GEMS<n)return false;PLAYER_GEMS-=n;secureSet("nt_gems",PLAYER_GEMS);return true;}
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOT TODAY — AAA MONETIZATION ENGINE v4.0
+// Professional redesign: unified rewards, animations, consistent UI
+// ═══════════════════════════════════════════════════════════════════════════
+
+const NT_Monetization = (function(){
+"use strict";
+
+const _F = "LilitaOne, Arial, sans-serif";
+const W=360, H=640, CX=180;
+
+// ═══════════════════════════════════════════════════════════════
+// §1  UNIFIED REWARD ANIMATION SYSTEM
+//     Every reward in the game flows through here
+// ═══════════════════════════════════════════════════════════════
+
+function showBigReward(scene, x, y, type, amount, depth){
+    const D = depth || 800;
+    const isGem   = type==="gem";
+    const isChest = type==="chest";
+    const icon    = isGem ? "GEM" : isChest ? "CHEST" : "GOLD";
+    const col     = isGem ? 0xcc44ff : isChest ? 0xffaa00 : 0xffcc00;
+    const colStr  = isGem ? "#dd88ff" : isChest ? "#ffcc44" : "#ffdd44";
+
+    // 1) Screen flash
+    const flash = scene.add.graphics().setDepth(D+30);
+    flash.fillStyle(col, 0.22); flash.fillRect(0,0,W,H);
+    scene.tweens.add({targets:flash, alpha:0, duration:350, onComplete:()=>flash.destroy()});
+
+    // 2) Camera shake
+    scene.cameras.main.shake(50, 0.010);
+
+    // 3) Radial particle burst (24 particles)
+    for(let i=0; i<24; i++){
+        const ang = (Math.PI*2/24)*i;
+        const spd = Phaser.Math.Between(45, 130);
+        const sz  = Phaser.Math.Between(2, 5);
+        const p = scene.add.graphics().setDepth(D+31);
+        p.fillStyle(col, 0.9); p.fillCircle(0, 0, sz);
+        p.x = x; p.y = y;
+        scene.tweens.add({
+            targets: p,
+            x: x + Math.cos(ang) * spd,
+            y: y + Math.sin(ang) * spd * 0.7,
+            alpha: 0, scaleX: 0.05, scaleY: 0.05,
+            duration: Phaser.Math.Between(300, 600),
+            ease: "Quad.easeOut",
+            onComplete: () => p.destroy()
+        });
+    }
+
+    // 4) Ring expansion (2 rings)
+    for(let r=0; r<2; r++){
+        scene.time.delayedCall(r*80, ()=>{
+            const ring = scene.add.graphics().setDepth(D+30);
+            ring.x = x; ring.y = y;
+            ring.lineStyle(3, col, 0.8);
+            ring.strokeCircle(0, 0, 8 + r*10);
+            scene.tweens.add({
+                targets: ring, scaleX: 4+r, scaleY: 4+r, alpha: 0,
+                duration: 450, ease:"Quad.easeOut", onComplete:()=>ring.destroy()
+            });
+        });
+    }
+
+    // 5) BIG reward text — scale bounce + float up
+    const txt = scene.add.text(x, y-10, "+"+amount+" "+icon, {
+        fontFamily: _F, fontSize: "28px", color: colStr,
+        stroke: "#000000", strokeThickness: 4
+    }).setOrigin(0.5).setDepth(D+32).setAlpha(0).setScale(0.3);
+
+    scene.tweens.add({
+        targets: txt, alpha: 1, scaleX: 1.15, scaleY: 1.15, y: y-55,
+        duration: 400, ease: "Back.easeOut",
+        onComplete: ()=>{
+            // Settle to 1.0
+            scene.tweens.add({targets:txt, scaleX:1, scaleY:1, duration:150, ease:"Quad.easeOut"});
+            // Hold, then fade
+            scene.time.delayedCall(1400, ()=>{
+                scene.tweens.add({targets:txt, alpha:0, y:y-80, duration:350, ease:"Quad.easeIn", onComplete:()=>txt.destroy()});
+            });
+        }
+    });
+
+    // 6) Secondary label
+    const label = isGem ? "GEMS" : "GOLD";
+    const sub = scene.add.text(x, y-10, label, {
+        fontFamily: _F, fontSize: "11px", color: colStr,
+        stroke: "#000000", strokeThickness: 2
+    }).setOrigin(0.5).setDepth(D+32).setAlpha(0);
+    scene.tweens.add({
+        targets: sub, alpha: 0.7, y: y-30, duration: 500, delay: 200, ease: "Quad.easeOut",
+        onComplete: ()=>{
+            scene.time.delayedCall(1200, ()=>{
+                scene.tweens.add({targets:sub, alpha:0, duration:300, onComplete:()=>sub.destroy()});
+            });
+        }
+    });
+
+    // 7) Actually give the reward
+    if(isGem) addGems(amount);
+    else if(isChest){ PLAYER_GOLD += 500; secureSet("nt_gold", PLAYER_GOLD); addGems(10); }
+    else { PLAYER_GOLD += amount; secureSet("nt_gold", PLAYER_GOLD); }
+}
+
+// Small utility for booster reward (no currency)
+function showBoosterReward(scene, x, y, name, depth){
+    const D = depth||800;
+    scene.cameras.main.shake(40, 0.008);
+    const txt = scene.add.text(x, y-15, "🔥 "+name+" ACTIVATED", {
+        fontFamily:_F, fontSize:"18px", color:"#ff8844", stroke:"#000", strokeThickness:3
+    }).setOrigin(0.5).setDepth(D+32).setAlpha(0).setScale(0.4);
+    scene.tweens.add({targets:txt, alpha:1, scaleX:1, scaleY:1, y:y-50, duration:400, ease:"Back.easeOut"});
+    scene.time.delayedCall(1800, ()=> scene.tweens.add({targets:txt, alpha:0, duration:300, onComplete:()=>txt.destroy()}));
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §2  DATA DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+
+const DAILY = [
+    { day:1, type:"gold", amount:200  },
+    { day:2, type:"gem",  amount:5    },
+    { day:3, type:"gold", amount:400  },
+    { day:4, type:"gem",  amount:10   },
+    { day:5, type:"gold", amount:800  },
+    { day:6, type:"gem",  amount:20   },
+    { day:7, type:"gem",  amount:50   },
+];
+
+const WHEEL = [
+    { type:"chest", amount:1,    w:2  },
+    { type:"gem",   amount:3,    w:5  },
+    { type:"gold",  amount:200,  w:25 },
+    { type:"gold",  amount:100,  w:28 },
+    { type:"gem",   amount:8,    w:4  },
+    { type:"gold",  amount:500,  w:5  },
+    { type:"gold",  amount:50,   w:30 },
+    { type:"gem",   amount:15,   w:1  },
+];
+const WHEEL_FREE_CD = 4*3600000;
+const WHEEL_COST = 10;
+
+const CHEST_CD = 4*3600000;
+const CHESTS = [
+    { name:"COMMON",    cost:10,  col:0x888888, gold:200,  gems:2  },
+    { name:"RARE",      cost:30,  col:0x3388ee, gold:600,  gems:8  },
+    { name:"EXOTIC",    cost:80,  col:0xaa44ff, gold:1200, gems:15 },
+    { name:"LEGENDARY", cost:200, col:0xffaa00, gold:2500, gems:30, tag:"BEST" },
+];
+
+const BOOSTS = [
+    { id:"gold2x",    name:"2X GOLD",     desc:"2x gold for 2 hours",       icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
+    { id:"xp2x",      name:"2X XP",       desc:"2x XP for 2 hours",        icon:"📚", dur:7200000, cost:20, col:0x44aaff },
+    { id:"shield",     name:"SHIELD",      desc:"Start with +1 HP",          icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
+    { id:"autorevive", name:"AUTO-REVIVE", desc:"Auto revive once on death", icon:"💖", dur:0,       cost:25, col:0xff4466 },
+    { id:"luckcharm",  name:"LUCK+",       desc:"+50% rare chest (2 hours)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
+];
+
+const BP = [
+    { xp:0,    free:{type:"gold",n:100},  prem:{type:"gem",n:5}    },
+    { xp:60,   free:{type:"gold",n:250},  prem:{type:"gold",n:600} },
+    { xp:150,  free:{type:"gem",n:3},     prem:{type:"gem",n:12}   },
+    { xp:280,  free:{type:"gold",n:400},  prem:{type:"gem",n:18}   },
+    { xp:450,  free:{type:"gold",n:700},  prem:{type:"gem",n:22}   },
+    { xp:650,  free:{type:"gem",n:8},     prem:{type:"gem",n:28}   },
+    { xp:900,  free:{type:"gold",n:1200}, prem:{type:"gem",n:35}   },
+    { xp:1200, free:{type:"gem",n:12},    prem:{type:"gem",n:45}   },
+    { xp:1600, free:{type:"gold",n:2000}, prem:{type:"gem",n:60}   },
+    { xp:2100, free:{type:"gem",n:25},    prem:{type:"gem",n:100}  },
+];
+const BP_COST = 150;
+
+const SKINS = [
+    { id:"shadow_blade",  name:"Shadow Blade",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
+    { id:"flame_sword",   name:"Flame Sword",    cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
+    { id:"frost_bow",     name:"Frost Bow",      cat:"weapon", col:0x88ddff, rar:"RARE"      },
+    { id:"shadow_walk",   name:"Shadow Walker",  cat:"char",   col:0x4444cc, rar:"RARE"      },
+    { id:"chrome_knight", name:"Chrome Knight",  cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
+    { id:"gold_warrior",  name:"Golden Warrior", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
+];
+
+const STARTER = { gems:200, gold:2000, stars:100, disc:80 };
+const DEATH_OFFERS = [
+    { gems:30,  gold:500,  stars:30  },
+    { gems:80,  gold:1500, stars:60,  tag:"POPULAR" },
+    { gems:200, gold:5000, stars:120, tag:"BEST VALUE" },
+];
+
+
+// ═══════════════════════════════════════════════════════════════
+// §3  PERSISTENT STATE
+// ═══════════════════════════════════════════════════════════════
+
+function _ld(){ try{return JSON.parse(secureGet("nt_mn","{}","{}"));}catch(e){return {};} }
+function _sv(s){ secureSet("nt_mn",JSON.stringify(s)); }
+function _s(){
+    const s=_ld();
+    s.dd=s.dd||0; s.dl=s.dl||0; s.wl=s.wl||0; s.fl=s.fl||0;
+    s.bo=s.bo||{}; s.bx=s.bx||0; s.bp=s.bp||false; s.bc=s.bc||{};
+    s.sp=s.sp||false; s.gm=s.gm||0;
+    return s;
+}
+
+// Booster helpers
+function _isB(id){ const s=_s(),b=s.bo[id]; if(!b) return false; const d=BOOSTS.find(x=>x.id===id); if(!d) return false; return d.dur===0?(b.u||0)>0:(Date.now()-b.a)<d.dur; }
+function _actB(id){ const s=_s(),d=BOOSTS.find(x=>x.id===id); if(!d) return; if(d.dur===0){if(!s.bo[id])s.bo[id]={u:0};s.bo[id].u=(s.bo[id].u||0)+1;}else{s.bo[id]={a:Date.now()};} _sv(s); }
+function _useB(id){ const s=_s(); if(s.bo[id]&&(s.bo[id].u||0)>0){s.bo[id].u--;_sv(s);return true;} return false; }
+function _gMult(){ return _isB("gold2x")?2.0:1.0; }
+function _xMult(){ return _isB("xp2x")?2.0:1.0; }
+
+// Time helpers
+function _sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
+function _nextDay(a,b){ const d1=new Date(a);d1.setHours(0,0,0,0);const d2=new Date(b);d2.setHours(0,0,0,0);const x=d2-d1;return x>=864e5&&x<1728e5; }
+function _fmt(ms){ const h=Math.floor(ms/36e5),m=Math.floor((ms%36e5)/6e4),s=Math.floor((ms%6e4)/1e3); return (h?h+"h ":"")+m+"m "+s+"s"; }
+function _rlbl(r){ return r.type==="gold"?r.n+" GOLD":r.n+" GEM"; }
+
+
+// ═══════════════════════════════════════════════════════════════
+// §4  DAILY REWARDS  (only CLAIM, no close, auto-dismiss)
+// ═══════════════════════════════════════════════════════════════
+
+function _dailyOK(){ const s=_s(); if(!s.dl) return true; if(s.dd>=7&&_sameDay(s.dl,Date.now())) return false; return !_sameDay(s.dl,Date.now()); }
+function checkDaily(sc){ if(_dailyOK()) sc.time.delayedCall(600,()=>showDaily(sc)); }
+
+function showDaily(scene){
+    const {A,close,contentTop,contentBot,CX:cx,depth:D}
+        = NT_OpenPopup(scene,"mm_panel",300,"DAILY REWARD",320,20,null);
+
+    // Override: remove the default close button by hiding it
+    // NT_OpenPopup always adds close — we remove it since we only want CLAIM
+    // The close button is the last 3 objects added: [graphics, text, hitRect]
+    // We'll just leave it; user still needs a way out if they don't want to claim
+
+    const s=_s();
+    let cur=s.dd||0;
+    if(s.dl>0&&!_nextDay(s.dl,Date.now())&&!_sameDay(s.dl,Date.now())) cur=0;
+    if(cur>=7) cur=0;
+
+    // Streak text
+    A(scene.add.text(cx,contentTop+8,"DAY "+(cur+1)+" OF 7",{fontFamily:_F,fontSize:"12px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
+
+    // 7 reward cards: 4 top + 3 bottom
+    const CW=60, CH=62, G=5;
+    const rows=[[0,1,2,3],[4,5,6]];
+    const bY=contentTop+30;
+
+    rows.forEach((row,ri)=>{
+        const rw=row.length*CW+(row.length-1)*G;
+        const sx=cx-rw/2+CW/2;
+        row.forEach((idx,ci)=>{
+            const cardX=sx+ci*(CW+G), cardY=bY+ri*(CH+G)+CH/2;
+            const reward=DAILY[idx];
+            const claimed=idx<cur, current=idx===cur, locked=idx>cur;
+            const isGem=reward.type==="gem";
+
+            // Card background
+            const cg=A(scene.add.graphics().setDepth(D+2));
+            const borderCol = claimed?0x338844 : current?0xffaa00 : 0x334466;
+            const bgCol     = claimed?0x122818 : current?0x1a1000 : 0x0d1420;
+            cg.fillStyle(bgCol,0.95); cg.fillRoundedRect(cardX-CW/2,cardY-CH/2,CW,CH,8);
+            cg.lineStyle(current?2.5:1.5, borderCol, current?0.95:0.5);
+            cg.strokeRoundedRect(cardX-CW/2,cardY-CH/2,CW,CH,8);
+
+            // Day label at top
+            A(scene.add.text(cardX,cardY-CH/2+10,"DAY "+(idx+1),{
+                fontFamily:_F,fontSize:"7px",color:claimed?"#44aa44":(current?"#ffdd44":"#556688"),
+                stroke:"#000",strokeThickness:1
+            }).setOrigin(0.5).setDepth(D+3));
+
+            if(claimed){
+                // Checkmark
+                A(scene.add.text(cardX,cardY+4,"✓",{fontFamily:_F,fontSize:"18px",color:"#44aa44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
+            } else {
+                // Amount + icon
+                const amtStr = "+"+ reward.amount;
+                const iconStr = isGem?"GEM":"GOLD";
+                A(scene.add.text(cardX,cardY-2,amtStr,{fontFamily:_F,fontSize:"13px",color:current?"#ffffff":"#889999",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3));
+                A(scene.add.text(cardX,cardY+14,iconStr,{fontFamily:_F,fontSize:isGem?"11px":"14px",color:isGem?"#cc88ff":"#ffcc00"}).setOrigin(0.5).setDepth(D+3));
+            }
+
+            // Lock overlay
+            if(locked){
+                cg.fillStyle(0x000000,0.4); cg.fillRoundedRect(cardX-CW/2,cardY-CH/2,CW,CH,8);
+            }
+
+            // Current day glow pulse
+            if(current){
+                const gl=A(scene.add.graphics().setDepth(D+1));
+                const gv={v:0};
+                scene.tweens.add({targets:gv,v:1,duration:900,yoyo:true,repeat:-1,ease:"Sine.easeInOut",
+                    onUpdate:()=>{
+                        if(!gl.scene) return; gl.clear();
+                        gl.lineStyle(3+gv.v*5,0xffaa00,0.06+gv.v*0.20);
+                        gl.strokeRoundedRect(cardX-CW/2-3,cardY-CH/2-3,CW+6,CH+6,11);
+                    }
+                });
+            }
+
+            // Stagger fade-in
+            cg.setAlpha(0);
+            scene.tweens.add({targets:cg,alpha:1,duration:200,delay:80+idx*50,ease:"Quad.easeOut"});
+        });
+    });
+
+    // ── CLAIM BUTTON ──
+    const claimY = contentBot - 20;
+    const reward = DAILY[cur];
+    const [cbg,cbt,cbh] = NT_YellowBtn(scene,cx,claimY,200,44,"CLAIM  ✦",D+3,()=>{
+        // Save state
+        const st=_s();
+        if(st.dl>0&&!_nextDay(st.dl,Date.now())&&!_sameDay(st.dl,Date.now())) st.dd=0;
+        st.dd=cur+1; st.dl=Date.now(); if(st.dd>=7) st.dd=7; _sv(st);
+
+        // Give reward + BIG animation
+        NT_SFX.play("chest_open","common");
+        showBigReward(scene, cx, claimY-30, reward.type, reward.amount, D+10);
+
+        // Auto-dismiss after animation
+        scene.time.delayedCall(800, close);
+    });
+    A(cbg);A(cbt);A(cbh);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §5  FORTUNE WHEEL  (smooth spin, exact rewards, big popup)
+// ═══════════════════════════════════════════════════════════════
+
+function _canFree(){ return (Date.now()-_s().wl)>=WHEEL_FREE_CD; }
+function _freeT(){ const e=Date.now()-_s().wl; return e>=WHEEL_FREE_CD?0:WHEEL_FREE_CD-e; }
+
+function showWheel(scene){
+    const D=500;
+    const objs=[],A=o=>{objs.push(o);return o;};
+    const _close=()=>{if(_wheelListener)scene.input.off("wheel",_wheelListener);objs.forEach(o=>{try{o.destroy();}catch(_){}});};
+    let spinning=false;
+    let _wheelListener=null;
+
+    // Overlay
+    A(scene.add.rectangle(CX,H/2,W,H,0x000000,0.82).setDepth(D).setInteractive());
+
+    // Title
+    A(scene.add.text(CX,18,"FORTUNE WHEEL",{fontFamily:_F,fontSize:"24px",color:"#ffdd44",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+2));
+
+    // Wheel using asset
+    const R=162, WY=230, SC=WHEEL.length, SA=Math.PI*2/SC;
+    let wAngle=0;
+
+    // Wheel image (rotates)
+    const wheelImg=A(scene.add.image(CX,WY,"icon_wheel").setDisplaySize(R*2+6,R*2+6).setDepth(D+2));
+
+    // Slice labels (rotate with wheel)
+    const lbls=[];
+    for(let i=0;i<SC;i++){
+        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.57;
+        const sl=WHEEL[i];
+        // chest tipi sektöre yazı yazma — zaten chest ikonu var
+        if(sl.type==="chest"){
+            lbls.push({setPosition:()=>{},setRotation:()=>{}});
+            continue;
+        }
+        const isGld=sl.type==="gold";
+        const lbl=isGld?(sl.amount+"\nGOLD"):(sl.amount+"\nGEM");
+        const col=isGld?"#ffdd44":"#cc88ff";
+        const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
+            fontFamily:_F,fontSize:"16px",color:col,stroke:"#000",strokeThickness:5,align:"center",lineSpacing:4
+        }).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
+        lbls.push(t);
+    }
+    function _uL(a){for(let i=0;i<SC;i++){const mid=a+i*SA+SA/2-Math.PI/2,lr=R*0.57;lbls[i].setPosition(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr).setRotation(mid+Math.PI/2);}}
+
+    // Arrow pointer (drawn) — wheel dışında, üstte sabit
+    const ar=A(scene.add.graphics().setDepth(D+6));
+    ar.fillStyle(0xff2244,1);
+    ar.fillTriangle(CX,WY-R+2, CX-14,WY-R-26, CX+14,WY-R-26);
+    ar.lineStyle(2.5,0xffffff,0.7);
+    ar.lineBetween(CX,WY-R+2,CX-14,WY-R-26);
+    ar.lineBetween(CX,WY-R+2,CX+14,WY-R-26);
+    ar.fillStyle(0xffffff,0.30);
+    ar.fillTriangle(CX-1,WY-R-2, CX-9,WY-R-22, CX+7,WY-R-22);
+
+    // Timer display
+    const cf=_canFree();
+    if(!cf){
+        const tt=A(scene.add.text(CX,WY+R+22,"",{fontFamily:_F,fontSize:"12px",color:"#ff8844",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
+        const te=scene.time.addEvent({delay:500,loop:true,callback:()=>{
+            if(!tt.scene){te.remove();return;}
+            const r=_freeT(); if(r<=0){tt.setText("FREE SPIN READY!").setColor("#44ff66");te.remove();return;}
+            tt.setText("Next free: "+_fmt(r));
+        }});
+        te.callback();
+        objs.push({destroy:()=>te.remove(),scene:scene});
+    }
+
+    // ── FREE SPIN button ──
+    const fY=WY+R+48;
+    const fBg=A(scene.add.graphics().setDepth(D+3));
+    const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,32,8);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,32,8);if(cf&&h){fBg.fillStyle(0xffffff,0.06);fBg.fillRoundedRect(CX-106,fY-14,212,10,{tl:7,tr:7,bl:0,br:0});}};
+    _dF(false);
+    A(scene.add.text(CX,fY,cf?"FREE SPIN":"WAITING...",{fontFamily:_F,fontSize:"15px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+    A(scene.add.rectangle(CX,fY,216,32,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
+    .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
+    .on("pointerdown",()=>{if(!cf||spinning)return;_spin(true);});
+
+    // ── GEM SPIN button ──
+    const gY=fY+40;
+    const gBg=A(scene.add.graphics().setDepth(D+3));
+    const _dG=h=>{gBg.clear();gBg.fillStyle(h?0x5020aa:0x380068,1);gBg.fillRoundedRect(CX-108,gY-16,216,32,8);gBg.lineStyle(2,0xbb44ff,0.8);gBg.strokeRoundedRect(CX-108,gY-16,216,32,8);if(h){gBg.fillStyle(0xffffff,0.06);gBg.fillRoundedRect(CX-106,gY-14,212,10,{tl:7,tr:7,bl:0,br:0});}};
+    _dG(false);
+    // Gem icon + cost text
+    const gemCostTxt=A(scene.add.text(CX+10,gY,WHEEL_COST+"  GEM SPIN",{fontFamily:_F,fontSize:"15px",color:"#dd88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+    if(scene.textures.exists("icon_gem")){A(scene.add.image(CX-52,gY,"icon_gem").setDisplaySize(22,22).setDepth(D+4));}
+    A(scene.add.rectangle(CX,gY,216,32,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:true}))
+    .on("pointerover",()=>_dG(true)).on("pointerout",()=>_dG(false))
+    .on("pointerdown",()=>{if(spinning)return;if(PLAYER_GEMS<WHEEL_COST){scene.cameras.main.shake(30,0.006);return;}spendGems(WHEEL_COST);_spin(false);});
+
+    // Close
+    const [xb,xt,xh]=NT_YellowBtn(scene,CX,H-36,150,34,"CLOSE",D+3,_close);
+    A(xb);A(xt);A(xh);
+
+    // ── SPIN LOGIC ──
+    function _spin(isFree){
+        if(spinning) return; spinning=true; NT_SFX.play("menu_click");
+        // Weighted random
+        const tw=WHEEL.reduce((s,x)=>s+x.w,0); let rn=Math.random()*tw, wi=0;
+        for(let i=0;i<SC;i++){rn-=WHEEL[i].w;if(rn<=0){wi=i;break;}}
+        // Target angle
+        const target=-(wi*SA+SA/2)+Math.PI*2*12+Math.random()*Math.PI*2;
+        const sp={a:wAngle};
+        scene.tweens.add({
+            targets:sp, a:wAngle+target, duration:7500, ease:"Cubic.easeOut",
+            onUpdate:()=>{wheelImg.setRotation(sp.a);_uL(sp.a);},
+            onComplete:()=>{
+                wAngle=sp.a%(Math.PI*2); spinning=false;
+                const prize=WHEEL[wi];
+                if(isFree){const st=_s();st.wl=Date.now();_sv(st);}
+                showBigReward(scene, CX, WY, prize.type, prize.amount, D+10);
+            }
+        });
+    }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §6  SHOP — 5 tabs, scrollable, fully functional
+// ═══════════════════════════════════════════════════════════════
+
+function showShop(scene){
+    let _cleanupSc=()=>{};
+    const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
+        =NT_OpenPopup(scene,"mm_panel",330,"SHOP",312,20,()=>_cleanupSc());
+
+    // ── TAB BAR ────────────────────────────────────────────────
+    let _tab="power";
+    const TH=30, TY=contentTop+18;
+    const tabs=[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"gems",l:"GEMS"}];
+    const TC=tabs.length, TWid=Math.floor((PW-16)/TC)-2;
+    const TX0=cx-(TC*TWid+(TC-1)*4)/2;
+    const tG={},tT={};
+
+    tabs.forEach((td,i)=>{
+        const tx=TX0+i*(TWid+4);
+        tG[td.k]=A(scene.add.graphics().setDepth(D+3));
+        tT[td.k]=A(scene.add.text(tx+TWid/2,TY,td.l,{fontFamily:_F,fontSize:"11px",color:"#fff",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+5));
+        A(scene.add.rectangle(tx+TWid/2,TY,TWid,TH,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
+            .on("pointerdown",()=>{if(_tab===td.k)return;NT_SFX.play("menu_click");_tab=td.k;_rT();_sh();});
+    });
+
+    function _rT(){
+        tabs.forEach((td,i)=>{
+            const on=(_tab===td.k), tx=TX0+i*(TWid+4), g=tG[td.k];
+            g.clear();
+            g.fillStyle(on?0xcc7700:0x0c1c2e,1);
+            g.fillRoundedRect(tx,TY-TH/2,TWid,TH,{tl:8,tr:8,bl:0,br:0});
+            if(on){g.fillStyle(0xffffff,0.12);g.fillRoundedRect(tx+2,TY-TH/2+3,TWid-4,TH/2-4,4);}
+            g.lineStyle(on?2:1,on?0xffe066:0x1e4060,on?0.95:0.50);
+            g.strokeRoundedRect(tx,TY-TH/2,TWid,TH,{tl:8,tr:8,bl:0,br:0});
+            tT[td.k].setColor(on?"#ffe066":"#4a7aaa").setFontSize(on?"11px":"10px");
+        });
+    }
+    _rT();
+
+    // ── SCROLL AREA SETUP ────────────────────────────────────
+    const SY0=TY+TH/2+4;
+    const VIEW_H=contentBot-SY0-4;
+    const VPORT_X=cx-PW/2+10, VPORT_W=PW-20;
+
+    const maskGfx=scene.add.graphics().setDepth(D+1);
+    maskGfx.fillStyle(0xffffff,1);
+    maskGfx.fillRect(VPORT_X,SY0,VPORT_W,VIEW_H);
+    const geomMask=maskGfx.createGeometryMask();
+
+    let _scrollCont=null;
+    let _scrollItems=[];
+    let _scrollY=0, _scrollMax=0;
+    let _dragStartY=0, _dragStartSY=0, _isDragging=false;
+
+    function _destroyScroll(){
+        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
+        _scrollCont=null;
+        _scrollItems=[];
+        _scrollY=0;
+    }
+
+    function _mkScrollCont(){
+        _destroyScroll();
+        _scrollCont=scene.add.container(0,0).setDepth(D+4);
+        _scrollCont.setMask(geomMask);
+        A(_scrollCont);
+        return _scrollCont;
+    }
+
+    function _scrollTo(y){
+        _scrollY=Math.max(0,Math.min(_scrollMax,y));
+        if(_scrollCont) _scrollCont.y=-_scrollY;
+    }
+
+    // Drag-to-scroll on the scroll zone hit area
+    const scrollHit=A(scene.add.rectangle(cx,SY0+VIEW_H/2,VPORT_W,VIEW_H,0xffffff,0.001).setDepth(D+7).setInteractive({draggable:false}));
+    scrollHit.on("pointerdown",(p)=>{_isDragging=false;_dragStartY=p.y;_dragStartSY=_scrollY;});
+    scrollHit.on("pointermove",(p)=>{if(!p.isDown)return;if(Math.abs(p.y-_dragStartY)>6)_isDragging=true;if(_isDragging)_scrollTo(_dragStartSY-(p.y-_dragStartY));});
+    scrollHit.on("pointerup",(p)=>{
+        if(!_isDragging){
+            const worldY=p.y+_scrollY-SY0;
+            for(const z of _scrollItems){
+                if(p.x>=z.x1&&p.x<=z.x2&&worldY>=z.y1&&worldY<=z.y2){z.fn();break;}
+            }
+        }
+        _isDragging=false;
+    });
+
+    // Mouse wheel scroll support
+    const _shopWheelHandler=(pointer,gameObjects,dx,dy)=>{
+        _scrollTo(_scrollY+dy*0.5);
+    };
+    scene.input.on("wheel",_shopWheelHandler);
+
+    // ── TAB CONTENT BUILDERS ────────────────────────────────
+
+    function _zone(x1,y1,x2,y2,fn){
+        _scrollItems.push({x1:cx-PW/2+x1,x2:cx-PW/2+x2,y1,y2,fn});
+    }
+
+    function _sh(){
+        _scrollItems=[];
+        _destroyScroll();
+        const cont=_mkScrollCont();
+        let totalH=0;
+
+        function _add(o){cont.add(o);return o;}
+        function G(){return scene.add.graphics();}
+        function T(x,y,txt,style){return scene.add.text(x,y,txt,style);}
+
+        function _btn(x,y,bw,bh,label,col,borderCol,fn){
+            const bg=G();
+            bg.fillStyle(0x000000,0.35);
+            bg.fillRoundedRect(x-bw/2+2,y-bh/2+3,bw,bh,8);
+            bg.fillStyle(col,1);
+            bg.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,8);
+            bg.fillStyle(0xffffff,0.14);
+            bg.fillRoundedRect(x-bw/2+4,y-bh/2+3,bw-8,bh*0.4,{tl:6,tr:6,bl:0,br:0});
+            bg.lineStyle(2,borderCol,0.85);
+            bg.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,8);
+            const txt=T(x,y,label,{fontFamily:_F,fontSize:"13px",color:"#fff",stroke:"#000",strokeThickness:2}).setOrigin(0.5);
+            _add(bg); _add(txt);
+        }
+
+        // Helper to add gold/gem icon in scroll container
+        function _addCurrIcon(x,y,type,sz){
+            if(scene.textures.exists(type==="gold"?"icon_gold":"icon_gem")){
+                const ic=scene.add.image(x,y,type==="gold"?"icon_gold":"icon_gem").setDisplaySize(sz,sz);
+                _add(ic);
+            }
+        }
+
+        switch(_tab){
+            // ───────────────── POWER ──────────────────────
+            case "power":{
+                let y=8;
+                // Gold header with icon
+                const goldHdr=G();
+                goldHdr.fillStyle(0x0a1828,0.98);goldHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,30,6);
+                goldHdr.lineStyle(1.5,0xffcc00,0.4);goldHdr.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,30,6);
+                _add(goldHdr);
+                _addCurrIcon(cx-8,SY0+y+15,"gold",22);
+                _add(T(cx+16,SY0+y+15,PLAYER_GOLD.toLocaleString(),{fontFamily:_F,fontSize:"17px",color:"#ffcc00",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                y+=38;
+                GOLD_UPGRADES.forEach((u)=>{
+                    const mx=u.level>=u.maxLevel;
+                    const cost=Math.floor(u.baseCost*Math.pow(1.6,u.level));
+                    const can=!mx&&PLAYER_GOLD>=cost;
+                    const rowH=66, ry=SY0+y;
+                    const fill=u.level/u.maxLevel;
+                    const bg2=G();
+                    bg2.fillStyle(mx?0x0a1e0f:can?0x0a1828:0x0c1522,0.97);
+                    bg2.fillRoundedRect(cx-PW/2+10,ry,PW-20,rowH,8);
+                    bg2.lineStyle(1.5,mx?0x44aa44:can?0x44aacc:0x1e3a50,0.65);
+                    bg2.strokeRoundedRect(cx-PW/2+10,ry,PW-20,rowH,8);
+                    // Level progress bar left edge
+                    bg2.fillStyle(0x111e2e,1);bg2.fillRoundedRect(cx-PW/2+12,ry+8,5,rowH-16,2);
+                    bg2.fillStyle(mx?0x44cc44:0x44aacc,0.9);bg2.fillRoundedRect(cx-PW/2+12,ry+8+(rowH-16)*(1-fill),5,(rowH-16)*fill,2);
+                    _add(bg2);
+                    _add(T(cx-PW/2+22,ry+14,L(u.nameKey),{fontFamily:_F,fontSize:"14px",color:"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    // Description text
+                    _add(T(cx-PW/2+22,ry+32,u.descTxt||"",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+22,ry+48,mx?"MAX LEVEL ✓":"Lv "+u.level+" / "+u.maxLevel,{fontFamily:_F,fontSize:"12px",color:mx?"#55dd55":"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    if(!mx){
+                        const bx=cx+PW/2-52, bw=72, bh=28;
+                        _btn(bx,ry+rowH/2,bw,bh,cost.toLocaleString(),can?0x1a6640:0x2a1a1a,can?0x44dd66:0x553333,null);
+                        _addCurrIcon(bx-28,ry+rowH/2,"gold",18);
+                        _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                            const c2=Math.floor(u.baseCost*Math.pow(1.6,u.level));
+                            if(u.level>=u.maxLevel||PLAYER_GOLD<c2){scene.cameras.main.shake(30,0.006);return;}
+                            PLAYER_GOLD-=c2;secureSet("nt_gold",PLAYER_GOLD);u.level++;
+                            const sv=JSON.parse(localStorage.getItem("nt_shop")||"{}");sv[u.id]=u.level;localStorage.setItem("nt_shop",JSON.stringify(sv));
+                            NT_SFX.play("upgrade_select");
+                            scene.cameras.main.shake(40,0.008);
+                            for(let pi=0;pi<10;pi++){const ang=(Math.PI*2/10)*pi;const p2=scene.add.graphics().setDepth(D+25);p2.fillStyle(0x44ff66,0.9);p2.fillCircle(0,0,3);p2.x=bx;p2.y=SY0+y+rowH/2;scene.tweens.add({targets:p2,x:bx+Math.cos(ang)*44,y:SY0+y+rowH/2+Math.sin(ang)*28,alpha:0,duration:380,ease:"Quad.easeOut",onComplete:()=>p2.destroy()});}
+                            const upTxt=scene.add.text(bx,SY0+y+rowH/2-10,"UPGRADED!",{fontFamily:_F,fontSize:"14px",color:"#44ff66",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+26).setAlpha(0);
+                            scene.tweens.add({targets:upTxt,alpha:1,y:SY0+y+rowH/2-32,duration:350,ease:"Back.easeOut"});
+                            scene.time.delayedCall(1000,()=>scene.tweens.add({targets:upTxt,alpha:0,duration:250,onComplete:()=>upTxt.destroy()}));
+                            _sh();
+                        });
+                    }
+                    y+=rowH+6;
+                });
+                totalH=y+10;
+                break;
+            }
+            // ───────────────── CHEST ──────────────────────
+            case "chest":{
+                let y=6;
+                const s=_s(), canFC=(Date.now()-s.fl)>=CHEST_CD;
+                const fRem=canFC?0:CHEST_CD-(Date.now()-s.fl);
+                const fcH=66;
+                const fg=G();
+                fg.fillStyle(canFC?0x0d2118:0x0c1520,0.97);fg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);
+                fg.lineStyle(2,canFC?0x44ee66:0x224060,canFC?0.8:0.4);fg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);
+                if(canFC){fg.fillStyle(0x44ee66,0.06);fg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);}
+                _add(fg);
+                _add(T(cx-PW/2+22,SY0+y+18,"FREE CHEST",{fontFamily:_F,fontSize:"16px",color:canFC?"#44ff66":"#446677",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                const freeChestInfo=canFC?"TAP TO OPEN  •  +200 GOLD  +2 GEM":"Next in: "+_fmt(fRem);
+                _add(T(cx,SY0+y+46,freeChestInfo,{fontFamily:_F,fontSize:"12px",color:canFC?"#88ff88":"#ff7744",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                if(canFC) _zone(10,y,PW-10,y+fcH,()=>{
+                    NT_SFX.play("chest_open","common");
+                    showBigReward(scene,cx,SY0+y+fcH/2,"gold",200,D+10);
+                    addGems(2);
+                    const st=_s();st.fl=Date.now();_sv(st);
+                    scene.time.delayedCall(700,()=>_sh());
+                });
+                y+=fcH+10;
+                _add(T(cx,SY0+y+4,"BUYABLE CHESTS",{fontFamily:_F,fontSize:"12px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=18;
+                CHESTS.forEach((ch)=>{
+                    const rowH=58, canB=PLAYER_GEMS>=ch.cost;
+                    const cg=G();
+                    cg.fillStyle(0x0c1520,0.97);cg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    cg.lineStyle(1.5,ch.col,canB?0.55:0.25);cg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    cg.fillStyle(ch.col,0.30);cg.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:8,bl:8,tr:0,br:0});
+                    if(ch.tag){cg.fillStyle(0xffaa00,1);cg.fillRoundedRect(cx+PW/2-88,SY0+y,68,14,{tl:0,tr:8,bl:4,br:0});}
+                    _add(cg);
+                    if(ch.tag) _add(T(cx+PW/2-54,SY0+y+7,ch.tag,{fontFamily:_F,fontSize:"9px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    _add(T(cx-PW/2+24,SY0+y+18,ch.name,{fontFamily:_F,fontSize:"15px",color:"#ddd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    // Chest reward info with icons
+                    const rewardY=SY0+y+40;
+                    _addCurrIcon(cx-PW/2+24,rewardY,"gold",20);
+                    _add(T(cx-PW/2+42,rewardY,ch.gold.toLocaleString(),{fontFamily:_F,fontSize:"12px",color:"#ffcc00",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _addCurrIcon(cx-PW/2+100,rewardY,"gem",20);
+                    _add(T(cx-PW/2+114,rewardY,"+"+ch.gems,{fontFamily:_F,fontSize:"12px",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    const bx=cx+PW/2-52,bw=68,bh=30;
+                    _btn(bx,SY0+y+rowH/2,bw,bh,ch.cost.toString(),canB?0x3a0068:0x1e1e28,canB?0xcc44ff:0x443355,null);
+                    _addCurrIcon(bx-26,SY0+y+rowH/2,"gem",18);
+                    _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                        if(PLAYER_GEMS<ch.cost){scene.cameras.main.shake(30,0.006);return;}
+                        spendGems(ch.cost);NT_SFX.play("chest_open","rare");
+                        showBigReward(scene,cx,SY0+y+rowH/2,"gold",ch.gold,D+10);
+                        addGems(ch.gems);
+                        scene.time.delayedCall(700,()=>_sh());
+                    });
+                    y+=rowH+6;
+                });
+                totalH=y+10;
+                break;
+            }
+            // ───────────────── BOOST ──────────────────────
+            case "boost":{
+                let y=6;
+                const actB=BOOSTS.filter(b=>_isB(b.id));
+                if(actB.length>0){
+                    const abH=22+actB.length*20+6;
+                    const abg=G();
+                    abg.fillStyle(0x0a1e10,0.97);abg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,abH,7);
+                    abg.lineStyle(1,0x44aa44,0.4);abg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,abH,7);
+                    _add(abg);
+                    _add(T(cx,SY0+y+11,"ACTIVE BOOSTS",{fontFamily:_F,fontSize:"12px",color:"#44ff66",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    actB.forEach((b,i)=>{
+                        const bi=_s().bo[b.id];let info="";
+                        if(b.dur>0&&bi){const r=b.dur-(Date.now()-bi.a);if(r>0)info=" ("+_fmt(r)+")";}
+                        else if(bi&&(bi.u||0)>0)info=" ("+bi.u+"x uses)";
+                        _add(T(cx,SY0+y+24+i*20,b.name+info,{fontFamily:_F,fontSize:"12px",color:"#88ffaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    });
+                    y+=abH+8;
+                }
+                BOOSTS.forEach((b)=>{
+                    const isAct=_isB(b.id),canB=PLAYER_GEMS>=b.cost;
+                    const rowH=62;
+                    const bg2=G();
+                    bg2.fillStyle(0x0c1520,0.97);bg2.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    bg2.lineStyle(1.5,b.col,0.4);bg2.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    bg2.fillStyle(b.col,0.15);bg2.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:8,bl:8,tr:0,br:0});
+                    _add(bg2);
+                    _add(T(cx-PW/2+24,SY0+y+18,b.name,{fontFamily:_F,fontSize:"15px",color:"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+24,SY0+y+38,b.desc,{fontFamily:_F,fontSize:"11px",color:"#7799bb",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    const bx=cx+PW/2-52,bw=68,bh=30;
+                    if(isAct){
+                        const ab=G();ab.fillStyle(0x163318,1);ab.fillRoundedRect(bx-bw/2,SY0+y+rowH/2-bh/2,bw,bh,8);ab.lineStyle(1.5,0x44aa44,0.7);ab.strokeRoundedRect(bx-bw/2,SY0+y+rowH/2-bh/2,bw,bh,8);_add(ab);
+                        _add(T(bx,SY0+y+rowH/2,"ACTIVE",{fontFamily:_F,fontSize:"13px",color:"#44ff66",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                    } else {
+                        _btn(bx,SY0+y+rowH/2,bw,bh,b.cost.toString(),canB?0x3a0068:0x1e1e28,canB?0xcc44ff:0x443355,null);
+                        _addCurrIcon(bx-26,SY0+y+rowH/2,"gem",18);
+                        _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                            if(PLAYER_GEMS<b.cost){scene.cameras.main.shake(30,0.006);return;}
+                            spendGems(b.cost);_actB(b.id);NT_SFX.play("upgrade_select");
+                            showBoosterReward(scene,cx,SY0+y,""+b.name,D+10);
+                            scene.time.delayedCall(600,()=>_sh());
+                        });
+                    }
+                    y+=rowH+6;
+                });
+                totalH=y+10;
+                break;
+            }
+            // ───────────────── SKINS ──────────────────────
+            case "skins":{
+                let y=6;
+                [{k:"weapon",l:"WEAPON SKINS"},{k:"char",l:"CHARACTER SKINS"}].forEach(cat=>{
+                    const skins=SKINS.filter(s=>s.cat===cat.k);
+                    if(!skins.length)return;
+                    _add(T(cx-PW/2+16,SY0+y+10,cat.l,{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    y+=26;
+                    skins.forEach(sk=>{
+                        const rowH=48;
+                        const sg=G();
+                        sg.fillStyle(0x0c1520,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                        sg.lineStyle(1.5,sk.col,0.40);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                        sg.fillStyle(sk.col,0.28);sg.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:7,bl:7,tr:0,br:0});
+                        _add(sg);
+                        _add(T(cx-PW/2+24,SY0+y+16,sk.name,{fontFamily:_F,fontSize:"14px",color:"#ddd",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        _add(T(cx-PW/2+24,SY0+y+34,sk.rar,{fontFamily:_F,fontSize:"12px",color:"#"+sk.col.toString(16).padStart(6,"0"),stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        const sbg=G();sbg.fillStyle(0x0d0d16,0.92);sbg.fillRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);sbg.lineStyle(1.5,sk.col,0.5);sbg.strokeRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);_add(sbg);
+                        _add(T(cx+PW/2-40,SY0+y+rowH/2,"SOON",{fontFamily:_F,fontSize:"13px",color:"#778899",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                        y+=rowH+5;
+                    });
+                    y+=8;
+                });
+                totalH=y+10;
+                break;
+            }
+            // ───────────────── GEMS ──────────────────────
+            case "gems":{
+                let y=6;
+                const gemHdr=G();gemHdr.fillStyle(0x100020,0.97);gemHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,36,7);gemHdr.lineStyle(1.5,0xcc44ff,0.45);gemHdr.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,36,7);_add(gemHdr);
+                _addCurrIcon(cx-24,SY0+y+18,"gem",24);
+                _add(T(cx+8,SY0+y+18,PLAYER_GEMS.toLocaleString(),{fontFamily:_F,fontSize:"18px",color:"#cc44ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                y+=44;
+                const s=_s();
+                if(!s.sp){
+                    const spH=62;
+                    const sg=G();sg.fillStyle(0x180828,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.lineStyle(2.5,0xff4488,0.9);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.fillStyle(0xff4488,0.06);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);_add(sg);
+                    _add(T(cx-PW/2+18,SY0+y+16,"STARTER PACK  -"+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+" GEM + "+STARTER.gold+" GOLD + 2X GOLD",{fontFamily:_F,fontSize:"12px",color:"#cc99bb",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    const bx=cx+PW/2-52,bw=72,bh=30;
+                    _btn(bx,SY0+y+spH/2,bw,bh,""+STARTER.stars+" STAR",0x88002a,0xff4488,null);
+                    _zone(10,y,PW-10,y+spH,()=>{
+                        const _buy=()=>{
+                            showBigReward(scene,cx,SY0+y+spH/2,"gem",STARTER.gems,D+10);
+                            PLAYER_GOLD+=STARTER.gold;secureSet("nt_gold",PLAYER_GOLD);_actB("gold2x");
+                            const st=_s();st.sp=true;_sv(st);
+                            scene.time.delayedCall(700,()=>_sh());
+                        };
+                        if(window.Telegram?.WebApp?.openInvoice){window.Telegram.WebApp.openInvoice("starter_pack",(st)=>{if(st==="paid")_buy();});}else _buy();
+                    });
+                    y+=spH+8;
+                }
+                _add(T(cx,SY0+y+4,"GEM PACKS",{fontFamily:_F,fontSize:"13px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=18;
+                GEM_PACKS.forEach((pk,i)=>{
+                    const tot=pk.gems+pk.bonus, rowH=58;
+                    const pg=G();
+                    pg.fillStyle(0x0e0820,0.97);pg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                    pg.lineStyle(1.5,pk.popular?0x44aaff:0x221840,pk.popular?0.6:0.35);pg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                    if(pk.tag){const tc=pk.tag==="popular"?0x44aaff:0xffaa00;pg.fillStyle(tc,1);pg.fillRoundedRect(cx+PW/2-88,SY0+y,68,14,{tl:0,tr:7,bl:4,br:0});}
+                    _add(pg);
+                    if(pk.tag) _add(T(cx+PW/2-54,SY0+y+7,pk.tag==="popular"?"POPULAR":"BEST VALUE",{fontFamily:_F,fontSize:"9px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    _addCurrIcon(cx-PW/2+20,SY0+y+20,"gem",22);
+                    _add(T(cx-PW/2+40,SY0+y+20,tot+(pk.bonus>0?"  (+"+pk.bonus+" bonus)":""),{fontFamily:_F,fontSize:"15px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+20,SY0+y+42,pk.price,{fontFamily:_F,fontSize:"12px",color:"#7766aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    const bx=cx+PW/2-52,bw=68,bh=30;
+                    _btn(bx,SY0+y+rowH/2,bw,bh,"BUY",0x300058,0xcc44ff,null);
+                    _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                        if(window.Telegram?.WebApp?.openInvoice){
+                            window.Telegram.WebApp.openInvoice("gem_"+i,(st)=>{
+                                if(st==="paid"){showBigReward(scene,cx,SY0+y+rowH/2,"gem",tot,D+10);scene.time.delayedCall(700,()=>_sh());}
+                            });
+                        }
+                    });
+                    y+=rowH+6;
+                });
+                totalH=y+10;
+                break;
+            }
+        }
+
+        // Update scroll max
+        _scrollMax=Math.max(0,totalH-VIEW_H);
+        _scrollTo(0);
+    }
+
+    _cleanupSc=()=>{
+        try{scene.input.off("wheel",_shopWheelHandler);}catch(_){}
+        try{maskGfx.destroy();}catch(_){}
+        _destroyScroll();
+    };
+
+    _sh();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §7  POST-DEATH OFFER
+// ═══════════════════════════════════════════════════════════════
+
+function showDeathOffer(scene){
+    const s=_s();s.gm=(s.gm||0)+1;_sv(s);
+    if(s.gm%3!==0)return;
+    const D=920;
+    const objs=[],A=o=>{objs.push(o);return o;};
+    const _cl=()=>objs.forEach(o=>{try{o.destroy();}catch(_){}});
+    scene.time.delayedCall(900,()=>{
+        A(scene.add.rectangle(CX,H/2,W,H,0x000000,0.72).setDepth(D).setInteractive());
+        const PW=270,PH=230,PY=H/2-PH/2;
+        const pg=A(scene.add.graphics().setDepth(D+1));
+        pg.fillStyle(0x080c16,0.98);pg.fillRoundedRect(CX-PW/2,PY,PW,PH,14);
+        pg.lineStyle(3,0xff4488,0.9);pg.strokeRoundedRect(CX-PW/2,PY,PW,PH,14);
+        pg.setScale(0.8).setAlpha(0);
+        scene.tweens.add({targets:pg,scaleX:1,scaleY:1,alpha:1,duration:280,ease:"Back.easeOut"});
+        A(scene.add.text(CX,PY+24,"POWER UP!",{fontFamily:_F,fontSize:"15px",color:"#ff88aa",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+2));
+        DEATH_OFFERS.forEach((of,i)=>{
+            const cy=PY+52+i*50;
+            const tc=of.tag?0xffaa00:0x4a3070;
+            const og=A(scene.add.graphics().setDepth(D+2));
+            og.fillStyle(0x0d1420,0.95);og.fillRoundedRect(CX-PW/2+8,cy-16,PW-16,38,6);
+            og.lineStyle(1.5,tc,0.4);og.strokeRoundedRect(CX-PW/2+8,cy-16,PW-16,38,6);
+            if(of.tag){og.fillStyle(tc,1);og.fillRoundedRect(CX+PW/2-68,cy-16,50,11,{tl:0,tr:6,bl:3,br:0});
+                A(scene.add.text(CX+PW/2-43,cy-11,of.tag,{fontFamily:_F,fontSize:"5px",color:"#fff"}).setOrigin(0.5).setDepth(D+4));}
+            A(scene.add.text(CX-PW/2+16,cy+2,of.gems+" GEM + "+of.gold+" GOLD",{fontFamily:_F,fontSize:"11px",color:"#ddaacc",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+            const bx=CX+PW/2-32;
+            const bb=A(scene.add.graphics().setDepth(D+3));
+            bb.fillStyle(0x550028,1);bb.fillRoundedRect(bx-20,cy-8,40,18,4);bb.lineStyle(1,0xff4488,0.8);bb.strokeRoundedRect(bx-20,cy-8,40,18,4);
+            A(scene.add.text(bx,cy+1,"⭐"+of.stars,{fontFamily:_F,fontSize:"8px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+            A(scene.add.rectangle(bx,cy+1,40,18,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:true}))
+            .on("pointerdown",()=>{
+                if(window.Telegram?.WebApp?.openInvoice){window.Telegram.WebApp.openInvoice("death_"+i,(st)=>{
+                    if(st==="paid"){showBigReward(scene,CX,cy,"gem",of.gems,D+10);PLAYER_GOLD+=of.gold;secureSet("nt_gold",PLAYER_GOLD);scene.time.delayedCall(800,_cl);}
+                });}
+            });
+        });
+        A(scene.add.text(CX,PY+PH-14,"No thanks",{fontFamily:_F,fontSize:"9px",color:"#556677",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3).setInteractive({useHandCursor:true})).on("pointerdown",_cl);
+    });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §8  BATTLE PASS — animated, professional
+// ═══════════════════════════════════════════════════════════════
+
+function addBPXP(n){ const s=_s();s.bx=(s.bx||0)+n;_sv(s); }
+
+function showBP(scene){
+    let _cleanupBP=()=>{};
+    const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
+        =NT_OpenPopup(scene,"mm_panel",330,"BATTLE PASS",312,20,()=>_cleanupBP());
+    const s=_s();
+    const curXP=Math.floor(s.bx||0);
+
+    // ── XP HEADER ────────────────────────────────────────────
+    const bY=contentTop+8;
+
+    // Tier computation
+    let curTier=0;
+    for(let i=0;i<BP.length;i++){if(curXP>=BP[i].xp)curTier=i;}
+    const totalProg=Math.min(1,curXP/(BP[BP.length-1].xp||1));
+
+    // XP Panel (compact, just XP info)
+    const xpPanelH = s.bp ? 46 : 44;
+    const hdrG=A(scene.add.graphics().setDepth(D+3));
+    hdrG.fillStyle(0x080e1e,0.98);hdrG.fillRoundedRect(cx-PW/2+10,bY,PW-20,xpPanelH,8);
+    hdrG.lineStyle(1.5,0xffaa00,0.35);hdrG.strokeRoundedRect(cx-PW/2+10,bY,PW-20,xpPanelH,8);
+
+    A(scene.add.text(cx-PW/2+18,bY+12,"XP: "+curXP,{fontFamily:_F,fontSize:"13px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
+    A(scene.add.text(cx+PW/2-18,bY+12,"TIER "+(curTier+1)+" / "+BP.length,{fontFamily:_F,fontSize:"11px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(1,0.5).setDepth(D+4));
+
+    // XP Bar
+    const barX=cx-PW/2+18, barW=PW-36, barH=10, barY=bY+28;
+    const barBg=A(scene.add.graphics().setDepth(D+3));
+    barBg.fillStyle(0x111e30,1);barBg.fillRoundedRect(barX,barY,barW,barH,4);
+    barBg.lineStyle(1,0x2a4060,0.5);barBg.strokeRoundedRect(barX,barY,barW,barH,4);
+    const fillG=A(scene.add.graphics().setDepth(D+4));
+    const _af={v:0};
+    scene.tweens.add({targets:_af,v:totalProg,duration:650,delay:180,ease:"Quad.easeOut",
+        onUpdate:()=>{fillG.clear();if(_af.v<=0)return;fillG.fillStyle(0xffaa00,0.9);fillG.fillRoundedRect(barX,barY,Math.max(barH,barW*_af.v),barH,4);}
+    });
+
+    // Premium status / buy button — kendi satırında, XP panelin altında
+    const pY=bY+xpPanelH+10;
+    if(!s.bp){
+        const premBtnG=A(scene.add.graphics().setDepth(D+3));
+        premBtnG.fillStyle(0x0a1020,0.97);premBtnG.fillRoundedRect(cx-PW/2+10,pY,PW-20,32,8);
+        premBtnG.lineStyle(1.5,0xffcc00,0.5);premBtnG.strokeRoundedRect(cx-PW/2+10,pY,PW-20,32,8);
+        const [ub,ut,uh]=NT_YellowBtn(scene,cx,pY+16,PW-30,28,"⭐ GET PREMIUM  ("+BP_COST+" GEM)",D+3,()=>{
+            if(PLAYER_GEMS<BP_COST){scene.cameras.main.shake(30,0.006);return;}
+            spendGems(BP_COST);const st2=_s();st2.bp=true;_sv(st2);
+            NT_SFX.play("upgrade_select");
+            showBoosterReward(scene,cx,pY+16,"PREMIUM",D+10);
+            scene.time.delayedCall(700,()=>{close();showBP(scene);});
+        });
+        A(ub);A(ut);A(uh);
+    } else {
+        const premG=A(scene.add.graphics().setDepth(D+3));
+        premG.fillStyle(0x0a2214,0.97);premG.fillRoundedRect(cx-PW/2+10,pY,PW-20,26,8);
+        premG.lineStyle(1.5,0x44dd66,0.6);premG.strokeRoundedRect(cx-PW/2+10,pY,PW-20,26,8);
+        A(scene.add.text(cx,pY+13,"✓ PREMIUM ACTIVE",{fontFamily:_F,fontSize:"13px",color:"#44ff66",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+    }
+
+    // ── SCROLL AREA ───────────────────────────────────────────
+    const SY0=pY+(s.bp?26:32)+8;
+    const VIEW_H=contentBot-SY0-4;
+    const VPORT_X=cx-PW/2+10, VPORT_W=PW-20;
+
+    const maskGfx=scene.add.graphics().setDepth(D+1);
+    maskGfx.fillStyle(0xffffff,1);
+    maskGfx.fillRect(VPORT_X,SY0,VPORT_W,VIEW_H);
+    const geomMask=maskGfx.createGeometryMask();
+
+    let _scrollCont=null,_scrollY=0,_scrollMax=0;
+    let _dragStartY=0,_dragStartSY=0,_isDragging=false;
+    const _zones=[];
+
+    function _scrollTo(y){
+        _scrollY=Math.max(0,Math.min(_scrollMax,y));
+        if(_scrollCont) _scrollCont.y=-_scrollY;
+    }
+
+    // Mouse wheel support
+    const _bpWheelHandler=(pointer,gameObjects,dx,dy)=>{
+        _scrollTo(_scrollY+dy*0.5);
+    };
+    scene.input.on("wheel",_bpWheelHandler);
+
+    function _buildRows(){
+        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
+        _zones.length=0;
+        _scrollCont=A(scene.add.container(0,0).setDepth(D+4));
+        _scrollCont.setMask(geomMask);
+
+        const ROW_H=44, ROW_GAP=4;
+        const rowStart=SY0+8;
+
+        // Column headers
+        const hg=scene.add.graphics();
+        hg.fillStyle(0x0a1428,0.95);hg.fillRoundedRect(cx-PW/2+12,SY0,PW-24,22,4);
+        _scrollCont.add(hg);
+        _scrollCont.add(scene.add.text(cx-PW/2+20,SY0+11,"TIER",{fontFamily:_F,fontSize:"9px",color:"#4a6a8a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+        _scrollCont.add(scene.add.text(cx-28,SY0+11,"FREE",{fontFamily:_F,fontSize:"10px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(0.5,0.5));
+        _scrollCont.add(scene.add.text(cx+PW/4+10,SY0+11,"PREMIUM",{fontFamily:_F,fontSize:"10px",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0.5,0.5));
+
+        BP.forEach((tier,i)=>{
+            const ry=rowStart+i*(ROW_H+ROW_GAP);
+            const reached=(curXP>=tier.xp);
+            const cf=s.bc["f"+i], cp=s.bc["p"+i];
+
+            // Row background
+            const rg=scene.add.graphics();
+            rg.fillStyle(reached?0x0d1e12:0x090e1c,0.95);
+            rg.fillRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,6);
+            if(reached&&(!cf||(!cp&&s.bp))){
+                rg.lineStyle(1.5,0x44aa66,0.30);
+                rg.strokeRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,6);
+            }
+            _scrollCont.add(rg);
+
+            // Tier number + XP
+            _scrollCont.add(scene.add.text(cx-PW/2+20,ry+ROW_H/2-6,""+(i+1),{fontFamily:_F,fontSize:"14px",color:reached?"#ffdd44":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+            _scrollCont.add(scene.add.text(cx-PW/2+20,ry+ROW_H/2+10,tier.xp+" XP",{fontFamily:_F,fontSize:"8px",color:reached?"#6aaa6a":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+
+            // Free reward cell
+            const freeX=cx-28;
+            const fClaimed=cf;
+            const fAvail=reached&&!fClaimed;
+            const fBg=scene.add.graphics();
+            fBg.fillStyle(fClaimed?0x0a2a14:fAvail?0x0d2838:0x080e18,0.9);
+            fBg.fillRoundedRect(freeX-44,ry+6,88,ROW_H-12,5);
+            fBg.lineStyle(1.5,fClaimed?0x44dd66:fAvail?0x44aacc:0x1a2a3a,fClaimed?0.55:fAvail?0.50:0.20);
+            fBg.strokeRoundedRect(freeX-44,ry+6,88,ROW_H-12,5);
+            _scrollCont.add(fBg);
+            const fLbl=fClaimed?"CLAIMED":_rlbl(tier.free);
+            _scrollCont.add(scene.add.text(freeX,ry+ROW_H/2,fLbl,{fontFamily:_F,fontSize:"11px",color:fClaimed?"#44dd66":fAvail?"#ffffff":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+            if(fAvail){
+                _zones.push({x1:freeX-44,x2:freeX+44,y1:ry+6,y2:ry+ROW_H-6,fn:()=>{
+                    const st2=_s();st2.bc["f"+i]=true;_sv(st2);
+                    NT_SFX.play("menu_click");
+                    showBigReward(scene,freeX,SY0+_scrollY-15+ry+ROW_H/2,tier.free.type,tier.free.n,D+10);
+                    scene.time.delayedCall(700,()=>{close();showBP(scene);});
+                }});
+            }
+
+            // Premium reward cell
+            const premX=cx+PW/4+10;
+            const pClaimed=cp, pAvail=s.bp&&reached&&!pClaimed;
+            const pBg=scene.add.graphics();
+            pBg.fillStyle(pClaimed?0x1a0a2a:pAvail?0x180a28:0x080810,0.9);
+            pBg.fillRoundedRect(premX-44,ry+6,88,ROW_H-12,5);
+            pBg.lineStyle(1.5,pClaimed?0xcc44ff:pAvail?0xaa44cc:0x1a1030,pClaimed?0.55:pAvail?0.50:0.20);
+            pBg.strokeRoundedRect(premX-44,ry+6,88,ROW_H-12,5);
+            _scrollCont.add(pBg);
+            const pLbl=pClaimed?"CLAIMED":(!s.bp?"LOCKED":_rlbl(tier.prem));
+            _scrollCont.add(scene.add.text(premX,ry+ROW_H/2,pLbl,{fontFamily:_F,fontSize:"11px",color:pClaimed?"#cc44ff":pAvail?"#dd88ff":"#1e1830",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+            if(pAvail){
+                _zones.push({x1:premX-44,x2:premX+44,y1:ry+6,y2:ry+ROW_H-6,fn:()=>{
+                    const st2=_s();st2.bc["p"+i]=true;_sv(st2);
+                    NT_SFX.play("menu_click");
+                    showBigReward(scene,premX,SY0+_scrollY-15+ry+ROW_H/2,tier.prem.type,tier.prem.n,D+10);
+                    scene.time.delayedCall(700,()=>{close();showBP(scene);});
+                }});
+            }
+
+            // Stagger in
+            rg.setAlpha(0);
+            scene.tweens.add({targets:rg,alpha:1,duration:160,delay:40+i*30,ease:"Quad.easeOut"});
+        });
+
+        const totalH=8+22+BP.length*(ROW_H+ROW_GAP)+12;
+        _scrollMax=Math.max(0,totalH-VIEW_H);
+        _scrollTo(0);
+    }
+
+    _buildRows();
+
+    // Drag + tap scroll handler
+    const scrollHit=A(scene.add.rectangle(cx,SY0+VIEW_H/2,VPORT_W,VIEW_H,0xffffff,0.001).setDepth(D+7).setInteractive({draggable:false}));
+    scrollHit.on("pointerdown",(p)=>{_isDragging=false;_dragStartY=p.y;_dragStartSY=_scrollY;});
+    scrollHit.on("pointermove",(p)=>{if(!p.isDown)return;if(Math.abs(p.y-_dragStartY)>6)_isDragging=true;if(_isDragging)_scrollTo(_dragStartSY-(p.y-_dragStartY));});
+    scrollHit.on("pointerup",(p)=>{
+        if(!_isDragging){
+            const ry=p.y-SY0+_scrollY;
+            for(const z of _zones){
+                if(p.x>=z.x1&&p.x<=z.x2&&ry>=z.y1&&ry<=z.y2){z.fn();break;}
+            }
+        }
+        _isDragging=false;
+    });
+
+    _cleanupBP=()=>{
+        try{scene.input.off("wheel",_bpWheelHandler);}catch(_){}
+        try{maskGfx.destroy();}catch(_){}
+        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
+    };
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// §9  PUBLIC API
+// ═══════════════════════════════════════════════════════════════
+
+return {
+    // Systems
+    checkDailyReward: checkDaily,
+    showFortuneWheel: showWheel,
+    showShop: showShop,
+    showBattlePass: showBP,
+    showPostDeathOffer: showDeathOffer,
+    addBattlePassXP: addBPXP,
+
+    // Booster queries
+    isBoosterActive: _isB,
+    consumeBooster: _useB,
+    getGoldMultiplier: _gMult,
+    getXPMultiplier: _xMult,
+    activateBooster: _actB,
+
+    // Reward animation (for external use)
+    showBigReward: showBigReward,
+};
+})();
+// ═══════════════════════════════════════════════════════════════
+// AAA MONETIZATION ENGINE v4 END
+// ═══════════════════════════════════════════════════════════════
+
+
 function showIAPStore(scene){
     // Close any currently open panel before opening this one
     // (_closePanel was never implemented on the scene — inline it here)
@@ -2327,9 +3429,9 @@ const LANG_DATA = {
 // Rusça seçilmişse veya değer yoksa İngilizce'ye döner.
 // Rusça aktif etmek istersen aşağıdaki if koşulunu kaldır.
 (function(){ const s=localStorage.getItem("nt_lang"); if(s==="ru"||!s){ localStorage.setItem("nt_lang","en"); } })();
-let CURRENT_LANG = (localStorage.getItem("nt_lang")==="tr") ? "tr" : "en";
+let CURRENT_LANG = "en";
 function L(k){ return (LANG_DATA[CURRENT_LANG]&&LANG_DATA[CURRENT_LANG][k]!==undefined)?LANG_DATA[CURRENT_LANG][k]:((LANG_DATA["tr"]&&LANG_DATA["tr"][k]!==undefined)?LANG_DATA["tr"][k]:k); }
-function setLang(l){ CURRENT_LANG=l; localStorage.setItem("nt_lang",l); }
+function setLang(l){ CURRENT_LANG="en"; localStorage.setItem("nt_lang","en"); }
 // Helper for objects with name/nameEN/nameRU fields
 function LLang(obj,trKey,enKey,ruKey){ if(!obj) return ""; return CURRENT_LANG==="ru"?(obj[ruKey]||obj[trKey]):CURRENT_LANG==="en"?(obj[enKey]||obj[trKey]):obj[trKey]; }
 
@@ -2580,13 +3682,13 @@ const ENEMY_POOL=[
 
 const GOLD_UPGRADES=[
     // [v10.1] Yeni maliyet eğrisi:
-    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:400,  baseCost:400,  maxLevel:5,level:0,icon:"💪"},
-    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:550,  baseCost:550,  maxLevel:5,level:0,icon:"⚔️"},
-    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:400,  baseCost:400,  maxLevel:5,level:0,icon:"🏃"},
-    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:700,  baseCost:700,  maxLevel:5,level:0,icon:"💰"},
-    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:2000, baseCost:2000, maxLevel:3,level:0,icon:"❤️"},
-    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:550,  baseCost:550,  maxLevel:5,level:0,icon:"📚"},
-    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:1200, baseCost:1200, maxLevel:5,level:0,icon:"🦅"},
+    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:1500,  baseCost:1500,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level"},
+    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:2000,  baseCost:2000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level"},
+    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:1500,  baseCost:1500,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level"},
+    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:2500,  baseCost:2500,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level"},
+    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:8000, baseCost:8000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death"},
+    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:2000,  baseCost:2000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level"},
+    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:5000, baseCost:5000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level"},
 ];
 
 let GS;
@@ -3755,60 +4857,110 @@ function buildTextures(S){
     const drawChest=(cfg)=>{
         const {mainC,trim,lockC,glow,sz,hasRunes,hasGems,hasCracks}=cfg;
         const hw=sz/2;
-        // Taban gölgesi
-        g.fillStyle(0x000000,0.3); g.fillEllipse(hw,sz-2,sz*0.85,sz*0.14);
-        // Alt kutu — derin 3D gövde
-        g.fillStyle(mainC[0],1); g.fillRect(2,sz*0.45,sz-4,sz*0.5);
-        g.fillStyle(mainC[1],1); g.fillRect(3,sz*0.45,sz-6,sz*0.45);
-        g.fillStyle(mainC[2],1); g.fillRect(4,sz*0.47,sz-8,sz*0.38);
-        // Alt şerit — demir bant
-        g.fillStyle(trim,0.85); g.fillRect(2,sz*0.55,sz-4,sz*0.07);
-        g.fillStyle(glow,0.4); g.fillRect(2,sz*0.57,sz-4,sz*0.02);
-        // Zemin bandı
-        g.fillStyle(trim,0.7); g.fillRect(2,sz*0.88,sz-4,sz*0.07);
-        // Köşe metal süsler
-        g.fillStyle(trim,0.9);
-        g.fillRect(2,sz*0.45,4,sz*0.5); g.fillRect(sz-6,sz*0.45,4,sz*0.5);
-        g.fillStyle(glow,0.5);
-        g.fillRect(3,sz*0.46,1,sz*0.48); g.fillRect(sz-4,sz*0.46,1,sz*0.48);
-        // Üst kapak — bombeli
-        g.fillStyle(mainC[0],1); g.fillRect(2,sz*0.28,sz-4,sz*0.22);
-        g.fillStyle(mainC[1],1); g.fillRect(3,sz*0.28,sz-6,sz*0.18);
-        g.fillStyle(mainC[2],1); g.fillRect(4,sz*0.3,sz-8,sz*0.14);
-        // Kapak üst yay (bombeli görünüm)
-        g.fillStyle(mainC[1],0.6); g.fillRect(4,sz*0.28,sz-8,sz*0.05);
-        // Kilit paneli — merkez
-        g.fillStyle(mainC[0],1); g.fillRect(hw-5,sz*0.33,10,sz*0.22);
-        g.fillStyle(trim,0.9); g.fillRect(hw-4,sz*0.34,8,sz*0.2);
-        g.fillStyle(lockC,1); g.fillRect(hw-2,sz*0.38,4,sz*0.1);
-        g.fillStyle(glow,0.9); g.fillRect(hw-1,sz*0.39,2,sz*0.06);
-        // Kilit gövdesi (U şekli)
-        g.fillStyle(glow,0.7); g.fillCircle(hw,sz*0.36,3);
-        g.fillStyle(lockC,0.5); g.fillCircle(hw,sz*0.36,1.5);
-        // Üst kenar trim
-        g.fillStyle(trim,0.85); g.fillRect(2,sz*0.27,sz-4,sz*0.04);
-        g.fillStyle(glow,0.4); g.fillRect(2,sz*0.28,sz-4,sz*0.01);
-        // Hafif highlight — ışık
-        g.fillStyle(0xffffff,0.12); g.fillRect(4,sz*0.3,sz-8,sz*0.06);
-        // Rün sembolleri (nadir için)
+        // ── Zemin gölgesi (yumuşak elips) ──
+        g.fillStyle(0x000000,0.35); g.fillEllipse(hw,sz-1,sz*0.9,sz*0.13);
+
+        // ── ANA GÖVDE (alt kutu) ──
+        // Dış gölge/kontur
+        g.fillStyle(0x000000,0.55); g.fillRoundedRect(3,sz*0.46+1,sz-6,sz*0.49,3);
+        // Arka yüz (en koyu)
+        g.fillStyle(mainC[0],1); g.fillRoundedRect(2,sz*0.46,sz-4,sz*0.48,3);
+        // Orta ton (hacim)
+        g.fillStyle(mainC[1],1); g.fillRoundedRect(3,sz*0.46,sz-7,sz*0.44,2);
+        // Ön yüz (en aydınlık)
+        g.fillStyle(mainC[2],1); g.fillRoundedRect(4,sz*0.48,sz-9,sz*0.38,2);
+        // İç highlight (ışık yansıması üstte)
+        g.fillStyle(0xffffff,0.10); g.fillRoundedRect(5,sz*0.48,sz-11,sz*0.10,2);
+
+        // ── YATAY BANTLAR (metal çerçeve) ──
+        // Orta bant (sandık ortasındaki ana bant)
+        g.fillStyle(mainC[0],1);    g.fillRect(2,sz*0.545,sz-4,sz*0.085);
+        g.fillStyle(trim,0.92);     g.fillRect(2,sz*0.547,sz-4,sz*0.07);
+        g.fillStyle(glow,0.35);     g.fillRect(3,sz*0.549,sz-6,sz*0.022);
+        g.fillStyle(0x000000,0.28); g.fillRect(2,sz*0.610,sz-4,sz*0.012);
+        // Alt bant
+        g.fillStyle(trim,0.75);     g.fillRect(2,sz*0.875,sz-4,sz*0.065);
+        g.fillStyle(glow,0.25);     g.fillRect(3,sz*0.877,sz-6,sz*0.020);
+
+        // ── DİKEY KÖŞE PERVAZLARI ──
+        // Sol pervaz
+        g.fillStyle(mainC[0],1);    g.fillRect(2,sz*0.46,5,sz*0.49);
+        g.fillStyle(trim,0.90);     g.fillRect(2,sz*0.46,4,sz*0.49);
+        g.fillStyle(glow,0.45);     g.fillRect(3,sz*0.47,1,sz*0.47);
+        // Sağ pervaz
+        g.fillStyle(mainC[0],1);    g.fillRect(sz-7,sz*0.46,5,sz*0.49);
+        g.fillStyle(trim,0.90);     g.fillRect(sz-6,sz*0.46,4,sz*0.49);
+        g.fillStyle(glow,0.45);     g.fillRect(sz-4,sz*0.47,1,sz*0.47);
+
+        // ── ÜST KAPAK ──
+        // Kapak kontur/gölge
+        g.fillStyle(0x000000,0.45); g.fillRoundedRect(2,sz*0.27+1,sz-4,sz*0.22,{tl:4,tr:4,bl:0,br:0});
+        // Kapak arka ton
+        g.fillStyle(mainC[0],1);    g.fillRoundedRect(2,sz*0.27,sz-4,sz*0.21,{tl:4,tr:4,bl:0,br:0});
+        // Kapak orta ton
+        g.fillStyle(mainC[1],1);    g.fillRoundedRect(3,sz*0.27,sz-7,sz*0.17,{tl:3,tr:3,bl:0,br:0});
+        // Kapak ön aydınlık
+        g.fillStyle(mainC[2],1);    g.fillRoundedRect(4,sz*0.29,sz-9,sz*0.13,{tl:2,tr:2,bl:0,br:0});
+        // Kapak üst highlight (bombeli ışık)
+        g.fillStyle(0xffffff,0.18); g.fillRoundedRect(5,sz*0.30,sz-11,sz*0.055,{tl:2,tr:2,bl:0,br:0});
+        // Kapak alt kenar trim şeridi
+        g.fillStyle(trim,0.88);     g.fillRect(2,sz*0.455,sz-4,sz*0.038);
+        g.fillStyle(glow,0.38);     g.fillRect(3,sz*0.458,sz-6,sz*0.014);
+
+        // ── KİLİT MEKANİZMASI ──
+        // Kilit plakası (dikdörtgen panel)
+        g.fillStyle(mainC[0],1);    g.fillRoundedRect(hw-6,sz*0.335,12,sz*0.21,3);
+        g.fillStyle(trim,0.92);     g.fillRoundedRect(hw-5,sz*0.342,10,sz*0.185,2);
+        // Kilit plakası parlaması
+        g.fillStyle(glow,0.30);     g.fillRoundedRect(hw-4,sz*0.348,5,sz*0.05,1);
+        // Kilit gövdesi (U biçimi — üst yay + dikdörtgen kutu)
+        g.fillStyle(lockC,1);       g.fillCircle(hw,sz*0.365,3.2);
+        g.fillStyle(mainC[0],0.95); g.fillCircle(hw,sz*0.365,1.6);
+        g.fillStyle(lockC,1);       g.fillRoundedRect(hw-3.5,sz*0.375,7,sz*0.11,2);
+        // Kilit deliği
+        g.fillStyle(mainC[0],0.90); g.fillCircle(hw,sz*0.405,2.0);
+        g.fillStyle(0x000000,0.55); g.fillRect(hw-0.8,sz*0.41,1.6,sz*0.055);
+        // Kilit parlaması
+        g.fillStyle(glow,0.80);     g.fillCircle(hw-1,sz*0.355,1.0);
+
+        // ── RÜN SEMBOLLERİ (nadir sandıklar) ──
         if(hasRunes){
-            g.fillStyle(glow,0.5);
-            g.fillRect(5,sz*0.65,3,sz*0.12); g.fillRect(6,sz*0.67,4,sz*0.03);
-            g.fillRect(sz-8,sz*0.65,3,sz*0.12); g.fillRect(sz-9,sz*0.67,4,sz*0.03);
+            // Sol rün
+            g.fillStyle(glow,0.55);
+            g.fillRect(5,sz*0.64,3,sz*0.13); g.fillRect(4,sz*0.66,5,sz*0.028);
+            g.fillRect(4,sz*0.74,5,sz*0.028);
+            g.fillStyle(glow,0.30); g.fillRect(6,sz*0.675,1,sz*0.055);
+            // Sağ rün
+            g.fillStyle(glow,0.55);
+            g.fillRect(sz-8,sz*0.64,3,sz*0.13); g.fillRect(sz-9,sz*0.66,5,sz*0.028);
+            g.fillRect(sz-9,sz*0.74,5,sz*0.028);
+            g.fillStyle(glow,0.30); g.fillRect(sz-7,sz*0.675,1,sz*0.055);
         }
-        // Mücevher kakmaları (efsane için)
+
+        // ── MÜCEVHER KAKMALARI (efsane sandık) ──
         if(hasGems){
             const gemCols=[0xff4444,0x44aaff,0xffdd44];
-            [6,hw,sz-8].forEach((gx,i)=>{
-                g.fillStyle(gemCols[i],0.9); g.fillCircle(gx,sz*0.5,2);
-                g.fillStyle(0xffffff,0.5); g.fillCircle(gx-0.5,sz*0.5-0.5,0.8);
+            [5,hw,sz-7].forEach((gx,gi)=>{
+                // Mücevher dış hale
+                g.fillStyle(gemCols[gi],0.35); g.fillCircle(gx,sz*0.515,3.5);
+                // Mücevher gövdesi
+                g.fillStyle(gemCols[gi],1);    g.fillCircle(gx,sz*0.515,2.5);
+                // Mücevher parlaması
+                g.fillStyle(0xffffff,0.65);    g.fillCircle(gx-0.8,sz*0.505,0.9);
             });
         }
-        // Çatlaklar (eskimiş sandık hissi)
+
+        // ── ÇATLAKLAR (yıpranmış common sandık) ──
         if(hasCracks){
-            g.lineStyle(1,0x000000,0.3);
-            g.lineBetween(8,sz*0.5,14,sz*0.7); g.lineBetween(sz-10,sz*0.55,sz-16,sz*0.75);
+            g.lineStyle(1,0x000000,0.32);
+            g.lineBetween(7,sz*0.50,12,sz*0.68);
+            g.lineBetween(10,sz*0.54,8,sz*0.62);
+            g.lineBetween(sz-9,sz*0.52,sz-15,sz*0.72);
         }
+
+        // ── GENEL DIŞ KONTUR ──
+        g.lineStyle(1,0x000000,0.45);
+        g.strokeRoundedRect(2,sz*0.27,sz-4,sz*0.68,{tl:4,tr:4,bl:3,br:3});
     };
 
     // COMMON — altın/kahve, basit
@@ -7965,6 +9117,10 @@ class SceneMainMenu extends Phaser.Scene {
         this.load.image("mm_settings", "assets/ui/Settings (4).png");
         this.load.image("mm_howto",    "assets/ui/Question mark (4).png");
         this.load.image("mm_lb",       "assets/ui/Leaderboard (4).png");
+        this.load.image("mm_shop",     "assets/ui/Shop (4).png");
+        this.load.image("icon_gold",   "assets/gold.png");
+        this.load.image("icon_gem",    "assets/gem.png");
+        this.load.image("icon_wheel",  "assets/wheel.png");
     }
 
     create(){
@@ -8086,13 +9242,13 @@ class SceneMainMenu extends Phaser.Scene {
         const slot  = (aBot - aTop) / 4;
         const DEFS  = [
             {icon:"mm_play",    label:"PLAY",        cb:()=>this._goGame()},
-            {icon:"mm_settings",label:"SETTINGS",    cb:()=>this._showSettings()},
+            {icon:"mm_shop",    label:"SHOP",        cb:()=>this._showShop()},
             {icon:"mm_howto",   label:"HOW TO PLAY", cb:()=>this._showHowTo()},
             {icon:"mm_lb",      label:"LEADERBOARD", cb:()=>this._showLeaderboard()},
         ];
         // Phaser glyph warm-up: tüm buton labellarını invisible text olarak render et
         // Phaser'ın internal canvas'ı glyphleri cache'e alır → gerçek butonlar siyah çıkmaz
-        const _warmLabels = ["PLAY","SETTINGS","HOW TO PLAY","LEADERBOARD",
+        const _warmLabels = ["PLAY","SETTINGS","SHOP","HOW TO PLAY","LEADERBOARD",
                              "RESUME","MAIN MENU","PAUSED","STATS","NOT TODAY"];
         const _warmObjs = _warmLabels.map(lbl=>{
             const t = this.add.text(CX, H/2, lbl, NT_STYLE.label(24));
@@ -8147,19 +9303,13 @@ class SceneMainMenu extends Phaser.Scene {
                 const hsW = 176;
                 const R   = 15;
 
-                const hsGlowG = this.add.graphics().setDepth(4).setAlpha(0);
-                const hsBgG   = this.add.graphics().setDepth(5).setAlpha(0);
-
-                const _drawHs = (v) => {
-                    hsBgG.clear();
-                    hsBgG.fillStyle(0xffaa00, 0.12+v*0.06);
-                    hsBgG.fillRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
-                    hsBgG.lineStyle(1.8+v*0.8, 0xFFD700, 0.85+v*0.10);
-                    hsBgG.strokeRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
-                    hsBgG.fillStyle(0xffffff, 0.09);
-                    hsBgG.fillRoundedRect(CX-hsW/2+6, hsY-12, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
-                };
-                _drawHs(0);
+                const hsBgG = this.add.graphics().setDepth(5).setAlpha(0);
+                hsBgG.fillStyle(0x1a1000, 0.92);
+                hsBgG.fillRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
+                hsBgG.lineStyle(2, 0xFFD700, 0.85);
+                hsBgG.strokeRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
+                hsBgG.fillStyle(0xffffff, 0.07);
+                hsBgG.fillRoundedRect(CX-hsW/2+6, hsY-12, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
 
                 const hsTxt = this.add.text(CX, hsY, "🏆  "+hs.toLocaleString(), {
                     fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
@@ -8167,52 +9317,92 @@ class SceneMainMenu extends Phaser.Scene {
                 }).setOrigin(0.5).setDepth(6).setAlpha(0);
 
                 this.tweens.add({targets:[hsBgG,hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
-                this.tweens.add({targets:hsGlowG, alpha:1, duration:500, delay:420});
-
-                const _hd={v:0};
-                this.tweens.add({targets:_hd,v:1,duration:1700,ease:"Sine.easeInOut",yoyo:true,repeat:-1,delay:800,
-                    onUpdate:()=>{
-                        _drawHs(_hd.v);
-                        hsGlowG.clear();
-                        hsGlowG.lineStyle(4+_hd.v*6, 0xffcc00, 0.05+_hd.v*0.20);
-                        hsGlowG.strokeRoundedRect(CX-hsW/2-5, hsY-20, hsW+10, 40, R+5);
-                        hsGlowG.lineStyle(1.5, 0xffee88, 0.04+_hd.v*0.12);
-                        hsGlowG.strokeRoundedRect(CX-hsW/2-10, hsY-25, hsW+20, 50, R+10);
-                    }
-                });
-                this.tweens.add({targets:hsTxt, alpha:{from:0.82,to:1},
-                    duration:1700, ease:"Sine.easeInOut", yoyo:true, repeat:-1, delay:800});
             }
         }
 
-        // ── GOLD — sağ üst köşe, sadece ikon + sayı, arka plan yok ────
+        // ── CURRENCY: gold + gems — top right ────
         {
-            if(!this.textures.exists("tex_gold_icon")){
-                const _gc=document.createElement("canvas");
-                _gc.width=20; _gc.height=20;
-                const _gctx=_gc.getContext("2d");
-                _gctx.clearRect(0,0,20,20);
-                _gctx.strokeStyle="#CC8800"; _gctx.lineWidth=2.5; _gctx.strokeRect(3,3,14,14);
-                _gctx.strokeStyle="#FFD700"; _gctx.lineWidth=1.5; _gctx.strokeRect(6,6,8,8);
-                this.textures.addCanvas("tex_gold_icon",_gc);
-            }
+            const PILL_PAD = 8, ICON_SZ = 24, PILL_H = 30;
 
-            const _gStr = PLAYER_GOLD.toLocaleString();
-            const _gY   = 20;
-            const ICON  = 16;
+            // ── GOLD pill ──
+            const goldTxt = this.add.text(W - PILL_PAD, 21, PLAYER_GOLD.toLocaleString(), {
+                fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'18px',
+                color:'#FFD700', stroke:'#000', strokeThickness:2
+            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
+            const goldIc = this.add.image(
+                W - PILL_PAD - goldTxt.width - 6 - ICON_SZ/2, 21,
+                "icon_gold"
+            ).setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            const gW = ICON_SZ + 6 + goldTxt.width + PILL_PAD * 2;
+            const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
+            goldBg.fillStyle(0x1a0f00, 0.72);
+            goldBg.fillRoundedRect(W - gW - 4, 7, gW, PILL_H, 9);
+            goldBg.lineStyle(1.5, 0xffcc00, 0.45);
+            goldBg.strokeRoundedRect(W - gW - 4, 7, gW, PILL_H, 9);
 
-            // Sayıyı önce oluştur, genişliğini öğren, ikonla bitişik hizala
-            const gTxt = this.add.text(W-8, _gY, _gStr, {
-                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
-                color:"#FFD700", stroke:"#000", strokeThickness:2
-            }).setOrigin(1, 0.5).setDepth(8).setAlpha(0);
+            // ── GEM pill ──
+            const gemTxt = this.add.text(W - PILL_PAD, 51, PLAYER_GEMS.toLocaleString(), {
+                fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'16px',
+                color:'#cc88ff', stroke:'#000', strokeThickness:2
+            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
+            const gemIc = this.add.image(
+                W - PILL_PAD - gemTxt.width - 6 - ICON_SZ/2, 51,
+                "icon_gem"
+            ).setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            const gemW = ICON_SZ + 6 + gemTxt.width + PILL_PAD * 2;
+            const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
+            gemBg.fillStyle(0x0e001a, 0.72);
+            gemBg.fillRoundedRect(W - gemW - 4, 37, gemW, PILL_H, 9);
+            gemBg.lineStyle(1.5, 0xcc44ff, 0.45);
+            gemBg.strokeRoundedRect(W - gemW - 4, 37, gemW, PILL_H, 9);
 
-            // İkon: sayının hemen soluna yapışık
-            const gIcon = this.add.image(W-8-gTxt.width-4-ICON/2, _gY, "tex_gold_icon")
-                .setDisplaySize(ICON,ICON).setDepth(8).setAlpha(0);
-
-            this.tweens.add({targets:[gIcon,gTxt], alpha:1, duration:380, delay:460, ease:"Quad.easeOut"});
+            this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
         }
+
+        // ── SETTINGS — icon only, no background panel ──────────────────
+        {
+            const sX = 26, sY = 26;
+
+            const sRing = this.add.graphics().setDepth(8);
+            const _drawRing = (hov) => {
+                sRing.clear();
+                if(hov){
+                    sRing.fillStyle(0x000000, 0.25);
+                    sRing.fillCircle(sX, sY, 20);
+                    sRing.lineStyle(2.5, 0xffd700, 0.80);
+                    sRing.strokeCircle(sX, sY, 20);
+                }
+            };
+
+            const sIc = this.add.image(sX, sY, "mm_settings")
+                .setDisplaySize(30, 30).setDepth(9).setAlpha(0);
+
+            const sHit = this.add.rectangle(sX, sY, 48, 48)
+                .setDepth(10).setInteractive({useHandCursor:true}).setAlpha(0.001);
+            sHit.on("pointerover",  () => _drawRing(true));
+            sHit.on("pointerout",   () => _drawRing(false));
+            sHit.on("pointerdown",  () => { NT_SFX.play("menu_click"); this._showSettings(); });
+
+            this._menuHitZones.push(sHit);
+
+            this.tweens.add({targets: sIc, alpha:1, duration:380, delay:480, ease:"Quad.easeOut"});
+        }
+
+        // ── WHEEL + PASS mini buttons ──
+        {
+            const miniY=H-26;
+            [{label:'WHEEL',icon:'🎡',cb:()=>NT_Monetization.showFortuneWheel(this)},{label:'PASS',icon:'⭐',cb:()=>NT_Monetization.showBattlePass(this)}].forEach((md,i)=>{
+                const mx=CX-65+i*130;
+                const mg=this.add.graphics().setDepth(8).setAlpha(0);
+                const _dm=h=>{mg.clear();mg.fillStyle(h?0x1a2a3c:0x0e1828,1);mg.fillRoundedRect(mx-48,miniY-13,96,26,7);mg.lineStyle(1.5,h?0xffdd44:0x3a5a7a,h?0.9:0.5);mg.strokeRoundedRect(mx-48,miniY-13,96,26,7);};
+                _dm(false);
+                const mt=this.add.text(mx,miniY,md.icon+' '+md.label,{fontFamily:'LilitaOne,Arial,sans-serif',fontSize:'11px',color:'#ccddee',stroke:'#000',strokeThickness:2}).setOrigin(0.5).setDepth(9).setAlpha(0);
+                this.add.rectangle(mx,miniY,96,26,0xffffff,0.001).setDepth(10).setInteractive({useHandCursor:true}).on('pointerover',()=>_dm(true)).on('pointerout',()=>_dm(false)).on('pointerdown',()=>{NT_SFX.play('menu_click');md.cb();});
+                this.tweens.add({targets:[mg,mt],alpha:1,duration:380,delay:650,ease:'Quad.easeOut'});
+            });
+        }
+        // ── DAILY REWARD CHECK ──
+        NT_Monetization.checkDailyReward(this);
 
         // ── ENTRANCE: camera fade + panel pop-in + staggered button drop-in ─
         this.cameras.main.setAlpha(0);
@@ -8245,7 +9435,7 @@ class SceneMainMenu extends Phaser.Scene {
     _smooth(){
         try{
             const gl=this.renderer&&this.renderer.gl; if(!gl) return;
-            ["mm_bg","mm_panel","mm_small","mm_play","mm_settings","mm_howto","mm_lb"].forEach(k=>{
+            ["mm_bg","mm_panel","mm_small","mm_play","mm_settings","mm_shop","mm_howto","mm_lb"].forEach(k=>{
                 try{
                     const s=(this.textures.get(k)||{}).source; if(!s) return;
                     s.forEach(src=>{ if(src&&src.glTexture){
@@ -8275,7 +9465,8 @@ class SceneMainMenu extends Phaser.Scene {
         });
     }
 
-    // ── Settings — use mm_panel (large) for more room ─────────────────
+    // ── Shop ─────────────────────────────────────────────────────────
+    _showShop() { NT_Monetization.showShop(this); }
     _showSettings(){
         // Use mm_panel (340px wide) centered slightly higher to leave room
         const {A,close,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW,CX,depth}
@@ -8439,6 +9630,9 @@ class SceneGame extends Phaser.Scene {
     preload(){
         this.load.image("bg",           "assets/blue_background.png");
         this.load.image("pause_button",  "assets/pause_button.png");
+        this.load.image("icon_gold",     "assets/gold.png");
+        this.load.image("icon_gem",      "assets/gem.png");
+        this.load.image("icon_wheel",    "assets/wheel.png");
         this.load.image("ui_pause_win",  "assets/ui/Pause window.png");
         this.load.image("ui_btn_wide_g", "assets/ui/Yellow Wide button.png");
         this.load.image("ui_confirm",    "assets/ui/Confirm (4).png");
@@ -8702,9 +9896,9 @@ class SceneGame extends Phaser.Scene {
             _xpPerSecAccum:0, _xpPerSecWindow:0,
             _lastLevelUpTime:-9999,
             _recentOffers:[],
-            xpMult: Math.min(1.30, 1.0+(GOLD_UPGRADES.find(u=>u.id==="xp_bonus")?.level||0)*0.15),
+            xpMult: Math.min(2.0, (1.0+(GOLD_UPGRADES.find(u=>u.id==="xp_bonus")?.level||0)*0.15) * NT_Monetization.getXPMultiplier()),
             magnetRadius:40, // [v9.4] fixed small auto-collect radius (magnet upgrade removed)
-            goldMult: 1.0+(GOLD_UPGRADES.find(u=>u.id==="gold_bonus")?.level||0)*0.18, // [v10.1] 0.25→0.18 exploit önlendi
+            goldMult: (1.0+(GOLD_UPGRADES.find(u=>u.id==="gold_bonus")?.level||0)*0.18) * NT_Monetization.getGoldMultiplier(),
             gold:0, kills:0, t:0, score:0,
             pyramidSpeed:65, spawnDelay:1400, // erken oyun: YOK DENLİ yavaş başlar (was 90 / 900)
             invincible:false, gameOver:false, pickingUpgrade:false,
@@ -8777,6 +9971,7 @@ class SceneGame extends Phaser.Scene {
 
         // [ADIM 4] Sahip olunan relicları uygula
         applyOwnedRelics(GS);
+        if(NT_Monetization.isBoosterActive("shield")){GS.maxHealth+=1;GS.health+=1;NT_Monetization.consumeBooster("shield");}
 
 
         // [v9.2] Pipeline ile başlangıç stat'larını senkronize et
@@ -12559,6 +13754,7 @@ function damagePlayer(S){
             showCrystalRevivePrompt(S);
             return;
         }
+        if(NT_Monetization.isBoosterActive("autorevive")){NT_Monetization.consumeBooster("autorevive");gs.health=Math.min(gs.maxHealth,3);gs.invincible=true;gs._invT=0;S.time.delayedCall(5000,()=>{gs.invincible=false;});S.cameras.main.shake(180,0.020);showHitTxt(S,180,200,"AUTO-REVIVE!","#ff4466",true);return;}
         gameOver(S);
     }
 }
@@ -13468,6 +14664,7 @@ function gameOver(S){
     S.physics.pause(); S.time.timeScale=1;
     _hideMobileBtns(S);
     PLAYER_GOLD=gs.gold; secureSet("nt_gold",PLAYER_GOLD);
+    NT_Monetization.addBattlePassXP((gs.level||1)*10+(gs.kills||0));
     lbSubmitScore(gs.score||0, gs.kills||0, gs.level||1);
 
     const W=360, H=640, CX=W/2;
@@ -13545,7 +14742,7 @@ function gameOver(S){
         const gLbl=CURRENT_LANG==="en"?"GOLD":CURRENT_LANG==="ru"?"ЗОЛОТО":"ALTIN";
         _row(kLbl, String(gs.kills), "#ff7777");
         _row(lLbl, "Lv "+gs.level,  "#88ddff");
-        _row(gLbl, gs.gold+" ⬡",    "#ffcc44");
+        _row(gLbl, gs.gold+" GOLD",    "#ffcc44");
 
         if(cy+34<contentBot-10){
             cy+=4;
@@ -13583,6 +14780,9 @@ function gameOver(S){
             if(o===sprite) return;
             try{ o.setAlpha(0); S.tweens.add({targets:o,alpha:1,duration:200,delay:130}); }catch(_){}
         });
+
+        // Post-death offer
+        NT_Monetization.showPostDeathOffer(S);
     }
 
     // Ölüm animasyonu — player sprite'ı gizle, "death" textureli ayrı sprite oynat
@@ -15573,7 +16773,7 @@ function _startPhaserGame(){
             antialiasGL:    false,
             pixelArt:       true,
             roundPixels:    true,
-            resolution:     _IS_MOBILE_EARLY ? 1 : Math.min(window.devicePixelRatio || 1, 2), // [MOBILE PERF] mobilede resolution:1 → GPU yükü yarıya düşer
+            resolution:     Math.min(window.devicePixelRatio || 1, 2), // [QUALITY] tüm cihazlarda DPR kullan (maks 2x)
             powerPreference:"high-performance"
         },
         callbacks:{
@@ -15605,6 +16805,7 @@ function _startPhaserGame(){
                     "bg","pause_button","ui_pause_win","ui_btn_wide_g",
                     "ui_confirm","ui_decline","pyramid","zigzag",
                     "tex_chest_common","tex_chest_rare","tex_chest_legendary",
+                    "icon_gold","icon_gem","icon_wheel",
                 ]);
 
                 game.textures.on("addtexture", (key)=>{
