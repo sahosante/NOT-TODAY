@@ -2070,9 +2070,9 @@ const WHEEL = [
     { type:"gold",  amount:200,  w:18, color:0xffaa00, label:"200\nGOLD" },
     { type:"gold",  amount:500,  w:8,  color:0xff8800, label:"500\nGOLD" },
     { type:"gold",  amount:1000, w:3,  color:0xff6600, label:"1000\nGOLD" },
-    { type:"gem",   amount:3,    w:6,  color:0xcc44ff, label:"3\nGEM" },
-    { type:"gem",   amount:8,    w:3,  color:0xdd66ff, label:"8\nGEM" },
-    { type:"gem",   amount:20,   w:1,  color:0xee88ff, label:"20\nGEM" },
+    { type:"gem",   amount:3,    w:3,  color:0xcc44ff, label:"3\nGEM" },
+    { type:"gem",   amount:8,    w:1,  color:0xdd66ff, label:"8\nGEM" },
+    { type:"gem",   amount:20,   w:0.3,color:0xee88ff, label:"20\nGEM" },
     { type:"gold",  amount:150,  w:20, color:0xeebb00, label:"150\nGOLD" },
     { type:"gold",  amount:300,  w:12, color:0xddaa00, label:"300\nGOLD" },
 ];
@@ -2207,13 +2207,15 @@ function _dailyOK(){ const s=_s(); if(!s.dl) return true; if(s.dd>=7&&_sameDay(s
 function checkDaily(sc){ if(_dailyOK()) sc.time.delayedCall(600,()=>showDaily(sc)); }
 
 function showDaily(scene){
-    const {A,close,contentTop,contentBot,CX:cx,depth:D}
+    const {A,close,contentTop,contentBot,CX:cx,depth:D,objs}
         = NT_OpenPopup(scene,"mm_panel",300,"DAILY REWARD",320,20,null);
 
-    // Override: remove the default close button by hiding it
-    // NT_OpenPopup always adds close — we remove it since we only want CLAIM
-    // The close button is the last 3 objects added: [graphics, text, hitRect]
-    // We'll just leave it; user still needs a way out if they don't want to claim
+    // Remove the default close button (last 3 objects added by NT_OpenPopup: graphics, text, hitRect)
+    // Pop them from objs and destroy
+    for(let i=0;i<3;i++){
+        const o = objs.pop();
+        try{ if(o.disableInteractive) o.disableInteractive(); o.destroy(); }catch(_){}
+    }
 
     const s=_s();
     let cur=s.dd||0;
@@ -2300,7 +2302,7 @@ function showDaily(scene){
         showBigReward(scene, cx, claimY-30, reward.type, reward.amount, D+10);
 
         // Auto-dismiss after animation
-        scene.time.delayedCall(800, close);
+        scene.time.delayedCall(350, close);
     });
     A(cbg);A(cbt);A(cbh);
 }
@@ -2481,7 +2483,7 @@ function showWheel(scene){
     A(scene.add.text(CX,fY,cf?"✦  FREE SPIN  ✦":"WAITING...",{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
     .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
-    .on("pointerdown",()=>{if(!cf||spinning)return;_spin(true);});
+    .on("pointerdown",()=>{if(!_canFree()||spinning)return;_spin(true);});
 
     // ── GEM SPIN button ──
     const gY=fY+44;
@@ -2769,15 +2771,7 @@ function showShop(scene){
                     _add(T(cx-PW/2+24,SY0+y+36,infoStr,{fontFamily:_F,fontSize:"8px",color:"#5588aa",stroke:"#000",strokeThickness:1,wordWrap:{width:PW-80}}).setOrigin(0,0.5));
                     _add(T(cx-PW/2+24,SY0+y+52,"⚔️🛡️ Weapon & Character Skins",{fontFamily:_F,fontSize:"9px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=68,bh=30;
-                    _btn(bx,SY0+y+rowH/2,bw,bh,ch.cost.toString(),canB?0x3a0068:0x1e1e28,canB?0xcc44ff:0x443355,null);
-                    _addCurrIcon(bx-26,SY0+y+rowH/2,"gem",18);
-                    _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
-                        if(PLAYER_GEMS<ch.cost){scene.cameras.main.shake(30,0.006);return;}
-                        spendGems(ch.cost);NT_SFX.play("chest_open","rare");
-                        const skin=_rollChestSkin(ci);
-                        showSkinReward(scene,cx,SY0+y+rowH/2,skin,D+10);
-                        scene.time.delayedCall(700,()=>_sh());
-                    });
+                    _btn(bx,SY0+y+rowH/2,bw,bh,"Soon",0x1e1e28,0x443355,null);
                     y+=rowH+6;
                 });
                 totalH=y+10;
@@ -9533,69 +9527,79 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
 
-        // ── HIGH SCORE — ortada, panel üstünde ────────────────────────
+        // ── TOP BAR: gem, gold, highscore — yan yana, en üstte ────
         {
-            const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
-            if(hs > 0){
-                const hsY = pTop - 30;
-                const hsW = 176;
-                const R   = 15;
-
-                const hsBgG = this.add.graphics().setDepth(5).setAlpha(0);
-                hsBgG.fillStyle(0x1a1000, 0.92);
-                hsBgG.fillRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
-                hsBgG.lineStyle(2, 0xFFD700, 0.85);
-                hsBgG.strokeRoundedRect(CX-hsW/2, hsY-15, hsW, 30, R);
-                hsBgG.fillStyle(0xffffff, 0.07);
-                hsBgG.fillRoundedRect(CX-hsW/2+6, hsY-12, hsW-12, 8, {tl:R-2,tr:R-2,bl:0,br:0});
-
-                const hsTxt = this.add.text(CX, hsY, "🏆  "+hs.toLocaleString(), {
-                    fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
-                    color:"#FFD700", stroke:"#000", strokeThickness:2
-                }).setOrigin(0.5).setDepth(6).setAlpha(0);
-
-                this.tweens.add({targets:[hsBgG,hsTxt], alpha:1, duration:400, delay:420, ease:"Quad.easeOut"});
-            }
-        }
-
-        // ── CURRENCY: gold + gems — top right ────
-        {
-            const PILL_PAD = 8, ICON_SZ = 24, PILL_H = 30;
+            const TOP_Y = 22, PILL_H = 34, PILL_PAD = 8, ICON_SZ = 28, GAP = 6;
             const _self = this;
 
-            // ── GOLD pill ──
-            const goldTxt = this.add.text(W - PILL_PAD, 21, PLAYER_GOLD.toLocaleString(), {
+            // [QUALITY] Apply LINEAR filter to icon textures for crisp rendering
+            this.time.delayedCall(50, () => {
+                try {
+                    const gl = this.renderer && this.renderer.gl;
+                    if (!gl) return;
+                    ["icon_gold", "icon_gem"].forEach(key => {
+                        const src = (this.textures.get(key) || {}).source;
+                        if (src) src.forEach(s => {
+                            if (s && s.glTexture) {
+                                gl.bindTexture(gl.TEXTURE_2D, s.glTexture);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                                gl.generateMipmap(gl.TEXTURE_2D);
+                                gl.bindTexture(gl.TEXTURE_2D, null);
+                            }
+                        });
+                    });
+                } catch (_) {}
+            });
+
+            // ── GEM pill (sol) ──
+            const gemTxt = this.add.text(0, TOP_Y, PLAYER_GEMS.toLocaleString(), {
                 fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'18px',
-                color:'#FFD700', stroke:'#000', strokeThickness:2
-            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
-            const goldIc = this.add.image(
-                W - PILL_PAD - goldTxt.width - 6 - ICON_SZ/2, 21,
-                "icon_gold"
-            ).setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const gW = ICON_SZ + 6 + goldTxt.width + PILL_PAD * 2;
-            const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
-            goldBg.fillStyle(0x1a0f00, 0.72);
-            goldBg.fillRoundedRect(W - gW - 4, 7, gW, PILL_H, 9);
-            goldBg.lineStyle(1.5, 0xffcc00, 0.45);
-            goldBg.strokeRoundedRect(W - gW - 4, 7, gW, PILL_H, 9);
-
-            // ── GEM pill ──
-            const gemTxt = this.add.text(W - PILL_PAD, 51, PLAYER_GEMS.toLocaleString(), {
-                fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'16px',
-                color:'#cc88ff', stroke:'#000', strokeThickness:2
-            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
-            const gemIc = this.add.image(
-                W - PILL_PAD - gemTxt.width - 6 - ICON_SZ/2, 51,
-                "icon_gem"
-            ).setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const gemW = ICON_SZ + 6 + gemTxt.width + PILL_PAD * 2;
+                color:'#cc88ff', stroke:'#000', strokeThickness:3
+            }).setOrigin(0, 0.5).setDepth(9).setAlpha(0);
+            const gemIcX = PILL_PAD + ICON_SZ/2;
+            const gemIc = this.add.image(gemIcX, TOP_Y, "icon_gem")
+                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            gemTxt.setX(PILL_PAD + ICON_SZ + 5);
+            const gemW = PILL_PAD + ICON_SZ + 5 + gemTxt.width + PILL_PAD;
             const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
-            gemBg.fillStyle(0x0e001a, 0.72);
-            gemBg.fillRoundedRect(W - gemW - 4, 37, gemW, PILL_H, 9);
-            gemBg.lineStyle(1.5, 0xcc44ff, 0.45);
-            gemBg.strokeRoundedRect(W - gemW - 4, 37, gemW, PILL_H, 9);
+            gemBg.fillStyle(0x0e001a, 0.78);
+            gemBg.fillRoundedRect(0, TOP_Y - PILL_H/2, gemW, PILL_H, 11);
+            gemBg.lineStyle(2, 0xcc44ff, 0.55);
+            gemBg.strokeRoundedRect(0, TOP_Y - PILL_H/2, gemW, PILL_H, 11);
 
-            this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
+            // ── GOLD pill (orta) ──
+            const goldStartX = gemW + GAP;
+            const goldTxt = this.add.text(0, TOP_Y, PLAYER_GOLD.toLocaleString(), {
+                fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'18px',
+                color:'#FFD700', stroke:'#000', strokeThickness:3
+            }).setOrigin(0, 0.5).setDepth(9).setAlpha(0);
+            const goldIc = this.add.image(goldStartX + PILL_PAD + ICON_SZ/2, TOP_Y, "icon_gold")
+                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            goldTxt.setX(goldStartX + PILL_PAD + ICON_SZ + 5);
+            const goldW = PILL_PAD + ICON_SZ + 5 + goldTxt.width + PILL_PAD;
+            const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
+            goldBg.fillStyle(0x1a0f00, 0.78);
+            goldBg.fillRoundedRect(goldStartX, TOP_Y - PILL_H/2, goldW, PILL_H, 11);
+            goldBg.lineStyle(2, 0xffcc00, 0.55);
+            goldBg.strokeRoundedRect(goldStartX, TOP_Y - PILL_H/2, goldW, PILL_H, 11);
+
+            // ── HIGHSCORE pill (sağ) ──
+            const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
+            const hsStartX = goldStartX + goldW + GAP;
+            const hsStr = "🏆 " + (hs > 0 ? hs.toLocaleString() : "0");
+            const hsTxt = this.add.text(hsStartX + PILL_PAD, TOP_Y, hsStr, {
+                fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'16px',
+                color:'#FFD700', stroke:'#000', strokeThickness:3
+            }).setOrigin(0, 0.5).setDepth(9).setAlpha(0);
+            const hsW = PILL_PAD + hsTxt.width + PILL_PAD;
+            const hsBg = this.add.graphics().setDepth(7).setAlpha(0);
+            hsBg.fillStyle(0x1a1000, 0.78);
+            hsBg.fillRoundedRect(hsStartX, TOP_Y - PILL_H/2, hsW, PILL_H, 11);
+            hsBg.lineStyle(2, 0xFFD700, 0.55);
+            hsBg.strokeRoundedRect(hsStartX, TOP_Y - PILL_H/2, hsW, PILL_H, 11);
+
+            this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc,hsBg,hsTxt], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
 
             // ── HUD REFRESH: periodically update gold/gem display ──
             _self._mmGoldTxt = goldTxt;
@@ -9610,30 +9614,34 @@ class SceneMainMenu extends Phaser.Scene {
                 const gemStr = PLAYER_GEMS.toLocaleString();
                 if(goldTxt.text !== gStr){
                     goldTxt.setText(gStr);
-                    goldIc.setX(W - PILL_PAD - goldTxt.width - 6 - ICON_SZ/2);
+                    const newGemW2 = PILL_PAD + ICON_SZ + 5 + gemTxt.width + PILL_PAD;
+                    const newGoldStartX = newGemW2 + GAP;
+                    goldIc.setX(newGoldStartX + PILL_PAD + ICON_SZ/2);
+                    goldTxt.setX(newGoldStartX + PILL_PAD + ICON_SZ + 5);
+                    const newGoldW = PILL_PAD + ICON_SZ + 5 + goldTxt.width + PILL_PAD;
                     goldBg.clear();
-                    const newGW = ICON_SZ + 6 + goldTxt.width + PILL_PAD * 2;
-                    goldBg.fillStyle(0x1a0f00, 0.72);
-                    goldBg.fillRoundedRect(W - newGW - 4, 7, newGW, PILL_H, 9);
-                    goldBg.lineStyle(1.5, 0xffcc00, 0.45);
-                    goldBg.strokeRoundedRect(W - newGW - 4, 7, newGW, PILL_H, 9);
+                    goldBg.fillStyle(0x1a0f00, 0.78);
+                    goldBg.fillRoundedRect(newGoldStartX, TOP_Y - PILL_H/2, newGoldW, PILL_H, 11);
+                    goldBg.lineStyle(2, 0xffcc00, 0.55);
+                    goldBg.strokeRoundedRect(newGoldStartX, TOP_Y - PILL_H/2, newGoldW, PILL_H, 11);
                 }
                 if(gemTxt.text !== gemStr){
                     gemTxt.setText(gemStr);
-                    gemIc.setX(W - PILL_PAD - gemTxt.width - 6 - ICON_SZ/2);
+                    gemIc.setX(PILL_PAD + ICON_SZ/2);
+                    gemTxt.setX(PILL_PAD + ICON_SZ + 5);
+                    const newGemW3 = PILL_PAD + ICON_SZ + 5 + gemTxt.width + PILL_PAD;
                     gemBg.clear();
-                    const newGemW = ICON_SZ + 6 + gemTxt.width + PILL_PAD * 2;
-                    gemBg.fillStyle(0x0e001a, 0.72);
-                    gemBg.fillRoundedRect(W - newGemW - 4, 37, newGemW, PILL_H, 9);
-                    gemBg.lineStyle(1.5, 0xcc44ff, 0.45);
-                    gemBg.strokeRoundedRect(W - newGemW - 4, 37, newGemW, PILL_H, 9);
+                    gemBg.fillStyle(0x0e001a, 0.78);
+                    gemBg.fillRoundedRect(0, TOP_Y - PILL_H/2, newGemW3, PILL_H, 11);
+                    gemBg.lineStyle(2, 0xcc44ff, 0.55);
+                    gemBg.strokeRoundedRect(0, TOP_Y - PILL_H/2, newGemW3, PILL_H, 11);
                 }
             }});
         }
 
         // ── SETTINGS — icon only, no background panel ──────────────────
         {
-            const sX = 26, sY = 26;
+            const sX = 334, sY = 26;
 
             const sRing = this.add.graphics().setDepth(8);
             const _drawRing = (hov) => {
@@ -10877,6 +10885,9 @@ class SceneGame extends Phaser.Scene {
         GS._countdownActive = true;
         if(this.spawnEvent) this.spawnEvent.paused = true;
         this.physics.pause();
+
+        // [FIX] Gold icon pozisyonunu countdown öncesi doğru ayarla
+        renderUI(this);
 
         const _cdDepth = 850;
         const CX_CD = 180, CY_CD = 280;
