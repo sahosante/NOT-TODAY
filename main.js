@@ -1969,6 +1969,75 @@ function showBigReward(scene, x, y, type, amount, depth){
     else { PLAYER_GOLD += amount; secureSet("nt_gold", PLAYER_GOLD); }
 }
 
+// Skin reward animation for chest drops
+function showSkinReward(scene, x, y, skin, depth){
+    const D = depth || 800;
+    const col = skin.col;
+    const colStr = "#"+col.toString(16).padStart(6,"0");
+    const rarCols = {COMMON:"#999999",RARE:"#4488ff",EXOTIC:"#bb44ff",LEGENDARY:"#ffaa00"};
+    const rarCol = rarCols[skin.rar]||"#ffffff";
+
+    // 1) Screen flash
+    const flash = scene.add.graphics().setDepth(D+30);
+    flash.fillStyle(col, 0.30); flash.fillRect(0,0,W,H);
+    scene.tweens.add({targets:flash, alpha:0, duration:500, onComplete:()=>flash.destroy()});
+
+    // 2) Camera shake (bigger for rarer)
+    const shakeAmt = skin.tier===4?0.025:skin.tier===3?0.018:skin.tier===2?0.012:0.008;
+    scene.cameras.main.shake(80, shakeAmt);
+
+    // 3) Radial particle burst
+    const pCount = 12 + skin.tier*8;
+    for(let i=0; i<pCount; i++){
+        const ang = (Math.PI*2/pCount)*i;
+        const spd = Phaser.Math.Between(50, 150);
+        const sz  = Phaser.Math.Between(2, 5+skin.tier);
+        const p = scene.add.graphics().setDepth(D+31);
+        p.fillStyle(col, 0.9); p.fillCircle(0, 0, sz);
+        p.x = x; p.y = y;
+        scene.tweens.add({targets:p,x:x+Math.cos(ang)*spd,y:y+Math.sin(ang)*spd*0.7,alpha:0,scaleX:0.05,scaleY:0.05,duration:Phaser.Math.Between(350,700),ease:"Quad.easeOut",onComplete:()=>p.destroy()});
+    }
+
+    // 4) Ring expansion
+    for(let r=0; r<3; r++){
+        scene.time.delayedCall(r*100, ()=>{
+            const ring = scene.add.graphics().setDepth(D+30);
+            ring.x = x; ring.y = y;
+            ring.lineStyle(3+skin.tier, col, 0.8);
+            ring.strokeCircle(0, 0, 8+r*12);
+            scene.tweens.add({targets:ring,scaleX:4+r,scaleY:4+r,alpha:0,duration:500,ease:"Quad.easeOut",onComplete:()=>ring.destroy()});
+        });
+    }
+
+    // 5) Skin name text
+    const catIcon = skin.cat==="weapon"?"⚔️":"🛡️";
+    const txt = scene.add.text(x, y-10, catIcon+" "+skin.name, {
+        fontFamily:_F, fontSize:"22px", color:colStr,
+        stroke:"#000000", strokeThickness:5
+    }).setOrigin(0.5).setDepth(D+32).setAlpha(0).setScale(0.3);
+
+    scene.tweens.add({targets:txt,alpha:1,scaleX:1.15,scaleY:1.15,y:y-55,duration:450,ease:"Back.easeOut",
+        onComplete:()=>{
+            scene.tweens.add({targets:txt,scaleX:1,scaleY:1,duration:150,ease:"Quad.easeOut"});
+            scene.time.delayedCall(2000,()=>{
+                scene.tweens.add({targets:txt,alpha:0,y:y-80,duration:350,ease:"Quad.easeIn",onComplete:()=>txt.destroy()});
+            });
+        }
+    });
+
+    // 6) Rarity label
+    const sub = scene.add.text(x, y-10, skin.rar+" "+skin.cat.toUpperCase()+" SKIN", {
+        fontFamily:_F, fontSize:"11px", color:rarCol,
+        stroke:"#000000", strokeThickness:2
+    }).setOrigin(0.5).setDepth(D+32).setAlpha(0);
+    scene.tweens.add({targets:sub,alpha:0.85,y:y-28,duration:500,delay:200,ease:"Quad.easeOut",
+        onComplete:()=>{scene.time.delayedCall(1600,()=>scene.tweens.add({targets:sub,alpha:0,duration:300,onComplete:()=>sub.destroy()}));}
+    });
+
+    // 7) Unlock the skin
+    _unlockSkin(skin.id);
+}
+
 // Small utility for booster reward (no currency)
 function showBoosterReward(scene, x, y, name, depth){
     const D = depth||800;
@@ -1996,32 +2065,79 @@ const DAILY = [
 ];
 
 const WHEEL = [
-    { type:"chest", amount:1,    w:2  },
-    { type:"gem",   amount:3,    w:5  },
-    { type:"gold",  amount:200,  w:25 },
-    { type:"gold",  amount:100,  w:28 },
-    { type:"gem",   amount:8,    w:4  },
-    { type:"gold",  amount:500,  w:5  },
-    { type:"gold",  amount:50,   w:30 },
-    { type:"gem",   amount:15,   w:1  },
+    { type:"gold",  amount:50,   w:30, color:0xffcc00, label:"50\nGOLD" },
+    { type:"gold",  amount:100,  w:28, color:0xffdd22, label:"100\nGOLD" },
+    { type:"gold",  amount:200,  w:18, color:0xffaa00, label:"200\nGOLD" },
+    { type:"gold",  amount:500,  w:8,  color:0xff8800, label:"500\nGOLD" },
+    { type:"gold",  amount:1000, w:3,  color:0xff6600, label:"1000\nGOLD" },
+    { type:"gem",   amount:3,    w:6,  color:0xcc44ff, label:"3\nGEM" },
+    { type:"gem",   amount:8,    w:3,  color:0xdd66ff, label:"8\nGEM" },
+    { type:"gem",   amount:20,   w:1,  color:0xee88ff, label:"20\nGEM" },
+    { type:"gold",  amount:150,  w:20, color:0xeebb00, label:"150\nGOLD" },
+    { type:"gold",  amount:300,  w:12, color:0xddaa00, label:"300\nGOLD" },
 ];
 const WHEEL_FREE_CD = 4*3600000;
 const WHEEL_COST = 10;
 
-const CHEST_CD = 4*3600000;
-const CHESTS = [
-    { name:"COMMON",    cost:10,  col:0x888888, gold:200,  gems:2  },
-    { name:"RARE",      cost:30,  col:0x3388ee, gold:600,  gems:8  },
-    { name:"EXOTIC",    cost:80,  col:0xaa44ff, gold:1200, gems:15 },
-    { name:"LEGENDARY", cost:200, col:0xffaa00, gold:2500, gems:30, tag:"BEST" },
+const CHEST_SKINS = [
+    // COMMON drops
+    { id:"rusty_blade",    name:"Rusty Blade",      cat:"weapon", rar:"COMMON",    col:0x888888, tier:1 },
+    { id:"wooden_shield",  name:"Wooden Shield",    cat:"weapon", rar:"COMMON",    col:0x996633, tier:1 },
+    { id:"basic_armor",    name:"Basic Armor",      cat:"char",   rar:"COMMON",    col:0x777777, tier:1 },
+    { id:"desert_cloak",   name:"Desert Cloak",     cat:"char",   rar:"COMMON",    col:0xccaa66, tier:1 },
+    // RARE drops
+    { id:"shadow_blade",   name:"Shadow Blade",     cat:"weapon", rar:"RARE",      col:0x2266ee, tier:2 },
+    { id:"frost_bow",      name:"Frost Bow",        cat:"weapon", rar:"RARE",      col:0x88ddff, tier:2 },
+    { id:"shadow_walk",    name:"Shadow Walker",    cat:"char",   rar:"RARE",      col:0x4444cc, tier:2 },
+    { id:"crimson_guard",  name:"Crimson Guard",    cat:"char",   rar:"RARE",      col:0xcc2222, tier:2 },
+    // EXOTIC drops
+    { id:"flame_sword",    name:"Flame Sword",      cat:"weapon", rar:"EXOTIC",    col:0xff4400, tier:3 },
+    { id:"thunder_axe",    name:"Thunder Axe",      cat:"weapon", rar:"EXOTIC",    col:0xffdd00, tier:3 },
+    { id:"chrome_knight",  name:"Chrome Knight",    cat:"char",   rar:"EXOTIC",    col:0xbbbbbb, tier:3 },
+    { id:"void_assassin",  name:"Void Assassin",    cat:"char",   rar:"EXOTIC",    col:0x6600cc, tier:3 },
+    // LEGENDARY drops
+    { id:"divine_sword",   name:"Divine Sword",     cat:"weapon", rar:"LEGENDARY", col:0xffaa00, tier:4 },
+    { id:"galaxy_blade",   name:"Galaxy Blade",     cat:"weapon", rar:"LEGENDARY", col:0x44aaff, tier:4 },
+    { id:"gold_warrior",   name:"Golden Warrior",   cat:"char",   rar:"LEGENDARY", col:0xffaa00, tier:4 },
+    { id:"phoenix_lord",   name:"Phoenix Lord",     cat:"char",   rar:"LEGENDARY", col:0xff4400, tier:4 },
 ];
+
+// Chest tiers: higher cost = higher chance of rare/legendary
+const CHESTS = [
+    { name:"COMMON",    cost:10,  col:0x888888, tierWeights:[60,30,8,2],  tag:null },
+    { name:"RARE",      cost:30,  col:0x3388ee, tierWeights:[25,45,22,8], tag:null },
+    { name:"EXOTIC",    cost:80,  col:0xaa44ff, tierWeights:[8,25,45,22], tag:null },
+    { name:"LEGENDARY", cost:200, col:0xffaa00, tierWeights:[2,10,30,58], tag:"BEST" },
+];
+
+function _rollChestSkin(chestIdx){
+    const ch = CHESTS[chestIdx];
+    const tw = ch.tierWeights;
+    // Pick a tier based on weights
+    const total = tw.reduce((a,b)=>a+b,0);
+    let rn = Math.random()*total, tier=1;
+    for(let i=0;i<tw.length;i++){rn-=tw[i];if(rn<=0){tier=i+1;break;}}
+    // Filter skins by tier
+    const pool = CHEST_SKINS.filter(s=>s.tier===tier);
+    if(!pool.length) return CHEST_SKINS[0]; // fallback
+    return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function _unlockSkin(skinId){
+    const owned = JSON.parse(localStorage.getItem("nt_skins")||"[]");
+    if(!owned.includes(skinId)){owned.push(skinId);localStorage.setItem("nt_skins",JSON.stringify(owned));}
+}
+function _hasSkin(skinId){
+    const owned = JSON.parse(localStorage.getItem("nt_skins")||"[]");
+    return owned.includes(skinId);
+}
 
 const BOOSTS = [
     { id:"gold2x",    name:"2X GOLD",     desc:"2x gold for 2 hours",       icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
     { id:"xp2x",      name:"2X XP",       desc:"2x XP for 2 hours",        icon:"📚", dur:7200000, cost:20, col:0x44aaff },
     { id:"shield",     name:"SHIELD",      desc:"Start with +1 HP",          icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
     { id:"autorevive", name:"AUTO-REVIVE", desc:"Auto revive once on death", icon:"💖", dur:0,       cost:25, col:0xff4466 },
-    { id:"luckcharm",  name:"LUCK+",       desc:"+50% rare chest (2 hours)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
+    { id:"luckcharm",  name:"LUCK+",       desc:"+50% rare skin drop (2 hours)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
 ];
 
 const BP = [
@@ -2205,52 +2321,149 @@ function showWheel(scene){
     let _wheelListener=null;
 
     // Overlay
-    A(scene.add.rectangle(CX,H/2,W,H,0x000000,0.82).setDepth(D).setInteractive());
+    A(scene.add.rectangle(CX,H/2,W,H,0x000000,0.88).setDepth(D).setInteractive());
 
-    // Title
-    A(scene.add.text(CX,18,"FORTUNE WHEEL",{fontFamily:_F,fontSize:"24px",color:"#ffdd44",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+2));
+    // Title with glow
+    const titleGlow=A(scene.add.text(CX,20,"FORTUNE WHEEL",{fontFamily:_F,fontSize:"26px",color:"#ffdd44",stroke:"#000",strokeThickness:5}).setOrigin(0.5).setDepth(D+2));
+    const tgv={v:0};
+    A({destroy:()=>{},scene:scene});
+    scene.tweens.add({targets:tgv,v:1,duration:1500,yoyo:true,repeat:-1,ease:"Sine.easeInOut",
+        onUpdate:()=>{if(!titleGlow.scene)return;titleGlow.setAlpha(0.85+tgv.v*0.15);}});
 
-    // Wheel using asset
-    const R=162, WY=230, SC=WHEEL.length, SA=Math.PI*2/SC;
+    // ── WHEEL CONFIG ──
+    const R=140, WY=235, SC=WHEEL.length, SA=Math.PI*2/SC;
     let wAngle=0;
 
-    // Wheel image (rotates)
-    const wheelImg=A(scene.add.image(CX,WY,"icon_wheel").setDisplaySize(R*2+6,R*2+6).setDepth(D+2));
+    // ── Draw custom wheel graphic ──
+    const wheelGfx=A(scene.add.graphics().setDepth(D+2));
+    wheelGfx.x=CX; wheelGfx.y=WY;
 
-    // Slice labels (rotate with wheel)
+    // Sector colors (alternating rich tones)
+    const sectorColors=[
+        0xd4a017, 0x1a5276, 0xc0392b, 0x1e8449,
+        0x8e44ad, 0xd35400, 0x2471a3, 0xb7950b,
+        0x6c3483, 0x148f77
+    ];
+
+    function _drawWheel(angle){
+        wheelGfx.clear();
+        wheelGfx.setRotation(angle);
+
+        // Outer ring shadow
+        wheelGfx.fillStyle(0x000000, 0.4);
+        wheelGfx.fillCircle(3, 3, R+8);
+
+        // Outer ring
+        wheelGfx.lineStyle(6, 0xffcc00, 1);
+        wheelGfx.strokeCircle(0, 0, R+4);
+        wheelGfx.lineStyle(2, 0xffffff, 0.3);
+        wheelGfx.strokeCircle(0, 0, R+7);
+
+        // Draw sectors
+        for(let i=0;i<SC;i++){
+            const startA = i*SA - Math.PI/2;
+            const endA = startA + SA;
+            const col = sectorColors[i % sectorColors.length];
+
+            // Filled sector
+            wheelGfx.fillStyle(col, 1);
+            wheelGfx.beginPath();
+            wheelGfx.moveTo(0, 0);
+            wheelGfx.arc(0, 0, R, startA, endA, false);
+            wheelGfx.closePath();
+            wheelGfx.fillPath();
+
+            // Sector border
+            wheelGfx.lineStyle(2, 0xffffff, 0.25);
+            wheelGfx.beginPath();
+            wheelGfx.moveTo(0, 0);
+            wheelGfx.lineTo(Math.cos(startA)*R, Math.sin(startA)*R);
+            wheelGfx.strokePath();
+
+            // Inner highlight (lighter gradient effect)
+            wheelGfx.fillStyle(0xffffff, 0.08);
+            wheelGfx.beginPath();
+            wheelGfx.moveTo(0, 0);
+            wheelGfx.arc(0, 0, R*0.55, startA, endA, false);
+            wheelGfx.closePath();
+            wheelGfx.fillPath();
+        }
+
+        // Center hub shadow
+        wheelGfx.fillStyle(0x000000, 0.5);
+        wheelGfx.fillCircle(2, 2, 22);
+        // Center hub
+        wheelGfx.fillStyle(0x222222, 1);
+        wheelGfx.fillCircle(0, 0, 20);
+        wheelGfx.lineStyle(3, 0xffcc00, 0.9);
+        wheelGfx.strokeCircle(0, 0, 20);
+        wheelGfx.fillStyle(0x333333, 1);
+        wheelGfx.fillCircle(0, 0, 12);
+        wheelGfx.fillStyle(0xffcc00, 0.6);
+        wheelGfx.fillCircle(0, 0, 5);
+
+        // Dot decorations on outer ring
+        for(let i=0;i<SC*2;i++){
+            const da = (Math.PI*2/(SC*2))*i - Math.PI/2;
+            const dx = Math.cos(da)*(R+4);
+            const dy = Math.sin(da)*(R+4);
+            wheelGfx.fillStyle(i%2===0?0xffee88:0xffffff, 0.9);
+            wheelGfx.fillCircle(dx, dy, 3);
+        }
+    }
+    _drawWheel(0);
+
+    // ── Slice labels (rotate with wheel) ──
     const lbls=[];
     for(let i=0;i<SC;i++){
-        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.57;
+        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.65;
         const sl=WHEEL[i];
-        // chest tipi sektöre yazı yazma — zaten chest ikonu var
-        if(sl.type==="chest"){
-            lbls.push({setPosition:()=>{},setRotation:()=>{}});
-            continue;
-        }
         const isGld=sl.type==="gold";
-        const lbl=isGld?(sl.amount+"\nGOLD"):(sl.amount+"\nGEM");
-        const col=isGld?"#ffdd44":"#cc88ff";
+        const lbl=sl.label || (isGld?(sl.amount+"\nGOLD"):(sl.amount+"\nGEM"));
+        const col=isGld?"#fff":"#ffddff";
         const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
-            fontFamily:_F,fontSize:"16px",color:col,stroke:"#000",strokeThickness:5,align:"center",lineSpacing:4
+            fontFamily:_F,fontSize:sl.amount>=500?"13px":"14px",color:col,stroke:"#000",strokeThickness:4,align:"center",lineSpacing:2
         }).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
         lbls.push(t);
     }
-    function _uL(a){for(let i=0;i<SC;i++){const mid=a+i*SA+SA/2-Math.PI/2,lr=R*0.57;lbls[i].setPosition(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr).setRotation(mid+Math.PI/2);}}
+    function _uL(a){for(let i=0;i<SC;i++){const mid=a+i*SA+SA/2-Math.PI/2,lr=R*0.65;lbls[i].setPosition(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr).setRotation(mid+Math.PI/2);}}
 
-    // Arrow pointer (drawn) — wheel dışında, üstte sabit
+    // ── Arrow pointer — premium 3D look ──
     const ar=A(scene.add.graphics().setDepth(D+6));
-    ar.fillStyle(0xff2244,1);
-    ar.fillTriangle(CX,WY-R+2, CX-14,WY-R-26, CX+14,WY-R-26);
-    ar.lineStyle(2.5,0xffffff,0.7);
-    ar.lineBetween(CX,WY-R+2,CX-14,WY-R-26);
-    ar.lineBetween(CX,WY-R+2,CX+14,WY-R-26);
-    ar.fillStyle(0xffffff,0.30);
-    ar.fillTriangle(CX-1,WY-R-2, CX-9,WY-R-22, CX+7,WY-R-22);
+    // Shadow
+    ar.fillStyle(0x000000,0.4);
+    ar.fillTriangle(CX+2,WY-R+4, CX-14,WY-R-28, CX+18,WY-R-28);
+    // Main arrow
+    ar.fillStyle(0xff1133,1);
+    ar.fillTriangle(CX,WY-R+2, CX-16,WY-R-30, CX+16,WY-R-30);
+    // Highlight
+    ar.fillStyle(0xff6677,0.6);
+    ar.fillTriangle(CX-2,WY-R-4, CX-10,WY-R-26, CX+8,WY-R-26);
+    // Border
+    ar.lineStyle(2.5,0xffffff,0.8);
+    ar.lineBetween(CX,WY-R+2,CX-16,WY-R-30);
+    ar.lineBetween(CX,WY-R+2,CX+16,WY-R-30);
+    ar.lineBetween(CX-16,WY-R-30,CX+16,WY-R-30);
+    // Dot
+    ar.fillStyle(0xffffff,0.9);
+    ar.fillCircle(CX,WY-R-18,4);
+
+    // ── Outer glow ring animation ──
+    const glowRing=A(scene.add.graphics().setDepth(D+1));
+    const grv={v:0};
+    scene.tweens.add({targets:grv,v:1,duration:2000,yoyo:true,repeat:-1,ease:"Sine.easeInOut",
+        onUpdate:()=>{
+            if(!glowRing.scene)return;
+            glowRing.clear();
+            glowRing.lineStyle(4+grv.v*6,0xffcc00,0.05+grv.v*0.12);
+            glowRing.strokeCircle(CX,WY,R+14+grv.v*8);
+        }
+    });
 
     // Timer display
     const cf=_canFree();
     if(!cf){
-        const tt=A(scene.add.text(CX,WY+R+22,"",{fontFamily:_F,fontSize:"12px",color:"#ff8844",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
+        const tt=A(scene.add.text(CX,WY+R+26,"",{fontFamily:_F,fontSize:"12px",color:"#ff8844",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
         const te=scene.time.addEvent({delay:500,loop:true,callback:()=>{
             if(!tt.scene){te.remove();return;}
             const r=_freeT(); if(r<=0){tt.setText("FREE SPIN READY!").setColor("#44ff66");te.remove();return;}
@@ -2261,47 +2474,83 @@ function showWheel(scene){
     }
 
     // ── FREE SPIN button ──
-    const fY=WY+R+48;
+    const fY=WY+R+52;
     const fBg=A(scene.add.graphics().setDepth(D+3));
-    const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,32,8);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,32,8);if(cf&&h){fBg.fillStyle(0xffffff,0.06);fBg.fillRoundedRect(CX-106,fY-14,212,10,{tl:7,tr:7,bl:0,br:0});}};
+    const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
-    A(scene.add.text(CX,fY,cf?"FREE SPIN":"WAITING...",{fontFamily:_F,fontSize:"15px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
-    A(scene.add.rectangle(CX,fY,216,32,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
+    A(scene.add.text(CX,fY,cf?"✦  FREE SPIN  ✦":"WAITING...",{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
+    A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
     .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
     .on("pointerdown",()=>{if(!cf||spinning)return;_spin(true);});
 
     // ── GEM SPIN button ──
-    const gY=fY+40;
+    const gY=fY+44;
     const gBg=A(scene.add.graphics().setDepth(D+3));
-    const _dG=h=>{gBg.clear();gBg.fillStyle(h?0x5020aa:0x380068,1);gBg.fillRoundedRect(CX-108,gY-16,216,32,8);gBg.lineStyle(2,0xbb44ff,0.8);gBg.strokeRoundedRect(CX-108,gY-16,216,32,8);if(h){gBg.fillStyle(0xffffff,0.06);gBg.fillRoundedRect(CX-106,gY-14,212,10,{tl:7,tr:7,bl:0,br:0});}};
+    const _dG=h=>{gBg.clear();gBg.fillStyle(0x000000,0.35);gBg.fillRoundedRect(CX-108+2,gY-16+2,216,34,10);gBg.fillStyle(h?0x5020aa:0x380068,1);gBg.fillRoundedRect(CX-108,gY-16,216,34,10);gBg.lineStyle(2,0xbb44ff,0.8);gBg.strokeRoundedRect(CX-108,gY-16,216,34,10);if(h){gBg.fillStyle(0xffffff,0.08);gBg.fillRoundedRect(CX-106,gY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dG(false);
-    // Gem icon + cost text
     const gemCostTxt=A(scene.add.text(CX+10,gY,WHEEL_COST+"  GEM SPIN",{fontFamily:_F,fontSize:"15px",color:"#dd88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
     if(scene.textures.exists("icon_gem")){A(scene.add.image(CX-52,gY,"icon_gem").setDisplaySize(22,22).setDepth(D+4));}
-    A(scene.add.rectangle(CX,gY,216,32,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:true}))
+    A(scene.add.rectangle(CX,gY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:true}))
     .on("pointerover",()=>_dG(true)).on("pointerout",()=>_dG(false))
     .on("pointerdown",()=>{if(spinning)return;if(PLAYER_GEMS<WHEEL_COST){scene.cameras.main.shake(30,0.006);return;}spendGems(WHEEL_COST);_spin(false);});
 
     // Close
-    const [xb,xt,xh]=NT_YellowBtn(scene,CX,H-36,150,34,"CLOSE",D+3,_close);
+    const [xb,xt,xh]=NT_YellowBtn(scene,CX,H-32,150,36,"CLOSE",D+3,_close);
     A(xb);A(xt);A(xh);
 
-    // ── SPIN LOGIC ──
+    // ── TICK SOUND simulation — arrow bounce ──
+    let _lastTickIdx=-1;
+    const _arOrigY = 0; // ar is a graphics object at y=0
+
+    // ── SPIN LOGIC — slow, dramatic, satisfying ──
     function _spin(isFree){
         if(spinning) return; spinning=true; NT_SFX.play("menu_click");
+        _lastTickIdx=-1;
+        // Reset arrow position in case previous bounce left it offset
+        ar.y = _arOrigY;
         // Weighted random
         const tw=WHEEL.reduce((s,x)=>s+x.w,0); let rn=Math.random()*tw, wi=0;
         for(let i=0;i<SC;i++){rn-=WHEEL[i].w;if(rn<=0){wi=i;break;}}
-        // Target angle
-        const target=-(wi*SA+SA/2)+Math.PI*2*12+Math.random()*Math.PI*2;
+        // Target angle: must land sector wi under the arrow (top)
+        // Sector wi center in local coords = wi*SA + SA/2 - PI/2
+        // After rotation by finalAngle, it should point at -PI/2 (top)
+        // So: finalAngle = -(wi*SA + SA/2) + 2*PI*n
+        const extraSpins = 8 + Math.random()*4;
+        const landAngle = -(wi*SA + SA/2);
+        const randomWithinSector = Math.random()*SA*0.3 - SA*0.15; // small offset within sector
+        const finalTarget = landAngle + Math.PI*2*Math.ceil(extraSpins) + randomWithinSector;
         const sp={a:wAngle};
+        const spinDuration = 6000 + Math.random()*2000; // 6-8 seconds
         scene.tweens.add({
-            targets:sp, a:wAngle+target, duration:7500, ease:"Cubic.easeOut",
-            onUpdate:()=>{wheelImg.setRotation(sp.a);_uL(sp.a);},
+            targets:sp, a:finalTarget, duration:spinDuration, ease:"Cubic.easeOut",
+            onUpdate:()=>{
+                _drawWheel(sp.a);
+                _uL(sp.a);
+                // Tick detection: which sector is at the top?
+                const normA = ((sp.a % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+                const tickIdx = Math.floor(((Math.PI*2 - normA + Math.PI/2) % (Math.PI*2)) / SA) % SC;
+                if(tickIdx !== _lastTickIdx){
+                    _lastTickIdx = tickIdx;
+                    NT_SFX.play("menu_click");
+                    // Arrow bounce — always from original position
+                    if(ar.scene){
+                        ar.y = _arOrigY;
+                        scene.tweens.add({targets:ar, y:_arOrigY-5, duration:50, yoyo:true, ease:"Quad.easeOut",
+                            onComplete:()=>{ if(ar.scene) ar.y = _arOrigY; }
+                        });
+                    }
+                }
+            },
             onComplete:()=>{
                 wAngle=sp.a%(Math.PI*2); spinning=false;
+                ar.y = _arOrigY; // ensure arrow is reset
                 const prize=WHEEL[wi];
                 if(isFree){const st=_s();st.wl=Date.now();_sv(st);}
+                // Big flash on win
+                const winFlash=scene.add.graphics().setDepth(D+20);
+                winFlash.fillStyle(prize.color||0xffcc00, 0.35);
+                winFlash.fillRect(0,0,W,H);
+                scene.tweens.add({targets:winFlash,alpha:0,duration:600,onComplete:()=>winFlash.destroy()});
                 showBigReward(scene, CX, WY, prize.type, prize.amount, D+10);
             }
         });
@@ -2498,29 +2747,12 @@ function showShop(scene){
             // ───────────────── CHEST ──────────────────────
             case "chest":{
                 let y=6;
-                const s=_s(), canFC=(Date.now()-s.fl)>=CHEST_CD;
-                const fRem=canFC?0:CHEST_CD-(Date.now()-s.fl);
-                const fcH=66;
-                const fg=G();
-                fg.fillStyle(canFC?0x0d2118:0x0c1520,0.97);fg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);
-                fg.lineStyle(2,canFC?0x44ee66:0x224060,canFC?0.8:0.4);fg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);
-                if(canFC){fg.fillStyle(0x44ee66,0.06);fg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,fcH,9);}
-                _add(fg);
-                _add(T(cx-PW/2+22,SY0+y+18,"FREE CHEST",{fontFamily:_F,fontSize:"16px",color:canFC?"#44ff66":"#446677",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                const freeChestInfo=canFC?"TAP TO OPEN  •  +200 GOLD  +2 GEM":"Next in: "+_fmt(fRem);
-                _add(T(cx,SY0+y+46,freeChestInfo,{fontFamily:_F,fontSize:"12px",color:canFC?"#88ff88":"#ff7744",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                if(canFC) _zone(10,y,PW-10,y+fcH,()=>{
-                    NT_SFX.play("chest_open","common");
-                    showBigReward(scene,cx,SY0+y+fcH/2,"gold",200,D+10);
-                    addGems(2);
-                    const st=_s();st.fl=Date.now();_sv(st);
-                    scene.time.delayedCall(700,()=>_sh());
-                });
-                y+=fcH+10;
-                _add(T(cx,SY0+y+4,"BUYABLE CHESTS",{fontFamily:_F,fontSize:"12px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                y+=18;
-                CHESTS.forEach((ch)=>{
-                    const rowH=58, canB=PLAYER_GEMS>=ch.cost;
+                // Title
+                _add(T(cx,SY0+y+10,"SKIN CHESTS",{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                _add(T(cx,SY0+y+28,"Open chests to unlock weapon & character skins!",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=42;
+                CHESTS.forEach((ch,ci)=>{
+                    const rowH=72, canB=PLAYER_GEMS>=ch.cost;
                     const cg=G();
                     cg.fillStyle(0x0c1520,0.97);cg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
                     cg.lineStyle(1.5,ch.col,canB?0.55:0.25);cg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
@@ -2528,21 +2760,22 @@ function showShop(scene){
                     if(ch.tag){cg.fillStyle(0xffaa00,1);cg.fillRoundedRect(cx+PW/2-88,SY0+y,68,14,{tl:0,tr:8,bl:4,br:0});}
                     _add(cg);
                     if(ch.tag) _add(T(cx+PW/2-54,SY0+y+7,ch.tag,{fontFamily:_F,fontSize:"9px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                    _add(T(cx-PW/2+24,SY0+y+18,ch.name,{fontFamily:_F,fontSize:"15px",color:"#ddd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                    // Chest reward info with icons
-                    const rewardY=SY0+y+40;
-                    _addCurrIcon(cx-PW/2+24,rewardY,"gold",20);
-                    _add(T(cx-PW/2+42,rewardY,ch.gold.toLocaleString(),{fontFamily:_F,fontSize:"12px",color:"#ffcc00",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-                    _addCurrIcon(cx-PW/2+100,rewardY,"gem",20);
-                    _add(T(cx-PW/2+114,rewardY,"+"+ch.gems,{fontFamily:_F,fontSize:"12px",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+24,SY0+y+18,ch.name+" CHEST",{fontFamily:_F,fontSize:"15px",color:"#ddd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    // Drop rate info
+                    const tierNames=["Common","Rare","Exotic","Legendary"];
+                    const tierCols=["#999","#4488ff","#bb44ff","#ffaa00"];
+                    let infoStr="";
+                    ch.tierWeights.forEach((tw,ti)=>{if(tw>0)infoStr+=(infoStr?" • ":"")+tierNames[ti]+" "+tw+"%";});
+                    _add(T(cx-PW/2+24,SY0+y+36,infoStr,{fontFamily:_F,fontSize:"8px",color:"#5588aa",stroke:"#000",strokeThickness:1,wordWrap:{width:PW-80}}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+24,SY0+y+52,"⚔️🛡️ Weapon & Character Skins",{fontFamily:_F,fontSize:"9px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=68,bh=30;
                     _btn(bx,SY0+y+rowH/2,bw,bh,ch.cost.toString(),canB?0x3a0068:0x1e1e28,canB?0xcc44ff:0x443355,null);
                     _addCurrIcon(bx-26,SY0+y+rowH/2,"gem",18);
                     _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
                         if(PLAYER_GEMS<ch.cost){scene.cameras.main.shake(30,0.006);return;}
                         spendGems(ch.cost);NT_SFX.play("chest_open","rare");
-                        showBigReward(scene,cx,SY0+y+rowH/2,"gold",ch.gold,D+10);
-                        addGems(ch.gems);
+                        const skin=_rollChestSkin(ci);
+                        showSkinReward(scene,cx,SY0+y+rowH/2,skin,D+10);
                         scene.time.delayedCall(700,()=>_sh());
                     });
                     y+=rowH+6;
@@ -2958,6 +3191,7 @@ return {
 
     // Reward animation (for external use)
     showBigReward: showBigReward,
+    showSkinReward: showSkinReward,
 };
 })();
 // ═══════════════════════════════════════════════════════════════
@@ -6103,9 +6337,8 @@ function spawnBoss(S){
     boss.hp = boss.maxHP = Math.ceil(_rawHP * _hpReduction);
     boss.type="boss"; boss.isBoss=true;
     boss.setScale(2.4).setTint(0xff0044).setVelocityY(50).setAlpha(0.7);
-    // [FIX] Explicit boss hitbox after scale — resetEF ran before setScale(2.4)
-    // Boss native texture ~78x64, displayed at 2.4x = ~187x154
-    // Use native coords: setSize needs unscaled pixels
+    // [FIX] Boss hitbox — scale 2.4x ile büyük hitbox gerekir
+    // Body boyutunu büyük tutup offset ile ortalıyoruz
     try{
         if(boss.body){
             boss.body.enable = true;
@@ -6114,9 +6347,9 @@ function spawnBoss(S){
             boss.body.checkCollision.down = true;
             boss.body.checkCollision.left = true;
             boss.body.checkCollision.right = true;
-            // Tam native genişlik: 78x64 native, scale 2.4x
-            // setSize native piksel alır — tam 78 genişlik, köşe geçişini engeller
-            boss.body.setSize(78, 56).setOffset(0, 4);
+            // Texture ~78x64, scale 2.4x → Phaser auto-scales body
+            // setSize uses source frame coords, Phaser multiplies by scale
+            boss.body.setSize(76, 60).setOffset(1, 2);
         }
     }catch(e){console.warn("[NT] Boss hitbox fix:",e)}
     boss.spawnProtected=true; gs.bossActive=true;
@@ -6176,7 +6409,12 @@ function tickEnemies(S){
 
         // Minimum hız
         if(!p.groundHit&&!p.spawnProtected){
-            if(p.body.velocity.y<gs.pyramidSpeed*0.4) p.setVelocityY(gs.pyramidSpeed);
+            if(p.isBoss){
+                // Boss: yavaş ve görkemli düşsün — max 65px/s
+                const bossMaxSpeed = Math.min(gs.pyramidSpeed * 0.35, 65);
+                if(p.body.velocity.y > bossMaxSpeed) p.setVelocityY(bossMaxSpeed);
+                else if(p.body.velocity.y < bossMaxSpeed * 0.5) p.setVelocityY(bossMaxSpeed);
+            } else if(p.body.velocity.y<gs.pyramidSpeed*0.4) p.setVelocityY(gs.pyramidSpeed);
             // ── PHYSICAL MOTION: sway + wobble rotation ──────────
             if(p.type!=="kamikaze"&&p.type!=="zigzag"&&p.type!=="titan"&&p.type!=="colossus"&&p.type!=="volt"){
                 if(p._windPhase===undefined){ p._windPhase=Math.random()*Math.PI*2; p._wobblePhase=Math.random()*Math.PI*2; }
@@ -7424,8 +7662,8 @@ function buildUI(S){
     }).setOrigin(1,0).setScrollFactor(0).setDepth(D+5);
 
     // Altın ikonu — goldText'in soluna dinamik olarak yerleştirilir (renderUI'da güncellenir)
-    S.goldIcon=S.add.image(W-50,35,"tex_gold_icon")
-        .setDisplaySize(13,13).setOrigin(0.5,0.5)
+    S.goldIcon=S.add.image(W-50,35,"icon_gold")
+        .setDisplaySize(16,16).setOrigin(0.5,0.5)
         .setScrollFactor(0).setDepth(D+5);
 
     S._crystalHudText=null; // HUD crystal display removed
@@ -9120,7 +9358,7 @@ class SceneMainMenu extends Phaser.Scene {
         this.load.image("mm_shop",     "assets/ui/Shop (4).png");
         this.load.image("icon_gold",   "assets/gold.png");
         this.load.image("icon_gem",    "assets/gem.png");
-        this.load.image("icon_wheel",  "assets/wheel.png");
+        // icon_wheel removed — wheel is now drawn with graphics
     }
 
     create(){
@@ -9323,6 +9561,7 @@ class SceneMainMenu extends Phaser.Scene {
         // ── CURRENCY: gold + gems — top right ────
         {
             const PILL_PAD = 8, ICON_SZ = 24, PILL_H = 30;
+            const _self = this;
 
             // ── GOLD pill ──
             const goldTxt = this.add.text(W - PILL_PAD, 21, PLAYER_GOLD.toLocaleString(), {
@@ -9357,6 +9596,39 @@ class SceneMainMenu extends Phaser.Scene {
             gemBg.strokeRoundedRect(W - gemW - 4, 37, gemW, PILL_H, 9);
 
             this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
+
+            // ── HUD REFRESH: periodically update gold/gem display ──
+            _self._mmGoldTxt = goldTxt;
+            _self._mmGemTxt = gemTxt;
+            _self._mmGoldBg = goldBg;
+            _self._mmGoldIc = goldIc;
+            _self._mmGemBg = gemBg;
+            _self._mmGemIc = gemIc;
+            _self._hudRefreshTimer = this.time.addEvent({delay:300, loop:true, callback:()=>{
+                if(!goldTxt.scene) return;
+                const gStr = PLAYER_GOLD.toLocaleString();
+                const gemStr = PLAYER_GEMS.toLocaleString();
+                if(goldTxt.text !== gStr){
+                    goldTxt.setText(gStr);
+                    goldIc.setX(W - PILL_PAD - goldTxt.width - 6 - ICON_SZ/2);
+                    goldBg.clear();
+                    const newGW = ICON_SZ + 6 + goldTxt.width + PILL_PAD * 2;
+                    goldBg.fillStyle(0x1a0f00, 0.72);
+                    goldBg.fillRoundedRect(W - newGW - 4, 7, newGW, PILL_H, 9);
+                    goldBg.lineStyle(1.5, 0xffcc00, 0.45);
+                    goldBg.strokeRoundedRect(W - newGW - 4, 7, newGW, PILL_H, 9);
+                }
+                if(gemTxt.text !== gemStr){
+                    gemTxt.setText(gemStr);
+                    gemIc.setX(W - PILL_PAD - gemTxt.width - 6 - ICON_SZ/2);
+                    gemBg.clear();
+                    const newGemW = ICON_SZ + 6 + gemTxt.width + PILL_PAD * 2;
+                    gemBg.fillStyle(0x0e001a, 0.72);
+                    gemBg.fillRoundedRect(W - newGemW - 4, 37, newGemW, PILL_H, 9);
+                    gemBg.lineStyle(1.5, 0xcc44ff, 0.45);
+                    gemBg.strokeRoundedRect(W - newGemW - 4, 37, newGemW, PILL_H, 9);
+                }
+            }});
         }
 
         // ── SETTINGS — icon only, no background panel ──────────────────
@@ -9632,7 +9904,7 @@ class SceneGame extends Phaser.Scene {
         this.load.image("pause_button",  "assets/pause_button.png");
         this.load.image("icon_gold",     "assets/gold.png");
         this.load.image("icon_gem",      "assets/gem.png");
-        this.load.image("icon_wheel",    "assets/wheel.png");
+        // icon_wheel removed — wheel is drawn with graphics
         this.load.image("ui_pause_win",  "assets/ui/Pause window.png");
         this.load.image("ui_btn_wide_g", "assets/ui/Yellow Wide button.png");
         this.load.image("ui_confirm",    "assets/ui/Confirm (4).png");
@@ -10266,8 +10538,8 @@ class SceneGame extends Phaser.Scene {
             if(!b.body || !b.body.enable) return;
             // Zemine çarpmış düşmanlar mermi ile çarpışmasın
             if(enemy.groundHit) return;
-            // Mini boss ekran dışından gelir — y<0 kontrolünden muaf
-            if(!enemy._isMiniBoss && (enemy.y < 0 || enemy.x < -20 || enemy.x > 380)) return;
+            // Mini boss ve boss ekran dışından gelir — y<0 kontrolünden muaf
+            if(!enemy._isMiniBoss && !enemy.isBoss && (enemy.y < 0 || enemy.x < -20 || enemy.x > 380)) return;
             if(enemy.mirror&&!enemy.mirrorSpawned){enemy.mirrorSpawned=true;spawnMirrorClone(_S,enemy);}
             if(enemy.absorber&&enemy.armor>1){showHitTxt(_S,enemy.x,enemy.y-8,"BLOK","#888888",false);b.setActive(false).setVisible(false);if(b.body)b.body.enable=false;return;}
             const gs=GS;
@@ -10784,16 +11056,8 @@ class SceneGame extends Phaser.Scene {
 
         // SPACE ile ateş — cooldown sistemi
         this._shootTimer=(this._shootTimer||0)+delta;
-        if(this.spaceKey&&this.spaceKey.isDown){
-            this._spaceHoldTime=(this._spaceHoldTime||0)+delta;
-            if(this._spaceHoldTime>2200) this._spaceCutOff=true;
-        } else { this._spaceHoldTime=0; this._spaceCutOff=false; }
-        // MOBİL ATEŞ CUTOFF — PC ile aynı davranış (2200ms sonra dur)
-        if(this._mobileFire){
-            this._mobileFireHoldTime=(this._mobileFireHoldTime||0)+delta;
-            if(this._mobileFireHoldTime>2200) this._mobileFireCutOff=true;
-        } else { this._mobileFireHoldTime=0; this._mobileFireCutOff=false; }
-        if((this.spaceKey&&this.spaceKey.isDown&&!this._spaceCutOff&&this._shootTimer>=gs.shootDelay)||(this._mobileFire&&!this._mobileFireCutOff&&this._shootTimer>=gs.shootDelay)){
+        // Basılı tutulduğu sürece ateş etmeye devam et (cutoff yok)
+        if((this.spaceKey&&this.spaceKey.isDown&&this._shootTimer>=gs.shootDelay)||(this._mobileFire&&this._shootTimer>=gs.shootDelay)){
             this._shootTimer=0;
             doShoot(this);
         }
@@ -16805,7 +17069,7 @@ function _startPhaserGame(){
                     "bg","pause_button","ui_pause_win","ui_btn_wide_g",
                     "ui_confirm","ui_decline","pyramid","zigzag",
                     "tex_chest_common","tex_chest_rare","tex_chest_legendary",
-                    "icon_gold","icon_gem","icon_wheel",
+                    "icon_gold","icon_gem",
                 ]);
 
                 game.textures.on("addtexture", (key)=>{
