@@ -2110,7 +2110,7 @@ function showSkinReward(scene, x, y, skin, depth){
     });
 
     // 6) Rarity label
-    const sub = scene.add.text(x, y-10, skin.rar+" "+skin.cat.toUpperCase()+" SKIN", {
+    const sub = scene.add.text(x, y-10, (CURRENT_LANG==="tr"?({COMMON:"SIRADAN",RARE:"NADIR",EXOTIC:"EGZOTIK",LEGENDARY:"EFSANE"}[skin.rar]||skin.rar):skin.rar)+" "+(CURRENT_LANG==="tr"?({weapon:"SILAH",char:"KARAKTER"}[skin.cat]||skin.cat.toUpperCase())+" KOSTUMU":skin.cat.toUpperCase()+" SKIN"), {
         fontFamily:_F, fontSize:"11px", color:rarCol,
         stroke:"#000000", strokeThickness:2
     }).setOrigin(0.5).setDepth(D+32).setAlpha(0);
@@ -2896,7 +2896,7 @@ function showShop(scene){
                     if(ch.tag){cg.fillStyle(0xffaa00,1);cg.fillRoundedRect(cx+PW/2-88,SY0+y,68,14,{tl:0,tr:8,bl:4,br:0});}
                     _add(cg);
                     if(ch.tag) _add(T(cx+PW/2-54,SY0+y+7,ch.tag,{fontFamily:_F,fontSize:"9px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                    _add(T(cx-PW/2+24,SY0+y+18,ch.name+" "+(CURRENT_LANG==="tr"&&ch.nameTR?(ch.nameTR+" SANDIGI"):ch.name+" CHEST"),{fontFamily:_F,fontSize:"15px",color:"#ddd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+24,SY0+y+18,(CURRENT_LANG==="tr"&&ch.nameTR?(ch.nameTR+" SANDIK"):ch.name+" CHEST"),{fontFamily:_F,fontSize:"15px",color:"#ddd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     // Drop rate info
                     const tierNames=CURRENT_LANG==="tr"?["SIRADAN","NADIR","EGZOTIK","EFSANE"]:["Common","Rare","Exotic","Legendary"];
                     const tierCols=["#999","#4488ff","#bb44ff","#ffaa00"];
@@ -3020,7 +3020,7 @@ function showShop(scene){
                         sg.fillStyle(sk.col,0.28);sg.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:7,bl:7,tr:0,br:0});
                         _add(sg);
                         _add(T(cx-PW/2+24,SY0+y+16,sk.name,{fontFamily:_F,fontSize:"14px",color:"#ddd",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-                        _add(T(cx-PW/2+24,SY0+y+34,sk.rar,{fontFamily:_F,fontSize:"12px",color:"#"+sk.col.toString(16).padStart(6,"0"),stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        _add(T(cx-PW/2+24,SY0+y+34,(CURRENT_LANG==="tr"?({COMMON:"SIRADAN",RARE:"NADIR",EXOTIC:"EGZOTIK",LEGENDARY:"EFSANE"}[sk.rar]||sk.rar):sk.rar),{fontFamily:_F,fontSize:"12px",color:({COMMON:"#aaaaaa",RARE:"#4499ff",EXOTIC:"#cc55ff",LEGENDARY:"#ffaa00"}[sk.rar]||"#ffffff"),stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         const sbg=G();sbg.fillStyle(0x0d0d16,0.92);sbg.fillRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);sbg.lineStyle(1.5,sk.col,0.5);sbg.strokeRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);_add(sbg);
                         _add(T(cx+PW/2-40,SY0+y+rowH/2,CURRENT_LANG==="tr"?"YAKINDA":"SOON",{fontFamily:_F,fontSize:"13px",color:"#778899",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                         y+=rowH+5;
@@ -15430,8 +15430,8 @@ function gameOver(S){
         _panelShown = true;
 
         const objs=[]; const A=o=>{if(o)objs.push(o);return o;};
-        const pm=NT_Measure(S,"ui_pause_win",300);
-        const panelCY=H/2;
+        const pm=NT_Measure(S,"ui_pause_win",320);
+        const panelCY=H/2-18;
         const sprite=A(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc).setDepth(902));
         const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
         const stripCY    = pTop + pm.stripH/2;
@@ -15818,11 +15818,29 @@ function gameOver(S){
         }
 
         // ── NO butonu ────────────────────────────────────────────
-        const noT=A2(S.add.text(CX2,PY+PH-18,L("reviveNo"),{
-            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",
-            color:"#886655",stroke:"#000",strokeThickness:2
+        // NO butonu arka plani
+        const noBg2=A2(S.add.graphics().setDepth(D2+2).setAlpha(0));
+        const _drawNo2=(h)=>{
+            noBg2.clear();
+            noBg2.fillStyle(h?0x442222:0x221111,0.95);
+            noBg2.fillRoundedRect(CX2-70,PY+PH+4,140,34,9);
+            noBg2.lineStyle(1.5,h?0xff6644:0x883333,0.8);
+            noBg2.strokeRoundedRect(CX2-70,PY+PH+4,140,34,9);
+        };
+        _drawNo2(false);
+        S.tweens.add({targets:noBg2,alpha:1,duration:200,delay:320});
+        const noT=A2(S.add.text(CX2,PY+PH+21,L("reviveNo"),{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"14px",
+            color:"#cc8877",stroke:"#000",strokeThickness:2
         }).setOrigin(0.5).setDepth(D2+3).setAlpha(0).setInteractive({useHandCursor:true}));
         S.tweens.add({targets:noT,alpha:1,duration:200,delay:320});
+        const noHit2=A2(S.add.rectangle(CX2,PY+PH+21,140,34,0xffffff,0.001).setDepth(D2+4).setInteractive({useHandCursor:true}));
+        noHit2.on("pointerover",()=>_drawNo2(true));
+        noHit2.on("pointerout",()=>_drawNo2(false));
+        noHit2.on("pointerdown",()=>{
+            if(_done) return;
+            _done=true; _timerEv.remove(); _cleanup(); onDecline();
+        });
         noT.on("pointerdown",()=>{
             if(_done) return;
             _done=true; _timerEv.remove(); _cleanup(); onDecline();
@@ -15864,7 +15882,7 @@ function gameOver(S){
         _reviveOrPanel(400);
     }
     // Guvenlik: 3.5sn sonra her halukarda ac (revive timeout'tan sonra + panel)
-    S.time.delayedCall(3500, ()=>{ if(!_panelShown && _reviveUsed===false && _reviveShown) _showPanel(); });
+    S.time.delayedCall(6000, ()=>{ if(!_panelShown && _reviveUsed===false && _reviveShown) _showPanel(); });
 }
 
 // ── ELMAS ILE DIRILIS — 3 saniye geri sayim + Bitir butonu ─────
