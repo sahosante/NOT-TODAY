@@ -9646,10 +9646,10 @@ class SceneMainMenu extends Phaser.Scene {
         const aBot  = pBot - 14;
         const slot  = (aBot - aTop) / 4;
         const DEFS  = [
-            {icon:"mm_play",    label:"PLAY",        cb:()=>this._goGame()},
-            {icon:"mm_shop",    label:"SHOP",        cb:()=>this._showShop()},
-            {icon:"mm_howto",   label:"HOW TO PLAY", cb:()=>this._showHowTo()},
-            {icon:"mm_lb",      label:"LEADERBOARD", cb:()=>this._showLeaderboard()},
+            {icon:"mm_play",     label:"PLAY",        cb:()=>this._goGame()},
+            {icon:"mm_shop",     label:"SHOP",        cb:()=>this._showShop()},
+            {icon:"mm_settings", label:"SETTINGS",    cb:()=>this._showSettings()},
+            {icon:"mm_lb",       label:"LEADERBOARD", cb:()=>this._showLeaderboard()},
         ];
         // Phaser glyph warm-up: tüm buton labellarını invisible text olarak render et
         // Phaser'ın internal canvas'ı glyphleri cache'e alır → gerçek butonlar siyah çıkmaz
@@ -9791,40 +9791,6 @@ class SceneMainMenu extends Phaser.Scene {
                 if(goldTxt.text !== gStr){ goldTxt.setText(gStr);   _drawGoldPill(); }
                 if(gemTxt.text  !== gemStr){ gemTxt.setText(gemStr); _drawGemPill();  }
             }});
-        }
-
-        // ── SETTINGS — sağ üst, gem+gold'un altında ───────────────
-        {
-            // Gem pill: GEM_CY=17, h=28 → bottom edge y=31
-            // Gold pill: GOLD_CY=50, h=28 → bottom edge y=64
-            // Settings: sağ hizalı, gold pill bitişiğinde (y=78), küçük (22px)
-            const sX = W - 15;
-            const sY = 88;
-            const sSZ = 25; // ikon boyutu
-
-            const sRing = this.add.graphics().setDepth(8);
-            const _drawRing = (hov) => {
-                sRing.clear();
-                if(hov){
-                    sRing.fillStyle(0x000000, 0.22);
-                    sRing.fillCircle(sX, sY, 15);
-                    sRing.lineStyle(2, 0xffd700, 0.75);
-                    sRing.strokeCircle(sX, sY, 15);
-                }
-            };
-
-            const sIc = this.add.image(sX, sY, "mm_settings")
-                .setDisplaySize(sSZ, sSZ).setDepth(9).setAlpha(0);
-
-            const sHit = this.add.rectangle(sX, sY, 36, 36)
-                .setDepth(10).setInteractive({useHandCursor:true}).setAlpha(0.001);
-            sHit.on("pointerover",  () => _drawRing(true));
-            sHit.on("pointerout",   () => _drawRing(false));
-            sHit.on("pointerdown",  () => { NT_SFX.play("menu_click"); this._showSettings(); });
-
-            this._menuHitZones.push(sHit);
-
-            this.tweens.add({targets: sIc, alpha:1, duration:380, delay:480, ease:"Quad.easeOut"});
         }
 
         // ── PLAYER LEVEL — sol üst, örnek görsel stili (bakır/bronz daire + bar) ──
