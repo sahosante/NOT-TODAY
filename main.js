@@ -2519,7 +2519,7 @@ function showWheel(scene){
         const mid=i*SA+SA/2-Math.PI/2, lr=R*0.65;
         const sl=WHEEL[i];
         const isGld=sl.type==="gold";
-        const lbl=sl.label || (isGld?(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ALTIN":"GOLD")):(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ELMAS":"GEM")));
+        const lbl=isGld?(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ALTIN":"GOLD")):(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ELMAS":"GEM"));
         const col=isGld?"#fff":"#ffddff";
         const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
             fontFamily:_F,fontSize:sl.amount>=500?"13px":"14px",color:col,stroke:"#000",strokeThickness:4,align:"center",lineSpacing:2
@@ -4040,6 +4040,53 @@ function _showMobileBtns(S){
 // ── SABITLER ─────────────────────────────────────────────────
 const GROUND_Y    = 453;
 const XP_GROUND_Y = 445;
+
+// ── KOMIK YERDEN CARPMASI MESAJLARI ──────────────────────────
+const _GROUND_MSGS_TR = [
+    "Acitti!","Kacardin!","Enayi!","Nasil kactirirsin?!",
+    "Rezalet!","Yere battim!","Hayir hayir hayir!",
+    "Bu sefer tamam!","Gozun nerede?!","Ah be!",
+    "Boyle oyun olmaz!","Korktun mu?","Kabul edemiyorum!",
+    "Bundan utanmalisin!","Git evine!","Hay aksi!",
+    "El salladim gitti!","Soguk mu dusunuyordun?","Piramit 1 - Sen 0"
+];
+const _GROUND_MSGS_EN = [
+    "It got away!","Really?!","Missed it!","How did you miss that?!",
+    "Oops!","Slipped through!","Come ON!",
+    "That one's on you!","Wake up!","Nooo!",
+    "Unacceptable!","Were you scared?","I can't watch!",
+    "Pyramid wins this round!","Just go home!","Oh come on!",
+    "You were RIGHT THERE!","Were you asleep?!","Pyramid 1 - You 0"
+];
+let _groundMsgIdx = Math.floor(Math.random()*_GROUND_MSGS_TR.length);
+function _nextGroundMsg(){
+    const msgs = CURRENT_LANG==="tr"?_GROUND_MSGS_TR:_GROUND_MSGS_EN;
+    const m = msgs[_groundMsgIdx % msgs.length];
+    _groundMsgIdx = (_groundMsgIdx + 1) % msgs.length;
+    return m;
+}
+
+// ── KOMIK OYUNCUYA CARPMASI MESAJLARI ────────────────────────
+const _HIT_MSGS_TR = [
+    "Ow!!","Aman Allah'im!","Yapma bunu!","Dokununca acidiyor!",
+    "Dur dur dur!","Hey!","Ayyyy!","Acimadi mi?!",
+    "Keske blok yapsaydim!","Dikkat edin!","Patladim!",
+    "Neden ben?!","Tam isabetli!","Beni mi vurdu?!"
+];
+const _HIT_MSGS_EN = [
+    "Ow!!","Oh come on!","That HURT!","Personal space please!",
+    "Stop stop stop!","HEY!","Ouch!","Did that really just happen?!",
+    "Should've dodged!","WATCH OUT!","Right in the face!",
+    "Why me?!","Bullseye... on me!","Did it just blink?"
+];
+let _hitMsgIdx = Math.floor(Math.random()*_HIT_MSGS_TR.length);
+function _nextHitMsg(){
+    const msgs = CURRENT_LANG==="tr"?_HIT_MSGS_TR:_HIT_MSGS_EN;
+    const m = msgs[_hitMsgIdx % msgs.length];
+    _hitMsgIdx = (_hitMsgIdx + 1) % msgs.length;
+    return m;
+}
+
 const SPAWN_SAFE_X= 50;
 const MAX_ENEMIES = 32; // [BALANCE] late game: HP degil sayi artar
 const NEW_PYRAMID_TYPES = new Set(["inferno","glacier","phantom_tri","volt","obsidian"]); // [PERF] top-level Set — applyDmg hot path'te yeniden olusturulmuyor
@@ -6850,6 +6897,12 @@ function tickEnemies(S){
             doExplodeVFX(S, p.x, GROUND_Y-8, _typeCol[p.type]||0xffcc55, p.scaleX||1);
             playerCollisionExplosion(S, p.x, GROUND_Y-8, p.type);
         NT_SFX.play("pixel_explode");
+            // Komik mesaj — showHitTxt gibi animasyonlu
+            try{
+                const _gm=_nextGroundMsg();
+                const _gx=Phaser.Math.Clamp(p.x,40,320);
+                showHitTxt(S,_gx,GROUND_Y-55,_gm,"#ff4466",true);
+            }catch(_){}
             try{
                 if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.HapticFeedback){
                     window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
@@ -10170,16 +10223,27 @@ class SceneMainMenu extends Phaser.Scene {
                 const bg = A(this.add.graphics().setDepth(depth+3));
                 const txt = A(this.add.text(bx, ly, lang.toUpperCase(), {
                     fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"15px",
-                    color: active()?"#111":"#aaddff",
+                    color: active()?"#ffffff":"#aaddff",
                     stroke:"#000", strokeThickness:2
                 }).setOrigin(0.5,0.5).setDepth(depth+4).setInteractive({useHandCursor:true}));
                 const _draw = () => {
                     bg.clear();
-                    bg.fillStyle(active()?0x44aaff:0x112233, active()?1:0.6);
+                    bg.fillStyle(active()?0x1a6ecc:0x112233, active()?0.85:0.6);
                     bg.fillRoundedRect(bx-22, ly-12, 44, 24, 6);
-                    bg.lineStyle(1.5, active()?0x88ddff:0x334455, 1);
-                    bg.strokeRoundedRect(bx-22, ly-12, 44, 24, 6);
-                    txt.setColor(active()?"#111111":"#aaddff");
+                    if(active()){
+                        // Secili panel: ic highlight + parlak kenar
+                        bg.fillStyle(0xffffff, 0.18);
+                        bg.fillRoundedRect(bx-20, ly-10, 40, 9, {tl:5,tr:5,bl:0,br:0});
+                        bg.lineStyle(2.5, 0x88ddff, 1);
+                        bg.strokeRoundedRect(bx-22, ly-12, 44, 24, 6);
+                        // Dis glow halkasi
+                        bg.lineStyle(4, 0x44aaff, 0.3);
+                        bg.strokeRoundedRect(bx-25, ly-15, 50, 30, 8);
+                    } else {
+                        bg.lineStyle(1.5, 0x334455, 1);
+                        bg.strokeRoundedRect(bx-22, ly-12, 44, 24, 6);
+                    }
+                    txt.setColor(active()?"#ffffff":"#aaddff");
                 };
                 _draw();
                 txt.on("pointerdown", () => {
@@ -10303,6 +10367,7 @@ class SceneMainMenu extends Phaser.Scene {
         const hY=contentTop+36;
         A(this.add.text(TX,    hY,"#",     NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
         A(this.add.text(TX+28, hY,CURRENT_LANG==="tr"?"OYUNCU":"PLAYER",NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
+        A(this.add.text(CX+30, hY,CURRENT_LANG==="tr"?"LV":"LV",  NT_STYLE.stat(11,"#88aacc")).setOrigin(0.5,0).setDepth(depth+3));
         A(this.add.text(VX,    hY,CURRENT_LANG==="tr"?"SKOR":"SCORE", NT_STYLE.stat(12)).setOrigin(1,0).setDepth(depth+3));
         const dg=A(this.add.graphics().setDepth(depth+3));
         dg.lineStyle(1,0x44aaff,0.30); dg.lineBetween(TX,hY+18,VX,hY+18);
@@ -10325,6 +10390,8 @@ class SceneMainMenu extends Phaser.Scene {
                     const col=i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#ddeeff";
                     newTexts.push(A(this.add.text(TX,    ry,"#"+(i+1),  NT_STYLE.accent(13,col)           ).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
                     newTexts.push(A(this.add.text(TX+28, ry,(s.name||"???")+(isMe?" ★":""), NT_STYLE.accent(13,isMe?"#44ff88":"#fff")).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
+                    const lvStr=s.level?"Lv"+s.level:"-";
+                    newTexts.push(A(this.add.text(CX+30, ry,lvStr, NT_STYLE.accent(11,"#88aacc")).setOrigin(0.5,0.5).setDepth(depth+3).setAlpha(0)));
                     newTexts.push(A(this.add.text(VX,    ry,s.score.toLocaleString(),       NT_STYLE.accent(13,col)           ).setOrigin(1,0.5).setDepth(depth+3).setAlpha(0)));
                     ry+=26;
                 });
@@ -14409,6 +14476,12 @@ function damagePlayer(S){
     gs.health--;
     NT_SFX.play("player_hurt");
     S.cameras.main.shake(14,0.003);
+    // Komik vurus mesaji
+    try{
+        const _hm=_nextHitMsg();
+        const _px=S.player?S.player.x:180;
+        showHitTxt(S,_px,GROUND_Y-80,_hm,"#ffaa22",false);
+    }catch(_){}
     // ── AAA PLAYER HURT VFX ──
     vfxPlayerHurt(S);
     tickNearDeath(S);
