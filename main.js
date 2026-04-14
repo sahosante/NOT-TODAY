@@ -1872,16 +1872,16 @@ let PLAYER_PRESTIGE = parseInt(secureGet("nt_prestige","0","0"));
 
 function _plvXpNeeded(lv){
     // XP needed to go from level lv to lv+1
-    // Lv1-10:  base growth ×1.26
-    // Lv11-25: moderate growth ×1.34
-    // Lv26-40: steep growth ×1.43
-    // Lv41+:   very steep ×1.55
-    let xp = 800;
+    // Lv1-10:  base growth ×1.38
+    // Lv11-25: moderate growth ×1.48
+    // Lv26-40: steep growth ×1.58
+    // Lv41+:   very steep ×1.70
+    let xp = 1200;
     for(let i = 1; i < lv; i++){
-        const mult = i <= 10 ? 1.26
-                   : i <= 25 ? 1.34
-                   : i <= 40 ? 1.43
-                   : 1.55;
+        const mult = i <= 10 ? 1.38
+                   : i <= 25 ? 1.48
+                   : i <= 40 ? 1.58
+                   : 1.70;
         xp = Math.round(xp * mult);
     }
     return xp;
@@ -1901,14 +1901,16 @@ function _plvSave(){
 }
 
 // Calculate XP earned from a game session
+// XP SADECE oldurdugun ucgenlerden gelir — diger kaynaklar kaldirildi
 function _plvCalcSessionXP(gs){
     if(!gs) return 0;
-    const scoreXP = Math.floor((gs.score || 0) / 40);   // was /10
-    const killXP  = (gs.kills || 0) * 2;                // was *5
-    const goldXP  = Math.floor((gs.gold || 0) * 0.5);   // was *2
-    const levelXP = (gs.level || 1) * 8;                // was *20
-    const timeXP  = Math.floor((gs.t || 0) / 1000) * 1; // was *2, 1 XP per second
-    let total = scoreXP + killXP + goldXP + levelXP + timeXP;
+    // Normal ucgen: 6 XP, Elite/Elder/Titan: 18 XP, Boss: 50 XP
+    const kills      = gs.kills      || 0;
+    const bossKills  = gs._bossKills  || 0;
+    const eliteKills = gs._eliteKills || 0;
+    const normalKills = Math.max(0, kills - bossKills - eliteKills);
+    let total = normalKills * 6 + eliteKills * 18 + bossKills * 50;
+    if(total === 0 && kills > 0) total = kills * 6; // fallback
     // 2X XP boost
     if(typeof NT_Monetization !== "undefined" && NT_Monetization.getXPMultiplier){
         total = Math.round(total * NT_Monetization.getXPMultiplier());
@@ -2149,16 +2151,16 @@ const DAILY = [
 ];
 
 const WHEEL = [
-    { type:"gold",  amount:50,   w:30, color:0xffcc00, label:"50\nGOLD" },
-    { type:"gold",  amount:100,  w:28, color:0xffdd22, label:"100\nGOLD" },
-    { type:"gold",  amount:200,  w:18, color:0xffaa00, label:"200\nGOLD" },
-    { type:"gold",  amount:500,  w:8,  color:0xff8800, label:"500\nGOLD" },
-    { type:"gold",  amount:1000, w:3,  color:0xff6600, label:"1000\nGOLD" },
-    { type:"gem",   amount:3,    w:3,  color:0xcc44ff, label:"3\nGEM" },
-    { type:"gem",   amount:8,    w:1,  color:0xdd66ff, label:"8\nGEM" },
-    { type:"gem",   amount:20,   w:0.3,color:0xee88ff, label:"20\nGEM" },
-    { type:"gold",  amount:150,  w:20, color:0xeebb00, label:"150\nGOLD" },
-    { type:"gold",  amount:300,  w:12, color:0xddaa00, label:"300\nGOLD" },
+    { type:"gold",  amount:200,   w:30, color:0xffcc00, label:"200" },
+    { type:"gold",  amount:400,   w:28, color:0xffdd22, label:"400" },
+    { type:"gold",  amount:800,   w:18, color:0xffaa00, label:"800" },
+    { type:"gold",  amount:2000,  w:8,  color:0xff8800, label:"2000" },
+    { type:"gold",  amount:5000,  w:3,  color:0xff6600, label:"5000" },
+    { type:"gem",   amount:3,     w:3,  color:0xcc44ff, label:"3" },
+    { type:"gem",   amount:8,     w:1,  color:0xdd66ff, label:"8" },
+    { type:"gem",   amount:20,    w:0.3,color:0xee88ff, label:"20" },
+    { type:"gold",  amount:600,   w:20, color:0xeebb00, label:"600" },
+    { type:"gold",  amount:1200,  w:12, color:0xddaa00, label:"1200" },
 ];
 const WHEEL_FREE_CD = 4*3600000;
 const WHEEL_COST = 10;
@@ -2519,32 +2521,26 @@ function showWheel(scene){
         const mid=i*SA+SA/2-Math.PI/2, lr=R*0.65;
         const sl=WHEEL[i];
         const isGld=sl.type==="gold";
-        const lbl=isGld?(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ALTIN":"GOLD")):(sl.amount+"\n"+(CURRENT_LANG==="tr"?"ELMAS":"GEM"));
-        const col=isGld?"#fff":"#ffddff";
+        // Show only the number — icon handles type indication
+        const lbl=String(sl.amount);
+        const col=isGld?"#ffe066":"#ffccff";
         const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
-            fontFamily:_F,fontSize:sl.amount>=500?"13px":"14px",color:col,stroke:"#000",strokeThickness:4,align:"center",lineSpacing:2
+            fontFamily:_F,fontSize:sl.amount>=500?"15px":"17px",color:col,stroke:"#000",strokeThickness:5,align:"center"
         }).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
         lbls.push(t);
 
-        // Add icons for this slice
+        // Add single large icon per slice
         const icKey = isGld ? "icon_gold" : "icon_gem";
-        const icCount = _iconCount(sl);
         const icArr = [];
-        const icR = R * 0.35; // inner radius for icons
-        const icSz = 16;
-        for(let j=0;j<icCount;j++){
-            // Spread icons in a small arc within the slice
-            const spread = (icCount === 1) ? 0 : (j - (icCount-1)/2) * 0.06;
-            const icAngle = mid + spread;
-            const icRadius = icR - j * 3; // slight stagger inward
-            if(scene.textures.exists(icKey)){
-                const ic = A(scene.add.image(
-                    CX + Math.cos(icAngle) * icRadius,
-                    WY + Math.sin(icAngle) * icRadius,
-                    icKey
-                ).setDisplaySize(icSz, icSz).setDepth(D+4).setRotation(icAngle + Math.PI/2));
-                icArr.push({img:ic, offsetAngle:spread, radius:icRadius});
-            }
+        const icR = R * 0.52; // icon closer to outer ring
+        const icSz = 34; // BIG icon
+        if(scene.textures.exists(icKey)){
+            const ic = A(scene.add.image(
+                CX + Math.cos(mid) * icR,
+                WY + Math.sin(mid) * icR,
+                icKey
+            ).setDisplaySize(icSz, icSz).setDepth(D+4).setRotation(mid + Math.PI/2));
+            icArr.push({img:ic, offsetAngle:0, radius:icR});
         }
         sliceIcons.push(icArr);
     }
@@ -2705,8 +2701,8 @@ function showShop(scene){
     let _tab="power";
     const TH=30, TY=contentTop+18;
     const tabs=CURRENT_LANG==="tr"
-        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"gems",l:"ELMAS"}]
-        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"gems",l:"GEMS"}];
+        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"gems",l:"MARKET"}]
+        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"gems",l:"MARKET"}];
     const TC=tabs.length, TWid=Math.floor((PW-16)/TC)-2;
     const TX0=cx-(TC*TWid+(TC-1)*4)/2;
     const tG={},tT={};
@@ -3044,7 +3040,7 @@ function showShop(scene){
                     _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"BASLANGIC PAKETI  -":"STARTER PACK  -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" ELMAS + ":" GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#cc99bb",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=72,bh=30;
-                    _btn(bx,SY0+y+spH/2,bw,bh,""+STARTER.stars+" STAR",0x88002a,0xff4488,null);
+                    _btn(bx,SY0+y+spH/2,bw,bh,"⭐ "+STARTER.stars,0x88002a,0xff4488,null);
                     _zone(10,y,PW-10,y+spH,()=>{
                         const _buy=()=>{
                             showBigReward(scene,cx,SY0+y+spH/2,"gem",STARTER.gems,D+10);
@@ -3080,6 +3076,52 @@ function showShop(scene){
                     });
                     y+=rowH+6;
                 });
+
+                // ── GOLD PACKS SECTION ──────────────────────────────────
+                y+=8;
+                const goldSecHdr=G();
+                goldSecHdr.fillStyle(0x120e00,0.97);
+                goldSecHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,30,6);
+                goldSecHdr.lineStyle(1.5,0xffcc00,0.5);
+                goldSecHdr.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,30,6);
+                _add(goldSecHdr);
+                _addCurrIcon(cx-50,SY0+y+15,"gold",22);
+                _add(T(cx-28,SY0+y+15,PLAYER_GOLD.toLocaleString(),{fontFamily:_F,fontSize:"17px",color:"#ffcc00",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                _add(T(cx+PW/2-24,SY0+y+15,CURRENT_LANG==="tr"?"ALTIN":"GOLD",{fontFamily:_F,fontSize:"11px",color:"#aa8800",stroke:"#000",strokeThickness:1}).setOrigin(1,0.5));
+                y+=38;
+                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#aa7700",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=18;
+                const GOLD_PACKS=[
+                    {gold:5000,   price:"50 💎",  gemCost:50,   bonus:0,    tag:null,    popular:false},
+                    {gold:12000,  price:"100 💎", gemCost:100,  bonus:2000, tag:"popular",popular:true},
+                    {gold:30000,  price:"200 💎", gemCost:200,  bonus:8000, tag:null,    popular:false},
+                    {gold:80000,  price:"400 💎", gemCost:400,  bonus:25000,tag:"best",  popular:false},
+                ];
+                GOLD_PACKS.forEach((gp)=>{
+                    const rowH=58, canB=PLAYER_GEMS>=gp.gemCost;
+                    const gg=G();
+                    gg.fillStyle(0x120a00,0.97);gg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                    gg.lineStyle(1.5,gp.popular?0xffcc00:0x443300,gp.popular?0.6:0.35);gg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
+                    if(gp.tag){const tc=gp.tag==="popular"?0xffcc00:0xff8800;gg.fillStyle(tc,1);gg.fillRoundedRect(cx+PW/2-88,SY0+y,68,14,{tl:0,tr:7,bl:4,br:0});}
+                    _add(gg);
+                    if(gp.tag) _add(T(cx+PW/2-54,SY0+y+7,gp.tag==="popular"?(CURRENT_LANG==="tr"?"POPULER":"POPULAR"):(CURRENT_LANG==="tr"?"EN iYi DEGER":"BEST VALUE"),{fontFamily:_F,fontSize:"9px",color:"#fff",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    _addCurrIcon(cx-PW/2+20,SY0+y+20,"gold",22);
+                    const tot=gp.gold+(gp.bonus||0);
+                    _add(T(cx-PW/2+44,SY0+y+20,tot.toLocaleString()+(gp.bonus>0?" (+"+gp.bonus.toLocaleString()+(CURRENT_LANG==="tr"?" bonus)":"  bonus)"):""),{fontFamily:_F,fontSize:"15px",color:"#ffcc44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+20,SY0+y+42,gp.price,{fontFamily:_F,fontSize:"12px",color:"#7766aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    const bx=cx+PW/2-52,bw=68,bh=30;
+                    _btn(bx,SY0+y+rowH/2,bw,bh,canB?(CURRENT_LANG==="tr"?"AL":"BUY"):"💎",canB?0x584200:0x1a1a1a,canB?0xffcc00:0x555555,null);
+                    _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                        if(!canB){scene.cameras.main.shake(30,0.006);return;}
+                        if(PLAYER_GEMS<gp.gemCost){scene.cameras.main.shake(30,0.006);return;}
+                        spendGems(gp.gemCost);
+                        PLAYER_GOLD+=tot;secureSet("nt_gold",PLAYER_GOLD);
+                        showBigReward(scene,cx,SY0+y+rowH/2,"gold",tot,D+10);
+                        scene.time.delayedCall(700,()=>_sh());
+                    });
+                    y+=rowH+6;
+                });
+
                 totalH=y+10;
                 break;
             }
@@ -4169,13 +4211,13 @@ const ENEMY_POOL=[
 
 const GOLD_UPGRADES=[
     // [v10.2] Yuksek maliyet egrisi:
-    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:5000,  baseCost:5000,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level"},
-    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:7000,  baseCost:7000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level"},
-    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:5000,  baseCost:5000,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level"},
-    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:8000,  baseCost:8000,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level"},
-    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:25000, baseCost:25000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death"},
-    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:6000,  baseCost:6000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level"},
-    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:15000, baseCost:15000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level"},
+    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level"},
+    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:21000,  baseCost:21000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level"},
+    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level"},
+    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:24000,  baseCost:24000,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level"},
+    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:75000, baseCost:75000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death"},
+    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:18000,  baseCost:18000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level"},
+    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:45000, baseCost:45000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level"},
 ];
 
 let GS;
@@ -9796,8 +9838,8 @@ class SceneMainMenu extends Phaser.Scene {
         // ── TOP BAR: gem, gold — sag uste alt alta, sayi once ikon sonra ──
         {
             const _self = this;
-            const ICON_SZ = 22, GAP = 5, ROW_GAP = 6;
-            const GEM_CY  = 16;
+            const ICON_SZ = 38, GAP = 8, ROW_GAP = 2;
+            const GEM_CY  = 22;
             const GOLD_CY = GEM_CY + ICON_SZ + ROW_GAP;
 
             // [QUALITY] Apply LINEAR filter to icon textures
@@ -9822,22 +9864,22 @@ class SceneMainMenu extends Phaser.Scene {
 
             // ── GEM row: [sayi] [ikon] — sag hizali ───────────────
             // Ikon en sagda, sayi ikonun solunda
-            const gemIc = this.add.image(W - 4 - ICON_SZ/2, GEM_CY, "icon_gem")
+            const gemIc = this.add.image(W - 10 - ICON_SZ/2, GEM_CY, "icon_gem")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const gemTxt = this.add.text(W - 4 - ICON_SZ - GAP, GEM_CY, PLAYER_GEMS.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '14px',
-                color: '#ee88ff', stroke: '#1a0022', strokeThickness: 4
+            const gemTxt = this.add.text(W - 10 - ICON_SZ - GAP, GEM_CY, PLAYER_GEMS.toLocaleString(), {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '20px',
+                color: '#ee88ff', stroke: '#1a0022', strokeThickness: 5
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
             const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
 
             const _drawGemPill = () => { gemBg.clear(); };
 
             // ── GOLD row: [sayi] [ikon] — sag hizali ──────────────
-            const goldIc = this.add.image(W - 4 - ICON_SZ/2, GOLD_CY, "icon_gold")
+            const goldIc = this.add.image(W - 10 - ICON_SZ/2, GOLD_CY, "icon_gold")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const goldTxt = this.add.text(W - 4 - ICON_SZ - GAP, GOLD_CY, PLAYER_GOLD.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '14px',
-                color: '#FFD700', stroke: '#1a0c00', strokeThickness: 4
+            const goldTxt = this.add.text(W - 10 - ICON_SZ - GAP, GOLD_CY, PLAYER_GOLD.toLocaleString(), {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '20px',
+                color: '#FFD700', stroke: '#1a0c00', strokeThickness: 5
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
             const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
 
@@ -9864,12 +9906,12 @@ class SceneMainMenu extends Phaser.Scene {
         // ── PLAYER LEVEL — sol ust, ornek gorsel stili (bakir/bronz daire + bar) ──
         {
             // ── Layout sabitleri ────────────────────────────────────────
-            const CIR_R   = 20;          // dis daire yaricapi
-            const CIR_CX  = 10 + CIR_R; // sol ust koseden biraz iceride
-            const CIR_CY  = 4 + CIR_R;  // ekranin EN USTU — y=4'ten baslar
-            const BAR_X   = CIR_CX + CIR_R - 2;  // bar baslangic X (daireyle ic ice)
-            const BAR_W   = 115;
-            const BAR_H   = 14;
+            const CIR_R   = 26;          // dis daire yaricapi — buyutuldu
+            const CIR_CX  = 14 + CIR_R; // sol ust koseden iceride, pencereye degmiyor
+            const CIR_CY  = 10 + CIR_R; // ust kenara bogaz birakiliyor
+            const BAR_X   = CIR_CX + CIR_R - 2;  // bar baslangic X
+            const BAR_W   = 128;
+            const BAR_H   = 16;
             const BAR_R   = BAR_H / 2;  // tam yuvarlak uc
 
             // ── XP hesabi ──────────────────────────────────────────────
@@ -9991,7 +10033,7 @@ class SceneMainMenu extends Phaser.Scene {
             };
 
             // ── Level numarasi — krem dairenin ortasinda ────────────────
-            const _lvFS = PLAYER_LEVEL >= 100 ? '13px' : PLAYER_LEVEL >= 10 ? '16px' : '20px';
+            const _lvFS = PLAYER_LEVEL >= 100 ? '15px' : PLAYER_LEVEL >= 10 ? '19px' : '23px';
             const lvNumTxt = this.add.text(CIR_CX, CIR_CY, String(PLAYER_LEVEL), {
                 fontFamily: 'LilitaOne, Arial, sans-serif',
                 fontSize: _lvFS,
@@ -11731,7 +11773,7 @@ function doShoot(S){
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
         NT_SFX.play("shoot_cannon");
-        fireBulletRaw(S,px,py,0,vy*0.62,1.35,0xff6600,"cannon"); // [BUFF] dmgM 1.0→1.35 — heavier direct hit
+        fireBulletRaw(S,px,py,0,vy*0.62,1.0,0xff6600,"cannon"); // [BALANCE] dmgM 1.35→1.0 — nerf heavy cannon
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
         const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
@@ -14135,7 +14177,9 @@ function killEnemy(S,p,giveXP){
     }
     if(!giveXP) return;
     gs.kills++;
-
+    // Elite/boss kill sayaci — XP hesaplamasinda kullanilir
+    if(p.elite||p.elder||p.titan||p.colossus||p.obsidian||p.glacier||p.inferno||p.volt)
+        gs._eliteKills = (gs._eliteKills||0) + 1;
 
     // Elite/Titan kill VFX
     if(p.elite&&!p.isBoss){
@@ -15137,181 +15181,145 @@ function triggerRunEvent(S){
     showRunEventUI(S,ev);
 }
 
-// [UI REDESIGN] showRunEventUI — profesyonel kart tasarimi
-// Onceki: basit rect panel + kucuk butonlar
-// Simdi: merkezlenmis modal, icon circle, buyuk butonlar, slide-in animasyon
+// [UI REDESIGN] showRunEventUI — ui_pause_win sprite + altin buton
+// Onceki: basit siyah rect panel + cizilmis butonlar
+// Simdi: ui_pause_win sprite kullanilarak oyunun diger panelleriyle tutarli gorunum
 function showRunEventUI(S, ev){
     const gs=GS;
     if(gs.pickingUpgrade || _upgradeLock > 0) return;
     lockUpgrade(gs, S);
-    const W=360,H=640;
+    const W=360, H=640, CX=W/2;
     const ui=new UIGroup(S);
 
     // Dark overlay
-    const ov=ui.add(S.add.rectangle(W/2,H/2,W,H,0x000000,0).setDepth(800));
+    const ov=ui.add(S.add.rectangle(CX,H/2,W,H,0x000000,0).setDepth(800));
     S.tweens.add({targets:ov,fillAlpha:0.82,duration:220});
 
-    // [UI POLISH P2] Panel — iki alt alta buton icin yukseklik artirildi
-    const PANEL_H_BASE=ev.choices.length===3?420:360;
-    const PANEL_W=336, PANEL_H=PANEL_H_BASE;
-    const PANEL_X=(W-PANEL_W)/2, PANEL_Y=Math.max(10,(H-PANEL_H)/2-15);
-    const pg=ui.add(S.add.graphics().setDepth(801));
+    // Panel — ui_pause_win sprite (diger panellerle tutarli)
+    const pm=NT_Measure(S,"ui_pause_win",310);
+    const panelCY=H/2 - 8;
+    const sprite=ui.add(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc*0.05).setAlpha(0).setDepth(801));
+    const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
+    const stripCY    = pTop + pm.stripH/2;
+    const contentTop = pTop + pm.stripH + 12;
+    const contentBot = pBot - Math.max(pm.goldH, 50) - 6;
+    const btnCY      = pBot - Math.max(pm.goldH/2, 25);
+    const D=802;
 
-    // Panel cizimi
-    const drawPanel=()=>{
-        pg.clear();
-        // Arka plan
-        pg.fillStyle(0x07030f,0.98); pg.fillRoundedRect(PANEL_X,PANEL_Y,PANEL_W,PANEL_H,10);
-        // Ust accent bar
-        pg.fillStyle(ev.color,0.9); pg.fillRoundedRect(PANEL_X,PANEL_Y,PANEL_W,5,{tl:10,tr:10,bl:0,br:0});
-        // Dis border
-        pg.lineStyle(2,ev.color,0.8); pg.strokeRoundedRect(PANEL_X,PANEL_Y,PANEL_W,PANEL_H,10);
-        // Ic parlaklik cizgisi
-        pg.lineStyle(1,ev.color,0.18); pg.strokeRoundedRect(PANEL_X+3,PANEL_Y+3,PANEL_W-6,PANEL_H-6,8);
-        // Ust baslik alani
-        pg.fillStyle(ev.color,0.08); pg.fillRoundedRect(PANEL_X,PANEL_Y,PANEL_W,64,{tl:10,tr:10,bl:0,br:0});
-    };
-    drawPanel();
+    // Panel pop-in animasyonu
+    S.tweens.add({targets:sprite, scaleX:pm.sc, scaleY:pm.sc, alpha:1, duration:240, ease:"Back.easeOut"});
 
-    // Icon dairesi — buyuk, merkezlenmis, renkli halka
-    const icBg=ui.add(S.add.graphics().setDepth(802));
-    icBg.fillStyle(ev.color,0.18); icBg.fillCircle(W/2,PANEL_Y+36,28);
-    icBg.lineStyle(2.5,ev.color,0.8); icBg.strokeCircle(W/2,PANEL_Y+36,28);
-    icBg.lineStyle(1,ev.color,0.3); icBg.strokeCircle(W/2,PANEL_Y+36,36);
-    // Dis parlama halkasi — pulse
-    const icGlow=ui.add(S.add.graphics().setDepth(801));
-    icGlow.fillStyle(ev.color,0.08); icGlow.fillCircle(W/2,PANEL_Y+36,36);
-    S.tweens.add({targets:icGlow,scaleX:1.3,scaleY:1.3,alpha:0.3,duration:800,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+    // Icon dairesi — baslik seridinin sol tarafinda
+    const icR = 22;
+    const icX = CX - 55;
+    const icBg=ui.add(S.add.graphics().setDepth(D+1));
+    icBg.fillStyle(ev.color, 0.20); icBg.fillCircle(icX, stripCY, icR);
+    icBg.lineStyle(2, ev.color, 0.90); icBg.strokeCircle(icX, stripCY, icR);
+    // Pulse halkasi
+    const icGlow=ui.add(S.add.graphics().setDepth(D));
+    icGlow.fillStyle(ev.color, 0.08); icGlow.fillCircle(icX, stripCY, icR+10);
+    S.tweens.add({targets:icGlow,scaleX:1.25,scaleY:1.25,alpha:0.2,duration:900,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
 
-    const iconTxt=ui.add(S.add.text(W/2,PANEL_Y+36,ev.icon,{
-        font:"24px LilitaOne, Arial, sans-serif"
-    }).setOrigin(0.5).setDepth(803).setAlpha(0));
-    // Ikon pulse
-    S.tweens.add({targets:iconTxt,scaleX:1.15,scaleY:1.15,duration:600,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+    const iconTxt=ui.add(S.add.text(icX, stripCY, ev.icon,{
+        font:"18px LilitaOne, Arial, sans-serif"
+    }).setOrigin(0.5).setDepth(D+2).setAlpha(0));
+    S.tweens.add({targets:iconTxt,scaleX:1.1,scaleY:1.1,duration:700,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
 
-    // Baslik
+    // Baslik — ikona sag yanda
     const title=LLang(ev,"title","titleEN","titleRU");
-    const titleTxt=ui.add(S.add.text(W/2,PANEL_Y+74,title,{
-        font:"15px LilitaOne, Arial, sans-serif",
-        color:Phaser.Display.Color.IntegerToColor(ev.color).rgba
-    }).setOrigin(0.5,0).setDepth(803).setAlpha(0));
+    const titleTxt=ui.add(S.add.text(CX - 28, stripCY, title,{
+        font:"bold 15px LilitaOne, Arial, sans-serif",
+        color:"#ffeecc", stroke:"#330000", strokeThickness:2
+    }).setOrigin(0, 0.5).setDepth(D+2).setAlpha(0));
 
     // Ayrac cizgisi
-    const divG=ui.add(S.add.graphics().setDepth(802));
-    divG.lineStyle(1,ev.color,0.3); divG.lineBetween(PANEL_X+20,PANEL_Y+96,PANEL_X+PANEL_W-20,PANEL_Y+96);
+    const divG=ui.add(S.add.graphics().setDepth(D+1));
+    divG.lineStyle(1, ev.color, 0.30);
+    divG.lineBetween(CX-120, contentTop-2, CX+120, contentTop-2);
 
-    // Aciklama
+    // Aciklama metni
     const desc=LLang(ev,"desc","descEN","descRU");
-    const descTxt=ui.add(S.add.text(W/2,PANEL_Y+104,desc,{
-        font:"14px LilitaOne, Arial, sans-serif",color:"#ccccdd",
-        wordWrap:{width:PANEL_W-40},align:"center",lineSpacing:5
-    }).setOrigin(0.5,0).setDepth(803).setAlpha(0));
+    const descTxt=ui.add(S.add.text(CX, contentTop+10, desc,{
+        font:"13px LilitaOne, Arial, sans-serif", color:"#ccccdd",
+        wordWrap:{width:pm.W-48}, align:"center", lineSpacing:4
+    }).setOrigin(0.5, 0).setDepth(D+2).setAlpha(0));
 
-    // Butonlar — 2 veya 3 secenek destekli
-    const choiceCount=ev.choices.length;
-    const BTN_BASE_Y=choiceCount===3?PANEL_Y+PANEL_H-152:PANEL_Y+PANEL_H-106;
-    ev.choices.forEach((ch,i)=>{
-        const isAccept=i===0;
-        const is3=choiceCount===3;
-        const BTN_W=282;
-        const BTN_X=W/2-BTN_W/2;
-        const BTN_Y=BTN_BASE_Y + i*52;
-        const BTN_H=isAccept?48:40;
-        const col=i===0?ev.color:i===1?0xffaa22:0x555566;
+    // ── Butonlar ──────────────────────────────────────────────
+    const choiceCount = ev.choices.length;
+    const BTN_W = 240;
 
-        const btnG=ui.add(S.add.graphics().setDepth(803));
-        const drawBtn=hov=>{
-            btnG.clear();
-            if(isAccept){
-                btnG.fillStyle(hov?col:0x000000,1);
-                btnG.fillRoundedRect(BTN_X,BTN_Y,BTN_W,BTN_H,6);
-                btnG.fillStyle(col,hov?0.25:0.12);
-                btnG.fillRoundedRect(BTN_X,BTN_Y,BTN_W,BTN_H,6);
-                btnG.lineStyle(2,col,hov?1.0:0.7);
-                btnG.strokeRoundedRect(BTN_X,BTN_Y,BTN_W,BTN_H,6);
-                // Shine
-                btnG.fillStyle(0xffffff,hov?0.1:0.04);
-                btnG.fillRoundedRect(BTN_X+2,BTN_Y+2,BTN_W-4,BTN_H/2-2,4);
-            } else {
-                btnG.fillStyle(0x111118,1);
-                btnG.fillRoundedRect(BTN_X,BTN_Y,BTN_W,BTN_H,6);
-                btnG.lineStyle(1,hov?0x888888:0x444455,hov?0.8:0.5);
-                btnG.strokeRoundedRect(BTN_X,BTN_Y,BTN_W,BTN_H,6);
-            }
+    // Accept (i=0) — NT_YellowBtn ile altin stil
+    const ch0 = ev.choices[0];
+    const lbl0 = LLang(ch0,"label","labelEN","labelRU");
+    NT_YellowBtn(S, CX, btnCY, BTN_W, 46, lbl0, D+2, ()=>{
+        S.cameras.main.shake(35, 0.006);
+        // Parcacik patlamasi
+        for(let ei=0;ei<14;ei++){
+            S.time.delayedCall(ei*18,()=>{
+                const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
+                const ep=S.add.graphics().setDepth(812);
+                ep.x=CX; ep.y=btnCY;
+                ep.fillStyle(ev.color,0.9); ep.fillRect(-2,-2,4,4);
+                S.tweens.add({targets:ep,
+                    x:ep.x+Math.cos(ang)*Phaser.Math.Between(30,90),
+                    y:ep.y+Math.sin(ang)*Phaser.Math.Between(20,70),
+                    alpha:0,scaleX:0.1,scaleY:0.1,
+                    duration:Phaser.Math.Between(200,420),ease:"Quad.easeOut",
+                    onComplete:()=>ep.destroy()});
+            });
+        }
+        NT_SFX.play("button_confirm");
+        ch0.fn(S);
+        ui.fadeAndDestroy(180);
+        S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
+    }).forEach(o=>ui.add(o));
+
+    // Decline ve diger secenekler — gri buton stili, icerik alani altinda
+    for(let i=1; i<choiceCount; i++){
+        const chi = ev.choices[i];
+        const lbI = LLang(chi,"label","labelEN","labelRU");
+        // Decline butonu contentBot ile btnCY arasina yerlestir
+        const decY = contentBot - (choiceCount - 1 - i) * 44 - 6;
+
+        const dBtnG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
+        const _drawDec=(h)=>{
+            dBtnG.clear();
+            dBtnG.fillStyle(h?0x2a2a3a:0x15151e,1);
+            dBtnG.fillRoundedRect(CX-BTN_W/2, decY-18, BTN_W, 36, 8);
+            dBtnG.lineStyle(1.5, h?0x8888aa:0x40404e, h?0.85:0.50);
+            dBtnG.strokeRoundedRect(CX-BTN_W/2, decY-18, BTN_W, 36, 8);
         };
-        drawBtn(false);
+        _drawDec(false);
 
-        const lbl=LLang(ch,"label","labelEN","labelRU");
-        const btnTxt=ui.add(S.add.text(BTN_X+BTN_W/2,BTN_Y+BTN_H/2,lbl,{
-            font:"15px LilitaOne, Arial, sans-serif",
-            color:isAccept?"#ffffff":"#888888"
-        }).setOrigin(0.5).setDepth(804).setAlpha(0));
+        const dTxt=ui.add(S.add.text(CX, decY, lbI,{
+            font:"13px LilitaOne, Arial, sans-serif", color:"#888899"
+        }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
 
-        const hit=ui.add(S.add.rectangle(BTN_X+BTN_W/2,BTN_Y+BTN_H/2,BTN_W,BTN_H,0xffffff,0.001).setInteractive().setDepth(805));
-        hit.on("pointerover",()=>{
-            drawBtn(true);
-            btnTxt.setColor("#ffffff");
-            // [VFX] Hover: hafif kamera zoom
-            if(isAccept){
-                S.cameras.main.zoomTo(1.01,80,"Quad.easeOut");
-            }
-        });
-        hit.on("pointerout",()=>{
-            drawBtn(false);
-            btnTxt.setColor(isAccept?"#ffffff":"#888888");
-            if(isAccept) S.cameras.main.zoomTo(1.0,120,"Quad.easeIn");
-        });
-        hit.on("pointerdown",()=>{
-            // [VFX WOW] Secim efekti
-            S.cameras.main.zoomTo(1.0,80,"Quad.easeIn");
-            // Ses: kabul → button_confirm, diger secenekler → menu_click
-            NT_SFX.play(isAccept ? "button_confirm" : "menu_click");
-            
-            if(isAccept){
-                S.cameras.main.shake(35,0.006);
-                // Parcacik patlamasi
-                const W2=360;
-                for(let ei=0;ei<12;ei++){
-                    S.time.delayedCall(ei*20,()=>{
-                        const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-                        const ep=S.add.graphics().setDepth(810);
-                        ep.x=BTN_X+BTN_W/2; ep.y=BTN_Y+BTN_H/2;
-                        ep.fillStyle(col,0.9); ep.fillRect(-2,-2,4,4);
-                        S.tweens.add({targets:ep,
-                            x:ep.x+Math.cos(ang)*Phaser.Math.Between(30,80),
-                            y:ep.y+Math.sin(ang)*Phaser.Math.Between(20,60),
-                            alpha:0,scaleX:0.1,scaleY:0.1,
-                            duration:Phaser.Math.Between(200,400),ease:"Quad.easeOut",
-                            onComplete:()=>ep.destroy()});
-                    });
-                }
-            }
-            ch.fn(S);
+        const dHit=ui.add(S.add.rectangle(CX, decY, BTN_W, 36, 0xffffff, 0.001)
+            .setInteractive({useHandCursor:true}).setDepth(D+4));
+        dHit.on("pointerover",()=>{ _drawDec(true); dTxt.setColor("#ccccdd"); });
+        dHit.on("pointerout", ()=>{ _drawDec(false); dTxt.setColor("#888899"); });
+        dHit.on("pointerdown",()=>{
+            NT_SFX.play("menu_click");
+            chi.fn(S);
             ui.fadeAndDestroy(180);
-            S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs, S); });
+            S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
         });
 
-        // Buton animate
-        S.time.delayedCall(180+i*60,()=>{
-            S.tweens.add({targets:[btnG,btnTxt],alpha:1,duration:160,ease:"Quad.easeOut"});
+        S.time.delayedCall(220+i*60,()=>{
+            S.tweens.add({targets:[dBtnG,dTxt],alpha:1,duration:160,ease:"Quad.easeOut"});
         });
+    }
+
+    // Icerik elementleri fade-in
+    S.time.delayedCall(80,()=>{
+        S.tweens.add({targets:[iconTxt,titleTxt,descTxt,divG,icBg],alpha:1,duration:200,ease:"Quad.easeOut"});
     });
 
-    // Panel slide-in animasyonu
-    pg.y=40; pg.setAlpha(0);
-    S.tweens.add({targets:pg,y:0,alpha:1,duration:280,ease:"Back.easeOut"});
-
-    // Diger elementler fade-in — hizli belirme (panel ile neredeyse es zamanli)
-    S.time.delayedCall(20,()=>{
-        S.tweens.add({targets:[iconTxt,titleTxt,descTxt],alpha:1,duration:200,ease:"Quad.easeOut"});
-    });
-
-    
-
-    // Auto-close after 8s — treat as a decline (no permanent effect)
+    // Auto-close after 8s
     S.time.delayedCall(8000,()=>{
         if(gs.pickingUpgrade&&!gs.gameOver){
-            EventManager.endEvent(GS); // release event lock on timeout
+            EventManager.endEvent(GS);
             ui.fadeAndDestroy(200);
             S.time.delayedCall(220,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
         }
@@ -15503,212 +15511,250 @@ function gameOver(S){
         _panelShown = true;
 
         const objs=[]; const A=o=>{if(o)objs.push(o);return o;};
-        const pm=NT_Measure(S,"ui_pause_win",320);
-        const panelCY=H/2-18;
+
+        // ── BÜYÜK PANEL — ui_pause_win, 350px genişlik ──────────────
+        const pm=NT_Measure(S,"ui_pause_win",350);
+        // Paneli ekranın tam ortasına yerleştir, yeterli dikey alan bırak
+        const panelCY = Math.min(H/2, H - pm.H/2 - 10);
         const sprite=A(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc).setDepth(902));
         const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
         const stripCY    = pTop + pm.stripH/2;
-        const contentTop = pTop + pm.stripH + 10;
-        const contentBot = pBot - pm.goldH  - 8;
+        const contentTop = pTop + pm.stripH + 8;
+        const contentBot = pBot - pm.goldH  - 6;
         const btnCY      = pBot - pm.goldH/2;
-        const TX=CX-128, VX=CX+128;
+        const TX=CX-155, VX=CX+155;
         const D=903;
 
         sprite.setScale(pm.sc*0.05).setAlpha(0);
         S.tweens.add({targets:sprite,scaleX:pm.sc,scaleY:pm.sc,alpha:1,duration:220,ease:"Back.easeOut"});
 
+        // ── BAŞLIK ────────────────────────────────────────────────────
         A(S.add.text(CX,stripCY,"💀  "+L("gameOver"),
-            NT_STYLE.title(24,"#ffffff","#5a0000")).setOrigin(0.5).setDepth(D));
+            NT_STYLE.title(22,"#ffffff","#5a0000")).setOrigin(0.5).setDepth(D));
 
         const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
         const isNew=gs.score>prevHs;
 
-        let cy=contentTop+10;
+        let cy=contentTop+6;
 
+        // ── SKOR ─────────────────────────────────────────────────────
         A(S.add.text(CX,cy,gs.score.toLocaleString(),
-            NT_STYLE.title(36,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
-        cy+=50;
+            NT_STYLE.title(34,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
+        cy+=40;
 
         const hsColor=isNew?"#ffcc00":"#8899aa";
         const hsLabel=isNew?L("goNewRecord"):("BEST: "+prevHs.toLocaleString());
-        A(S.add.text(CX,cy,hsLabel,NT_STYLE.accent(13,hsColor)).setOrigin(0.5,0).setDepth(D));
-        cy+=28;
-
-        const dg=A(S.add.graphics().setDepth(902));
-        dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy+4,VX,cy+4);
+        A(S.add.text(CX,cy,hsLabel,NT_STYLE.accent(12,hsColor)).setOrigin(0.5,0).setDepth(D));
         cy+=18;
 
+        // ── AYIRICI ──────────────────────────────────────────────────
+        const dg=A(S.add.graphics().setDepth(902));
+        dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy+3,VX,cy+3);
+        cy+=10;
+
+        // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
-            if(cy+22>contentBot-38) return;
-            A(S.add.text(TX,cy,lbl,NT_STYLE.stat(14,"#88aacc")).setOrigin(0,0.5).setDepth(D));
-            A(S.add.text(VX,cy,val,NT_STYLE.stat(14,col)).setOrigin(1,0.5).setDepth(D));
-            cy+=26;
+            if(cy+20>contentBot-86) return;
+            A(S.add.text(TX,cy,lbl,NT_STYLE.stat(13,"#88aacc")).setOrigin(0,0.5).setDepth(D));
+            A(S.add.text(VX,cy,val,NT_STYLE.stat(13,col)).setOrigin(1,0.5).setDepth(D));
+            cy+=20;
         };
         const kLbl=CURRENT_LANG==="en"?"KILLS":CURRENT_LANG==="ru"?"УБИТО":"KILL";
         const lLbl=CURRENT_LANG==="en"?"LEVEL":CURRENT_LANG==="ru"?"УРОВЕНЬ":"SEVIYE";
-        const gLbl=CURRENT_LANG==="en"?"GOLD":CURRENT_LANG==="ru"?"ЗОЛОТО":"ALTIN";
         _row(kLbl, String(gs.kills), "#ff7777");
         _row(lLbl, "Lv "+gs.level,  "#88ddff");
 
-        // ── GOLD COUNT-UP — animasyonlu sayici ──────────────────────
-        {
-            const goldLbl = A(S.add.text(TX, cy, gLbl, NT_STYLE.stat(14,"#88aacc")).setOrigin(0,0.5).setDepth(D));
-            const goldVal = A(S.add.text(VX, cy, "0 GOLD", NT_STYLE.stat(14,"#ffcc44")).setOrigin(1,0.5).setDepth(D));
+        // ── GOLD SATIRI — ikon kullan ────────────────────────────────
+        if(cy+20<=contentBot-86){
             const goldTarget = Math.max(0, gs.gold || 0);
-            const _goldAnim = {v: 0};
+            const gLbl=CURRENT_LANG==="en"?"GOLD":CURRENT_LANG==="ru"?"ЗОЛОТО":"ALTIN";
+            A(S.add.text(TX,cy,gLbl,NT_STYLE.stat(13,"#88aacc")).setOrigin(0,0.5).setDepth(D));
+
+            // Sayı metni (sağda)
+            const goldVal = A(S.add.text(VX-28, cy, "0", NT_STYLE.stat(13,"#ffcc44")).setOrigin(1,0.5).setDepth(D));
+            // Gold ikonu (sayının sağında)
+            if(S.textures.exists("icon_gold")){
+                A(S.add.image(VX-12, cy, "icon_gold").setDisplaySize(22,22).setDepth(D+1));
+            }
+
+            const _goldAnim = {v:0};
             let _lastGoldTick = 0;
             S.tweens.add({
                 targets: _goldAnim, v: goldTarget,
                 duration: 1600, delay: 300, ease: "Quad.easeOut",
                 onUpdate: () => {
                     const cur = Math.round(_goldAnim.v);
-                    goldVal.setText(cur.toLocaleString() + " " + (CURRENT_LANG==="tr"?"ALTIN":"GOLD"));
+                    goldVal.setText(cur.toLocaleString());
                     if(cur - _lastGoldTick >= Math.max(1, Math.floor(goldTarget / 22))){
                         _lastGoldTick = cur;
                         if(goldTarget > 0) NT_SFX.play("gold");
                     }
                 },
                 onComplete: () => {
-                    goldVal.setText(goldTarget.toLocaleString() + " " + (CURRENT_LANG==="tr"?"ALTIN":"GOLD"));
+                    goldVal.setText(goldTarget.toLocaleString());
                     if(goldTarget > 0) S.tweens.add({targets: goldVal, scaleX:1.3, scaleY:1.3, duration:120, yoyo:true, ease:"Back.easeOut"});
                 }
             });
-            cy += 26;
+            cy += 20;
         }
 
-            // ── PLAYER LEVEL XP — her zaman goster ──
-            {
-            const sessionXP = _plvCalcSessionXP(gs);
-            const prevLevel = PLAYER_LEVEL;
-            const result = _plvAddXP(sessionXP);
+        // ── XP BAR BÖLÜMÜ ────────────────────────────────────────────
+        // cy'yi güvende tut — contentBot'a göre yukarı çek
+        cy = Math.min(cy, contentBot - 72);
+        {
+            const sessionXP   = _plvCalcSessionXP(gs);
+            const prevLevel   = PLAYER_LEVEL;
+            const prevLevelXP = PLAYER_LEVEL_XP;
+            const prevNeeded  = _plvXpNeeded(PLAYER_LEVEL);
+            const prevRatio   = Math.min(1, prevLevelXP / prevNeeded);
+            const result      = _plvAddXP(sessionXP);
+            const xpNeeded    = _plvXpNeeded(PLAYER_LEVEL);
+            const finalRatio  = Math.min(1, PLAYER_LEVEL_XP / xpNeeded);
+            const BD = 910;
 
-            // Divider
-            const dg2=A(S.add.graphics().setDepth(D));
-            dg2.lineStyle(1,0x44aacc,0.25); dg2.lineBetween(TX,cy+4,VX,cy+4);
-            cy+=10;
+            // Ayırıcı
+            const dg2 = A(S.add.graphics().setDepth(BD));
+            dg2.lineStyle(1, 0x664400, 0.5); dg2.lineBetween(TX, cy+2, VX, cy+2);
+            cy += 8;
 
-            // XP earned — single compact row
-            A(S.add.text(TX, cy, "XP", {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"13px",color:"#88aacc",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D));
-            const xpValTxt = A(S.add.text(VX, cy, "+0", {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"13px",color:"#44ffaa",stroke:"#000",strokeThickness:3}).setOrigin(1,0.5).setDepth(D));
-            const _xpAnim = {v: 0};
-            let _lastXpTick = 0;
+            // Bar
+            const barX=TX, barW=VX-TX, barH=16, barR=8;
+
+            const barOuter=A(S.add.graphics().setDepth(BD));
+            barOuter.fillStyle(0x080400,0.98);
+            barOuter.fillRoundedRect(barX-2,cy-2,barW+4,barH+4,barR+1);
+            barOuter.lineStyle(2,0xffaa00,0.95);
+            barOuter.strokeRoundedRect(barX-2,cy-2,barW+4,barH+4,barR+1);
+
+            const barBg=A(S.add.graphics().setDepth(BD+1));
+            barBg.fillStyle(0x180800,1);
+            barBg.fillRoundedRect(barX,cy,barW,barH,barR);
+
+            const barFill=A(S.add.graphics().setDepth(BD+2));
+            const barGlow=A(S.add.graphics().setDepth(BD+3));
+            const barShine=A(S.add.graphics().setDepth(BD+4));
+            const barPulse=A(S.add.graphics().setDepth(BD+5));
+
+            const _drawBar=(ratio)=>{
+                barFill.clear();barGlow.clear();barShine.clear();barPulse.clear();
+                if(ratio<0.005)return;
+                const fw=Math.max(barR*2,(barW-4)*ratio);
+                barFill.fillStyle(0xcc4400,1); barFill.fillRoundedRect(barX+2,cy+2,fw,barH-4,barR-2);
+                barFill.fillStyle(0xff7700,1); barFill.fillRoundedRect(barX+2,cy+2,fw,(barH-4)*0.70,{tl:barR-2,tr:barR-2,bl:0,br:0});
+                barFill.fillStyle(0xffcc00,1); barFill.fillRoundedRect(barX+2,cy+2,fw,(barH-4)*0.32,{tl:barR-2,tr:barR-2,bl:0,br:0});
+                barGlow.fillStyle(0xff6600,0.20); barGlow.fillRoundedRect(barX-1,cy-2,fw+5,barH+4,barR+1);
+                barShine.fillStyle(0xffffff,0.30); barShine.fillRoundedRect(barX+4,cy+3,Math.max(0,fw-6),Math.max(1,Math.floor((barH-4)*0.22)),{tl:barR-2,tr:barR-2,bl:0,br:0});
+                if(fw>8){
+                    const ex=barX+2+fw-4, ey=cy+barH/2;
+                    barPulse.fillStyle(0xffffff,0.90); barPulse.fillCircle(ex,ey,3);
+                    barPulse.fillStyle(0xffdd00,0.40); barPulse.fillCircle(ex,ey,6);
+                }
+            };
+            _drawBar(prevRatio);
+            const _barAnim={v:prevRatio};
             S.tweens.add({
-                targets: _xpAnim, v: sessionXP,
-                duration: 1800, delay: 500, ease: "Quad.easeOut",
-                onUpdate: () => {
-                    const cur = Math.round(_xpAnim.v);
-                    xpValTxt.setText("+" + cur.toLocaleString());
-                    if(cur - _lastXpTick >= Math.max(1, Math.floor(sessionXP / 18))){
-                        _lastXpTick = cur;
-                        NT_SFX.play("xp_pickup");
-                    }
-                },
-                onComplete: () => {
-                    xpValTxt.setText("+" + sessionXP.toLocaleString());
-                    S.tweens.add({targets: xpValTxt, scaleX:1.25, scaleY:1.25, duration:100, yoyo:true, ease:"Back.easeOut"});
+                targets:_barAnim,v:finalRatio,
+                duration:1600,delay:400,ease:"Quad.easeOut",
+                onUpdate:()=>_drawBar(_barAnim.v),
+                onComplete:()=>{
+                    _drawBar(finalRatio);
+                    S.tweens.add({targets:barOuter,alpha:0.5,duration:600,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
                 }
             });
-            cy += 22;
 
-            // Compact XP progress bar (thin, 10px)
-            if(cy + 30 <= contentBot) {
-                const barX = TX, barW = VX - TX, barH = 10, barR = 5;
-                const xpNeeded = _plvXpNeeded(PLAYER_LEVEL);
-                const xpRatio = Math.min(1, PLAYER_LEVEL_XP / xpNeeded);
-                const barBg = A(S.add.graphics().setDepth(D));
-                barBg.fillStyle(0x060e1a, 0.95);
-                barBg.fillRoundedRect(barX, cy, barW, barH, barR);
-                barBg.lineStyle(1.5, 0x1155aa, 0.5);
-                barBg.strokeRoundedRect(barX, cy, barW, barH, barR);
-                const barFill = A(S.add.graphics().setDepth(D+1));
-                const _drawDeathBar = (ratio) => {
-                    barFill.clear();
-                    if(ratio < 0.02) return;
-                    const fw = Math.max(barH, (barW - 4) * ratio);
-                    barFill.fillStyle(0x1166cc, 1);
-                    barFill.fillRoundedRect(barX + 2, cy + 2, fw, barH - 4, barR - 2);
-                    barFill.fillStyle(0x44aaff, 0.5);
-                    barFill.fillRoundedRect(barX + 3, cy + 2, fw - 2, (barH - 4) * 0.4, {tl:barR-2,tr:barR-2,bl:0,br:0});
-                };
-                const _barAnim = {v: 0};
-                S.tweens.add({targets: _barAnim, v: xpRatio, duration: 1000, delay: 500, ease: "Quad.easeOut",
-                    onUpdate: () => _drawDeathBar(_barAnim.v)
-                });
-                const prestigeStr = PLAYER_PRESTIGE > 0 ? ("⭐" + PLAYER_PRESTIGE + " ") : "";
-                A(S.add.text(barX, cy + barH + 3, prestigeStr + "Lv " + PLAYER_LEVEL, {
-                    fontFamily: "LilitaOne,Arial,sans-serif", fontSize: "10px",
-                    color: "#88bbff", stroke: "#000", strokeThickness: 2
-                }).setOrigin(0, 0).setDepth(D));
-                A(S.add.text(VX, cy + barH + 3, PLAYER_LEVEL_XP + " / " + xpNeeded, {
-                    fontFamily: "LilitaOne,Arial,sans-serif", fontSize: "9px",
-                    color: "#5588aa", stroke: "#000", strokeThickness: 1
-                }).setOrigin(1, 0).setDepth(D));
-                cy += barH + 18;
+            // Lv etiketi
+            const xpLabelL=A(S.add.text(barX,cy-1,
+                (PLAYER_PRESTIGE>0?"⭐"+PLAYER_PRESTIGE+" ":"")+"Lv "+prevLevel,
+                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#ffaa44",stroke:"#000",strokeThickness:3}
+            ).setOrigin(0,1).setDepth(BD+5));
+            const xpLabelR=A(S.add.text(VX,cy-1,"+0 XP",
+                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#ffdd66",stroke:"#000",strokeThickness:3}
+            ).setOrigin(1,1).setDepth(BD+5));
+            const _xpC={v:0};
+            S.tweens.add({
+                targets:_xpC,v:sessionXP,
+                duration:1600,delay:400,ease:"Quad.easeOut",
+                onUpdate:()=>xpLabelR.setText("+"+Math.round(_xpC.v).toLocaleString()+" XP"),
+                onComplete:()=>{ xpLabelR.setText("+"+sessionXP.toLocaleString()+" XP"); NT_SFX.play("xp_pickup"); }
+            });
+
+            // Alt XP text
+            const xpSubLbl=A(S.add.text(CX,cy+barH+4,
+                prevLevelXP+" / "+prevNeeded+" XP",
+                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",color:"#aa7733",stroke:"#000",strokeThickness:2}
+            ).setOrigin(0.5,0).setDepth(BD+5));
+            S.time.delayedCall(2100,()=>{
+                if(!xpSubLbl.scene)return;
+                xpSubLbl.setText(PLAYER_LEVEL_XP+" / "+xpNeeded+" XP");
+                xpSubLbl.setStyle({color:"#ffcc66"});
+            });
+
+            cy+=barH+14;
+
+            // Level up bildirimi
+            if(result.levelsGained>0){
+                secureSet("nt_lvup_pending",result.levelsGained);
+                const lvUpStr=result.levelsGained>1
+                    ?L("levelUp").replace("!","")+" ×"+result.levelsGained+"  →  Lv "+result.newLevel
+                    :L("levelUp")+"  →  Lv "+result.newLevel;
+                if(cy+24<=contentBot-4){
+                    const lvUpG=A(S.add.graphics().setDepth(BD));
+                    lvUpG.fillStyle(0x060e02,0.97); lvUpG.fillRoundedRect(TX,cy,VX-TX,22,6);
+                    lvUpG.lineStyle(2,0x88ff44,0.90); lvUpG.strokeRoundedRect(TX,cy,VX-TX,22,6);
+                    const lvUpTxt=A(S.add.text(TX+6,cy+11,lvUpStr,
+                        {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",color:"#88ff44",stroke:"#000",strokeThickness:3}
+                    ).setOrigin(0,0.5).setDepth(BD+1));
+                    // Gold ikon + miktar (level up ikramiyesi)
+                    if(result.goldEarned>0){
+                        const goldEarnedTxt = A(S.add.text(VX-26,cy+11,"+"+result.goldEarned.toLocaleString(),
+                            {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",color:"#ffdd44",stroke:"#000",strokeThickness:2}
+                        ).setOrigin(1,0.5).setDepth(BD+1));
+                        if(S.textures.exists("icon_gold")){
+                            A(S.add.image(VX-10,cy+11,"icon_gold").setDisplaySize(18,18).setDepth(BD+2));
+                        }
+                    }
+                    lvUpG.setAlpha(0); lvUpTxt.setAlpha(0);
+                    S.tweens.add({targets:[lvUpG,lvUpTxt],alpha:1,duration:300,delay:1800,ease:"Quad.easeOut"});
+                    S.time.delayedCall(1800,()=>{
+                        S.cameras.main.flash(180,68,255,68,false);
+                        NT_SFX.play("level_up");
+                    });
+                    cy+=26;
+                }
+            } else {
+                S.time.delayedCall(600,()=>NT_SFX.play("xp_pickup"));
             }
 
-            // Level up notification
-            if(result.levelsGained > 0 && cy + 36 <= contentBot){
-                secureSet("nt_lvup_pending", result.levelsGained);
-                const lvUpG = A(S.add.graphics().setDepth(D));
-                lvUpG.fillStyle(0x082010, 0.97);
-                lvUpG.fillRoundedRect(TX, cy, VX-TX, 28, 8);
-                lvUpG.lineStyle(2, 0x44ff66, 0.85);
-                lvUpG.strokeRoundedRect(TX, cy, VX-TX, 28, 8);
-                const lvUpStr = result.levelsGained > 1
-                    ? L("levelUp").replace("!","") + " ×" + result.levelsGained + "  →  Lv " + result.newLevel
-                    : L("levelUp") + "  →  Lv " + result.newLevel;
-                const lvUpTxt = A(S.add.text(TX + 8, cy + 14, lvUpStr, {
-                    fontFamily: "LilitaOne, Arial, sans-serif", fontSize: "12px",
-                    color: "#44ff66", stroke: "#000", strokeThickness: 3
-                }).setOrigin(0, 0.5).setDepth(D+1));
-                A(S.add.text(VX - 6, cy + 14, "+" + result.goldEarned.toLocaleString() + " 🪙", {
-                    fontFamily: "LilitaOne, Arial, sans-serif", fontSize: "11px",
-                    color: "#ffdd44", stroke: "#000", strokeThickness: 3
-                }).setOrigin(1, 0.5).setDepth(D+1));
-                lvUpG.setAlpha(0).setScale(0.9);
-                S.tweens.add({targets: lvUpG, alpha:1, scaleX:1, scaleY:1, duration:350, delay:1200, ease:"Back.easeOut"});
-                lvUpTxt.setAlpha(0);
-                S.tweens.add({targets: lvUpTxt, alpha:1, duration:300, delay:1400});
-                S.time.delayedCall(1200, () => {
-                    S.cameras.main.flash(200, 68, 255, 102, false);
-                    NT_SFX.play("level_up");
-                });
-                cy += 32;
-            } else if(result.levelsGained > 0) {
-                secureSet("nt_lvup_pending", result.levelsGained);
-                S.time.delayedCall(600, () => NT_SFX.play("level_up"));
+            if(PLAYER_LEVEL>=50&&result.levelsGained>0&&cy+16<=contentBot-4){
+                A(S.add.text(CX,cy+3,"⭐ PRESTIGE AVAILABLE!",
+                    {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",color:"#ffaa44",stroke:"#000",strokeThickness:2}
+                ).setOrigin(0.5).setDepth(BD));
+                cy+=16;
             }
+        }
 
-            // Prestige available notification
-            if(PLAYER_LEVEL >= 50 && result.levelsGained > 0){
-                A(S.add.text(CX, cy + 4, "⭐ PRESTIGE AVAILABLE!", {
-                    fontFamily: "LilitaOne,Arial,sans-serif", fontSize: "10px",
-                    color: "#ffaa44", stroke: "#000", strokeThickness: 2
-                }).setOrigin(0.5).setDepth(D));
-                cy += 18;
-            }
-        } // end XP section bounds check
-
-        if(cy+34<contentBot-10){
+        // ── SHARE BUTONU ─────────────────────────────────────────────
+        if(cy+30<contentBot-6){
             cy+=4;
             const shBg=A(S.add.graphics().setDepth(902));
             const _dSh=(h)=>{
                 shBg.clear();
                 shBg.fillStyle(h?0x226688:0x0d2a36,1);
-                shBg.fillRoundedRect(CX-78,cy,156,28,7);
+                shBg.fillRoundedRect(CX-74,cy,148,26,7);
                 shBg.lineStyle(1.5,0x44aacc,h?0.9:0.5);
-                shBg.strokeRoundedRect(CX-78,cy,156,28,7);
+                shBg.strokeRoundedRect(CX-74,cy,148,26,7);
             };
             _dSh(false);
-            A(S.add.text(CX,cy+14,L("goShare"),NT_STYLE.body(12,"#aaddff")).setOrigin(0.5).setDepth(D));
-            A(S.add.rectangle(CX,cy+14,156,28,0xffffff,0.001).setDepth(D+1)
+            A(S.add.text(CX,cy+13,L("goShare"),NT_STYLE.body(11,"#aaddff")).setOrigin(0.5).setDepth(D));
+            A(S.add.rectangle(CX,cy+13,148,26,0xffffff,0.001).setDepth(D+1)
                 .setInteractive({useHandCursor:true})
                 .on("pointerover",()=>_dSh(true))
                 .on("pointerout",()=>_dSh(false))
                 .on("pointerdown",()=>shareTelegramScore(gs.score,gs.kills,gs.level)));
         }
 
+        // ── BUTONLAR ─────────────────────────────────────────────────
         const resetFn=()=>{
             Object.keys(UPGRADES).forEach(k=>UPGRADES[k].level=0);
             EVOLUTIONS.forEach(e=>e.active=false);
@@ -15806,11 +15852,12 @@ function gameOver(S){
 
         // ── Geri sayim cemberi — altta ortada ────────────────────
         const TOTAL_TIME = 5000;
-        const TIMER_CX = CX2, TIMER_CY = PY+PH-48, TIMER_R = 24;
+        // [FIX] Timer YES butonuyla cakisiyordu — asagi tasinip kucultuldu
+        const TIMER_CX = CX2, TIMER_CY = PY+PH-22, TIMER_R = 16;
         const timerG=A2(S.add.graphics().setDepth(D2+3));
         const timerTxt=A2(S.add.text(TIMER_CX,TIMER_CY,"5",{
-            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"20px",
-            color:"#ffdd44",stroke:"#1a0800",strokeThickness:4
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"14px",
+            color:"#ffdd44",stroke:"#1a0800",strokeThickness:3
         }).setOrigin(0.5).setDepth(D2+4).setAlpha(0));
         S.tweens.add({targets:timerTxt,alpha:1,duration:180,delay:200});
 
@@ -15819,10 +15866,10 @@ function gameOver(S){
             timerG.clear();
             const col = ratio>0.6?0xff8800:ratio>0.35?0xffdd44:0xff3300;
             // Track (koyu)
-            timerG.lineStyle(5,0x2a1000,1); timerG.strokeCircle(TIMER_CX,TIMER_CY,TIMER_R);
+            timerG.lineStyle(3,0x2a1000,1); timerG.strokeCircle(TIMER_CX,TIMER_CY,TIMER_R);
             // Fill arc
             if(ratio>0){
-                timerG.lineStyle(5,col,1);
+                timerG.lineStyle(3,col,1);
                 timerG.beginPath();
                 timerG.arc(TIMER_CX,TIMER_CY,TIMER_R,-Math.PI/2,-Math.PI/2+Math.PI*2*ratio,false);
                 timerG.strokePath();
@@ -16267,7 +16314,7 @@ function doExplosion(S,x,y){
         if(d<r+e.displayWidth*0.5){
             const falloff=Math.max(0.3,1-(d/r)*0.6);
             // [BUFF] Heavy cannon splash hits harder — 1.2→1.55 base multiplier
-            const _splashMult = gs.activeWeapon==="heavy_cannon" ? 1.55+lv*0.35 : 1.2+lv*0.35;
+            const _splashMult = gs.activeWeapon==="heavy_cannon" ? 1.1+lv*0.20 : 1.2+lv*0.30;
             applyDmg(S,e,gs.damage*_splashMult*falloff,d<r*0.4);
         }
     }
