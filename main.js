@@ -2142,12 +2142,12 @@ function showBoosterReward(scene, x, y, name, depth){
 
 const DAILY = [
     { day:1, type:"gold", amount:200  },
-    { day:2, type:"gem",  amount:5    },
-    { day:3, type:"gold", amount:400  },
-    { day:4, type:"gem",  amount:10   },
-    { day:5, type:"gold", amount:800  },
-    { day:6, type:"gem",  amount:20   },
-    { day:7, type:"gem",  amount:50   },
+    { day:2, type:"gold", amount:350  },
+    { day:3, type:"gold", amount:500  },
+    { day:4, type:"gold", amount:750  },
+    { day:5, type:"gold", amount:1100 },
+    { day:6, type:"gold", amount:1600 },
+    { day:7, type:"gem",  amount:60   },
 ];
 
 const WHEEL = [
@@ -2226,19 +2226,52 @@ const BOOSTS = [
     { id:"luckcharm",  name:"LUCK+",       nameTR:"SANS+",      desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
 ];
 
-const BP = [
-    { xp:0,    free:{type:"gold",n:100},  prem:{type:"gem",n:5}    },
-    { xp:60,   free:{type:"gold",n:250},  prem:{type:"gold",n:600} },
-    { xp:150,  free:{type:"gem",n:3},     prem:{type:"gem",n:12}   },
-    { xp:280,  free:{type:"gold",n:400},  prem:{type:"gem",n:18}   },
-    { xp:450,  free:{type:"gold",n:700},  prem:{type:"gem",n:22}   },
-    { xp:650,  free:{type:"gem",n:8},     prem:{type:"gem",n:28}   },
-    { xp:900,  free:{type:"gold",n:1200}, prem:{type:"gem",n:35}   },
-    { xp:1200, free:{type:"gem",n:12},    prem:{type:"gem",n:45}   },
-    { xp:1600, free:{type:"gold",n:2000}, prem:{type:"gem",n:60}   },
-    { xp:2100, free:{type:"gem",n:25},    prem:{type:"gem",n:100}  },
+// ═══════════════════════════════════════════════════════════════
+// DAILY QUESTS — varied objectives, balanced rewards
+// Difficulty curve: easy ≈1-2 min, medium ≈3-5 min, hard ≈7-10 min
+// Rewards tuned to replace old BP drip: ~1.2-1.8k gold/day + occasional gems
+// ═══════════════════════════════════════════════════════════════
+const QUEST_POOL = [
+    // ─── EASY (fast, single game) ───────────────────────────────
+    { id:"e_kill30",   diff:"easy",    type:"kills",   target:30,     name:"First Blood",      nameTR:"Ilk Kan",         icon:"🎯", desc:"Kill 30 triangles (any games today)",     descTR:"Bugun toplam 30 ucgen oldur",              reward:{gold:120,  xp:25}  },
+    { id:"e_kill60",   diff:"easy",    type:"kills",   target:60,     name:"Warming Up",       nameTR:"Isiniyor",        icon:"🔥", desc:"Kill 60 triangles (any games today)",     descTR:"Bugun toplam 60 ucgen oldur",              reward:{gold:150,  xp:30}  },
+    { id:"e_lv5",      diff:"easy",    type:"level",   target:5,      name:"Quick Climb",      nameTR:"Hizli Tirmanis",  icon:"⬆️", desc:"Reach in-game level 5 in a single run",   descTR:"Tek oyunda seviye 5'e ulas",                reward:{gold:130,  xp:25}  },
+    { id:"e_score5k",  diff:"easy",    type:"score",   target:5000,   name:"Point Hunter",     nameTR:"Puan Avcisi",     icon:"💯", desc:"Score 5,000 points in a single run",      descTR:"Tek oyunda 5.000 puan topla",              reward:{gold:100,  xp:20}  },
+    { id:"e_play1",    diff:"easy",    type:"games",   target:1,      name:"Daily Warrior",    nameTR:"Gunluk Savas",    icon:"⚔️", desc:"Play at least 1 game today",              descTR:"Bugun en az 1 oyun oyna",                   reward:{gold:100,  xp:20}  },
+    { id:"e_combo10",  diff:"easy",    type:"combo",   target:10,     name:"On Fire!",         nameTR:"Alevlendi!",      icon:"✨", desc:"Reach a 10-combo in a single run",        descTR:"Tek oyunda 10'luk kombo yap",              reward:{gold:120,  xp:25}  },
+    { id:"e_elite2",   diff:"easy",    type:"elites",  target:2,      name:"Elite Spotter",    nameTR:"Elit Gozcusu",    icon:"★", desc:"Kill 2 elite enemies (any games today)",   descTR:"Bugun 2 elit dusman oldur",                reward:{gold:140,  xp:28}  },
+
+    // ─── MEDIUM (balanced session) ──────────────────────────────
+    { id:"m_kill150",  diff:"medium",  type:"kills",   target:150,    name:"Triangle Slayer",  nameTR:"Ucgen Kiyan",     icon:"⚡", desc:"Kill 150 triangles (any games today)",    descTR:"Bugun toplam 150 ucgen oldur",             reward:{gold:350,  xp:70}  },
+    { id:"m_lv10",     diff:"medium",  type:"level",   target:10,     name:"Veteran",          nameTR:"Veteran",          icon:"🎖️", desc:"Reach in-game level 10 in one run",       descTR:"Tek oyunda seviye 10'a ulas",               reward:{gold:380,  xp:80}  },
+    { id:"m_elite8",   diff:"medium",  type:"elites",  target:8,      name:"Elite Hunter",     nameTR:"Elit Avcisi",     icon:"👑", desc:"Kill 8 elite enemies today",              descTR:"Bugun 8 elit dusman oldur",                 reward:{gold:400,  xp:85}  },
+    { id:"m_boss1",    diff:"medium",  type:"bosses",  target:1,      name:"Giant Slayer",     nameTR:"Dev Yikici",      icon:"💀", desc:"Defeat 1 boss today",                     descTR:"Bugun 1 boss yen",                          reward:{gold:350,  xp:75}  },
+    { id:"m_score30k", diff:"medium",  type:"score",   target:30000,  name:"Scorer",           nameTR:"Skorcu",           icon:"🏆", desc:"Score 30,000 points in a single run",     descTR:"Tek oyunda 30.000 puan topla",             reward:{gold:320,  xp:65}  },
+    { id:"m_combo18",  diff:"medium",  type:"combo",   target:18,     name:"Combo Master",     nameTR:"Kombo Ustasi",    icon:"💥", desc:"Reach an 18-combo in a single run",       descTR:"Tek oyunda 18'lik kombo yap",              reward:{gold:380,  xp:75}  },
+    { id:"m_play3",    diff:"medium",  type:"games",   target:3,      name:"Triple Threat",    nameTR:"Uclu Tehdit",     icon:"🎮", desc:"Play 3 games today",                      descTR:"Bugun 3 oyun oyna",                         reward:{gold:330,  xp:65}  },
+
+    // ─── HARD (long or multiple sessions) ───────────────────────
+    { id:"h_kill400",  diff:"hard",    type:"kills",   target:400,    name:"Massacre",         nameTR:"Katliam",          icon:"☠️", desc:"Kill 400 triangles today",                descTR:"Bugun toplam 400 ucgen oldur",             reward:{gold:850,  xp:180} },
+    { id:"h_lv15",     diff:"hard",    type:"level",   target:15,     name:"Master",           nameTR:"Usta",             icon:"🌟", desc:"Reach in-game level 15 in one run",       descTR:"Tek oyunda seviye 15'e ulas",               reward:{gold:950,  xp:200} },
+    { id:"h_elite20",  diff:"hard",    type:"elites",  target:20,     name:"Elite Sweep",      nameTR:"Elit Temizlik",   icon:"⚜️", desc:"Kill 20 elite enemies today",             descTR:"Bugun 20 elit dusman oldur",                reward:{gold:900,  xp:190} },
+    { id:"h_boss3",    diff:"hard",    type:"bosses",  target:3,      name:"Boss Hunter",      nameTR:"Boss Avcisi",     icon:"👹", desc:"Defeat 3 bosses today",                   descTR:"Bugun 3 boss yen",                          reward:{gold:1000, xp:210} },
+    { id:"h_score100k",diff:"hard",    type:"score",   target:100000, name:"High Scorer",      nameTR:"Yuksek Skor",     icon:"🥇", desc:"Score 100,000 points in a single run",    descTR:"Tek oyunda 100.000 puan topla",            reward:{gold:800,  xp:170} },
+    { id:"h_combo20",  diff:"hard",    type:"combo",   target:20,     name:"Perfect Streak",   nameTR:"Kusursuz Seri",   icon:"🌀", desc:"Reach max combo (20) in a single run",    descTR:"Tek oyunda max kombo (20) yap",            reward:{gold:900,  xp:190} },
+
+    // ─── SPECIAL (very hard, rare, GEM reward) ──────────────────
+    { id:"s_kill1000", diff:"special", type:"kills",   target:1000,   name:"Legendary Purge",  nameTR:"Efsanevi Temizlik",icon:"🔮", desc:"Kill 1,000 triangles today",              descTR:"Bugun toplam 1.000 ucgen oldur",           reward:{gold:1500, xp:400, gem:5} },
+    { id:"s_lv22",     diff:"special", type:"level",   target:22,     name:"Godlike Ascent",   nameTR:"Tanri Tirmanisi", icon:"⚡", desc:"Reach in-game level 22 in one run",       descTR:"Tek oyunda seviye 22'ye ulas",              reward:{gold:1800, xp:450, gem:8} },
+    { id:"s_boss5",    diff:"special", type:"bosses",  target:5,      name:"Boss Nemesis",     nameTR:"Boss Kabusu",     icon:"🐉", desc:"Defeat 5 bosses today",                   descTR:"Bugun 5 boss yen",                          reward:{gold:1600, xp:400, gem:6} },
+    { id:"s_score300k",diff:"special", type:"score",   target:300000, name:"Score Legend",     nameTR:"Skor Efsanesi",   icon:"💎", desc:"Score 300,000 points in a single run",    descTR:"Tek oyunda 300.000 puan topla",            reward:{gold:1500, xp:400, gem:5} },
 ];
-const BP_COST = 150;
+
+// Difficulty presentation data
+const QUEST_DIFF = {
+    easy:    { col:0x44cc66, colStr:"#66dd88", label:"EASY",    labelTR:"KOLAY" },
+    medium:  { col:0x44aaff, colStr:"#66bbff", label:"MEDIUM",  labelTR:"ORTA"  },
+    hard:    { col:0xff8844, colStr:"#ffaa66", label:"HARD",    labelTR:"ZOR"   },
+    special: { col:0xcc44ff, colStr:"#dd88ff", label:"SPECIAL", labelTR:"OZEL"  },
+};
 
 const SKINS = [
     { id:"shadow_blade",  name:"Shadow Blade",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
@@ -2249,7 +2282,7 @@ const SKINS = [
     { id:"gold_warrior",  name:"Golden Warrior", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
 ];
 
-const STARTER = { gems:200, gold:2000, stars:100, disc:80 };
+const STARTER = { gems:150, gold:2000, stars:100, disc:80 };
 const DEATH_OFFERS = [
     { gems:30,  gold:500,  stars:30  },
     { gems:80,  gold:1500, stars:60,  tag:"POPULAR" },
@@ -3189,201 +3222,397 @@ function showDeathOffer(scene){
 
 
 // ═══════════════════════════════════════════════════════════════
-// §8  BATTLE PASS — animated, professional
+// §8  DAILY MISSIONS — animated, balanced, professional
+// Replaces old battle-pass; no paywall, all progression through play
 // ═══════════════════════════════════════════════════════════════
 
-function addBPXP(n){ const s=_s();s.bx=(s.bx||0)+n;_sv(s); }
+// ── Date helpers (local date string used as daily key) ─────────
+function _qDateStr(){ const d=new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+function _qDayNum(){ return Math.floor((Date.now()-(new Date().getTimezoneOffset()*60000))/86400000); }
+function _qMsToMidnight(){
+    const d=new Date(); const nx=new Date(d); nx.setHours(24,0,0,0); return nx-d;
+}
 
-function showBP(scene){
-    let _cleanupBP=()=>{};
+// ── Deterministic seeded RNG (so same day gives same quests) ──
+function _qSeedRand(seed){
+    let h = 2166136261 >>> 0;
+    const s = String(seed);
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return function(){
+        h += 0x6d2b79f5; h = Math.imul(h ^ (h>>>15), 1 | h);
+        h ^= h + Math.imul(h ^ (h>>>7), 61 | h);
+        return ((h ^ (h>>>14)) >>> 0) / 4294967296;
+    };
+}
+
+// ── Daily quest generation ─────────────────────────────────────
+// 3 standard (easy+medium+hard) + special every 3 days
+function _qGenDaily(){
+    const today = _qDateStr();
+    const rnd = _qSeedRand("nt_quest_"+today);
+    const poolE = QUEST_POOL.filter(q=>q.diff==="easy");
+    const poolM = QUEST_POOL.filter(q=>q.diff==="medium");
+    const poolH = QUEST_POOL.filter(q=>q.diff==="hard");
+    const poolS = QUEST_POOL.filter(q=>q.diff==="special");
+    const pick = (arr)=>arr[Math.floor(rnd()*arr.length)];
+    const out = [pick(poolE), pick(poolM), pick(poolH)];
+    if(_qDayNum()%3===0) out.push(pick(poolS));
+    return out.map(q=>({ id:q.id, prog:0, claimed:false }));
+}
+
+function _qEnsureToday(){
+    const s = _s();
+    const today = _qDateStr();
+    if(s.qd !== today || !Array.isArray(s.ql) || s.ql.length===0){
+        s.qd = today;
+        s.ql = _qGenDaily();
+        _sv(s);
+    }
+    return s;
+}
+
+function _qDef(id){ return QUEST_POOL.find(x=>x.id===id); }
+function _qIsDone(q){ const d=_qDef(q.id); return d && q.prog>=d.target; }
+
+// ── Check if any quest is completed but not yet claimed ──────
+// Used for the red "!" notification dot on the MISSIONS button
+function _qHasUnclaimed(){
+    const s = _qEnsureToday();
+    return s.ql.some(q=> _qIsDone(q) && !q.claimed);
+}
+
+// ── Progress tracking — called at game over ──────────────────
+// kills/bosses/elites/games are CUMULATIVE across games today
+// level/score/combo are BEST-OF-ANY-GAME today
+function _qTrackGame(gs){
+    if(!gs) return { completedNew: [] };
+    const s = _qEnsureToday();
+    const completedNew = [];
+    s.ql.forEach(q=>{
+        const d = _qDef(q.id); if(!d) return;
+        const wasDone = q.prog >= d.target;
+        if(wasDone) return;
+        const kills  = gs.kills       || 0;
+        const boss   = gs._bossKills  || 0;
+        const elite  = gs._eliteKills || 0;
+        const lvl    = gs.level       || 0;
+        const scr    = gs.score       || 0;
+        const cmb    = (gs.maxCombo!=null) ? gs.maxCombo : (gs.combo||0);
+        switch(d.type){
+            case "kills":  q.prog = Math.min(d.target, (q.prog||0) + kills);  break;
+            case "bosses": q.prog = Math.min(d.target, (q.prog||0) + boss);   break;
+            case "elites": q.prog = Math.min(d.target, (q.prog||0) + elite);  break;
+            case "games":  q.prog = Math.min(d.target, (q.prog||0) + 1);      break;
+            case "level":  q.prog = Math.min(d.target, Math.max(q.prog||0, lvl)); break;
+            case "score":  q.prog = Math.min(d.target, Math.max(q.prog||0, scr)); break;
+            case "combo":  q.prog = Math.min(d.target, Math.max(q.prog||0, cmb)); break;
+        }
+        if(q.prog >= d.target && !wasDone) completedNew.push(d);
+    });
+    _sv(s);
+    return { completedNew };
+}
+
+// ── Claim reward: gold + player-XP + (rare) gems ──────────────
+function _qClaim(scene, q, xIcon, yIcon, depth){
+    const d = _qDef(q.id); if(!d) return false;
+    if(!_qIsDone(q) || q.claimed) return false;
+    const s = _s();
+    const qRef = s.ql.find(x=>x.id===q.id); if(!qRef) return false;
+    qRef.claimed = true; _sv(s);
+
+    const r = d.reward || {};
+    let anims = 0;
+    if(r.gold){
+        PLAYER_GOLD += r.gold; secureSet("nt_gold", PLAYER_GOLD);
+        scene.time.delayedCall(anims*180, ()=> showBigReward(scene, xIcon, yIcon, "gold", r.gold, depth+10));
+        anims++;
+    }
+    if(r.gem){
+        addGems(r.gem);
+        scene.time.delayedCall(anims*220, ()=> showBigReward(scene, xIcon, yIcon-18, "gem", r.gem, depth+10));
+        anims++;
+    }
+    if(r.xp && typeof _plvAddXP==="function"){
+        try{ _plvAddXP(r.xp); }catch(e){ console.warn("[NT] xp err", e); }
+    }
+    NT_SFX.play("upgrade_select");
+    return true;
+}
+
+function showMissions(scene){
+    let _cleanupMQ=()=>{};
     const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
-        =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"SAVAS PASI":"BATTLE PASS",312,20,()=>_cleanupBP());
-    const s=_s();
-    const curXP=Math.floor(s.bx||0);
+        =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"GUNLUK GOREVLER":"DAILY MISSIONS",312,20,()=>_cleanupMQ());
 
-    // ── XP HEADER ────────────────────────────────────────────
-    const bY=contentTop+8;
+    const s = _qEnsureToday();
+    const quests = s.ql.slice();
 
-    // Tier computation
-    let curTier=0;
-    for(let i=0;i<BP.length;i++){if(curXP>=BP[i].xp)curTier=i;}
-    const totalProg=Math.min(1,curXP/(BP[BP.length-1].xp||1));
+    // ── HEADER: progress + countdown ─────────────────────────
+    const bY = contentTop + 8;
+    const hdrH = 44;
+    const hdrG = A(scene.add.graphics().setDepth(D+3));
+    hdrG.fillStyle(0x080e1e,0.98); hdrG.fillRoundedRect(cx-PW/2+10, bY, PW-20, hdrH, 8);
+    hdrG.lineStyle(1.5, 0x44aaff, 0.35); hdrG.strokeRoundedRect(cx-PW/2+10, bY, PW-20, hdrH, 8);
 
-    // XP Panel (compact, just XP info)
-    const xpPanelH = s.bp ? 46 : 44;
-    const hdrG=A(scene.add.graphics().setDepth(D+3));
-    hdrG.fillStyle(0x080e1e,0.98);hdrG.fillRoundedRect(cx-PW/2+10,bY,PW-20,xpPanelH,8);
-    hdrG.lineStyle(1.5,0xffaa00,0.35);hdrG.strokeRoundedRect(cx-PW/2+10,bY,PW-20,xpPanelH,8);
+    const doneCount = quests.filter(q=>_qIsDone(q)).length;
+    const totalCount = quests.length;
+    A(scene.add.text(cx-PW/2+18, bY+14,
+        (CURRENT_LANG==="tr"?"TAMAMLANAN: ":"COMPLETED: ")+doneCount+" / "+totalCount,
+        {fontFamily:_F, fontSize:"12px", color:"#66ddff", stroke:"#000", strokeThickness:2}
+    ).setOrigin(0,0.5).setDepth(D+4));
 
-    A(scene.add.text(cx-PW/2+18,bY+12,"XP: "+curXP,{fontFamily:_F,fontSize:"13px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
-    A(scene.add.text(cx+PW/2-18,bY+12,(CURRENT_LANG==="tr"?"KADEME ":"TIER ")+(curTier+1)+" / "+BP.length,{fontFamily:_F,fontSize:"11px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(1,0.5).setDepth(D+4));
+    const clockTxt = A(scene.add.text(cx+PW/2-18, bY+14, "",
+        {fontFamily:_F, fontSize:"11px", color:"#88aacc", stroke:"#000", strokeThickness:1}
+    ).setOrigin(1,0.5).setDepth(D+4));
+    const _updClock = ()=>{
+        const ms = _qMsToMidnight();
+        const h = Math.floor(ms/3600000);
+        const m = Math.floor((ms%3600000)/60000);
+        clockTxt.setText((CURRENT_LANG==="tr"?"YENILENME: ":"RESETS IN: ")+h+"h "+m+"m");
+    };
+    _updClock();
+    const _clockEvt = scene.time.addEvent({delay:30000, loop:true, callback:_updClock});
 
-    // XP Bar
-    const barX=cx-PW/2+18, barW=PW-36, barH=10, barY=bY+28;
-    const barBg=A(scene.add.graphics().setDepth(D+3));
-    barBg.fillStyle(0x111e30,1);barBg.fillRoundedRect(barX,barY,barW,barH,4);
-    barBg.lineStyle(1,0x2a4060,0.5);barBg.strokeRoundedRect(barX,barY,barW,barH,4);
-    const fillG=A(scene.add.graphics().setDepth(D+4));
-    const _af={v:0};
-    scene.tweens.add({targets:_af,v:totalProg,duration:650,delay:180,ease:"Quad.easeOut",
-        onUpdate:()=>{fillG.clear();if(_af.v<=0)return;fillG.fillStyle(0xffaa00,0.9);fillG.fillRoundedRect(barX,barY,Math.max(barH,barW*_af.v),barH,4);}
+    // Progress mini-bar
+    const pbX = cx-PW/2+18, pbW = PW-36, pbY = bY+28, pbH = 5;
+    const pbBg = A(scene.add.graphics().setDepth(D+3));
+    pbBg.fillStyle(0x111e30,1); pbBg.fillRoundedRect(pbX, pbY, pbW, pbH, 2);
+    pbBg.lineStyle(1, 0x2a4060, 0.5); pbBg.strokeRoundedRect(pbX, pbY, pbW, pbH, 2);
+    const pbFill = A(scene.add.graphics().setDepth(D+4));
+    const progRatio = totalCount > 0 ? doneCount/totalCount : 0;
+    const _pb = {v:0};
+    scene.tweens.add({targets:_pb, v:progRatio, duration:650, delay:180, ease:"Quad.easeOut",
+        onUpdate:()=>{
+            pbFill.clear();
+            if(_pb.v<=0) return;
+            const col = _pb.v>=1 ? 0x44dd66 : 0x44aaff;
+            pbFill.fillStyle(col, 0.95);
+            pbFill.fillRoundedRect(pbX, pbY, Math.max(pbH, pbW*_pb.v), pbH, 2);
+        }
     });
 
-    // Premium status / buy button — kendi satirinda, XP panelin altinda
-    const pY=bY+xpPanelH+10;
-    if(!s.bp){
-        const premBtnG=A(scene.add.graphics().setDepth(D+3));
-        premBtnG.fillStyle(0x0a1020,0.97);premBtnG.fillRoundedRect(cx-PW/2+10,pY,PW-20,32,8);
-        premBtnG.lineStyle(1.5,0xffcc00,0.5);premBtnG.strokeRoundedRect(cx-PW/2+10,pY,PW-20,32,8);
-        const [ub,ut,uh]=NT_YellowBtn(scene,cx,pY+16,PW-30,28,(CURRENT_LANG==="tr"?"⭐ PREMiUM AL  ("+BP_COST+" ELMAS)":"⭐ GET PREMIUM  ("+BP_COST+" GEM)"),D+3,()=>{
-            if(PLAYER_GEMS<BP_COST){scene.cameras.main.shake(30,0.006);return;}
-            spendGems(BP_COST);const st2=_s();st2.bp=true;_sv(st2);
-            NT_SFX.play("upgrade_select");
-            showBoosterReward(scene,cx,pY+16,"PREMIUM",D+10);
-            scene.time.delayedCall(700,()=>{close();showBP(scene);});
-        });
-        A(ub);A(ut);A(uh);
-    } else {
-        const premG=A(scene.add.graphics().setDepth(D+3));
-        premG.fillStyle(0x0a2214,0.97);premG.fillRoundedRect(cx-PW/2+10,pY,PW-20,26,8);
-        premG.lineStyle(1.5,0x44dd66,0.6);premG.strokeRoundedRect(cx-PW/2+10,pY,PW-20,26,8);
-        A(scene.add.text(cx,pY+13,CURRENT_LANG==="tr"?"✓ PREMiUM AKTiF":"✓ PREMIUM ACTIVE",{fontFamily:_F,fontSize:"13px",color:"#44ff66",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
-    }
+    // ── SCROLL AREA ──────────────────────────────────────────
+    const SY0 = bY + hdrH + 10;
+    const VIEW_H = contentBot - SY0 - 4;
+    const VPORT_X = cx-PW/2+10, VPORT_W = PW-20;
 
-    // ── SCROLL AREA ───────────────────────────────────────────
-    const SY0=pY+(s.bp?26:32)+8;
-    const VIEW_H=contentBot-SY0-4;
-    const VPORT_X=cx-PW/2+10, VPORT_W=PW-20;
-
-    const maskGfx=scene.add.graphics().setDepth(D+1);
+    const maskGfx = scene.add.graphics().setDepth(D+1);
     maskGfx.fillStyle(0xffffff,1);
-    maskGfx.fillRect(VPORT_X,SY0,VPORT_W,VIEW_H);
-    const geomMask=maskGfx.createGeometryMask();
+    maskGfx.fillRect(VPORT_X, SY0, VPORT_W, VIEW_H);
+    const geomMask = maskGfx.createGeometryMask();
 
-    let _scrollCont=null,_scrollY=0,_scrollMax=0;
-    let _dragStartY=0,_dragStartSY=0,_isDragging=false;
+    let _scrollCont=null, _scrollY=0, _scrollMax=0;
+    let _dragStartY=0, _dragStartSY=0, _isDragging=false;
     const _zones=[];
 
     function _scrollTo(y){
-        _scrollY=Math.max(0,Math.min(_scrollMax,y));
-        if(_scrollCont) _scrollCont.y=-_scrollY;
+        _scrollY = Math.max(0, Math.min(_scrollMax, y));
+        if(_scrollCont) _scrollCont.y = -_scrollY;
     }
-
-    // Mouse wheel support
-    const _bpWheelHandler=(pointer,gameObjects,dx,dy)=>{
-        _scrollTo(_scrollY+dy*0.5);
-    };
-    scene.input.on("wheel",_bpWheelHandler);
+    const _wheelHandler = (pointer, gameObjects, dx, dy) => { _scrollTo(_scrollY + dy*0.5); };
+    scene.input.on("wheel", _wheelHandler);
 
     function _buildRows(){
-        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
-        _zones.length=0;
-        _scrollCont=A(scene.add.container(0,0).setDepth(D+4));
+        if(_scrollCont){ try{_scrollCont.destroy();}catch(_){} }
+        _zones.length = 0;
+        _scrollCont = A(scene.add.container(0,0).setDepth(D+4));
         _scrollCont.setMask(geomMask);
 
-        const ROW_H=44, ROW_GAP=4;
-        const rowStart=SY0+8;
+        const ROW_H = 96, ROW_GAP = 8;
+        const rowStart = SY0 + 4;
 
-        // Column headers
-        const hg=scene.add.graphics();
-        hg.fillStyle(0x0a1428,0.95);hg.fillRoundedRect(cx-PW/2+12,SY0,PW-24,22,4);
-        _scrollCont.add(hg);
-        _scrollCont.add(scene.add.text(cx-PW/2+20,SY0+11,CURRENT_LANG==="tr"?"KADEME":"TIER",{fontFamily:_F,fontSize:"9px",color:"#4a6a8a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-        _scrollCont.add(scene.add.text(cx-28,SY0+11,CURRENT_LANG==="tr"?"UCRETSIZ":"FREE",{fontFamily:_F,fontSize:"10px",color:"#88aacc",stroke:"#000",strokeThickness:1}).setOrigin(0.5,0.5));
-        _scrollCont.add(scene.add.text(cx+PW/4+10,SY0+11,CURRENT_LANG==="tr"?"PREMiUM":"PREMIUM",{fontFamily:_F,fontSize:"10px",color:"#cc88ff",stroke:"#000",strokeThickness:1}).setOrigin(0.5,0.5));
-
-        BP.forEach((tier,i)=>{
-            const ry=rowStart+i*(ROW_H+ROW_GAP);
-            const reached=(curXP>=tier.xp);
-            const cf=s.bc["f"+i], cp=s.bc["p"+i];
+        quests.forEach((q, i)=>{
+            const d = _qDef(q.id); if(!d) return;
+            const diffInfo = QUEST_DIFF[d.diff] || QUEST_DIFF.easy;
+            const ry = rowStart + i*(ROW_H + ROW_GAP);
+            const done = _qIsDone(q);
+            const claimed = q.claimed;
+            const avail = done && !claimed;
 
             // Row background
-            const rg=scene.add.graphics();
-            rg.fillStyle(reached?0x0d1e12:0x090e1c,0.95);
-            rg.fillRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,6);
-            if(reached&&(!cf||(!cp&&s.bp))){
-                rg.lineStyle(1.5,0x44aa66,0.30);
-                rg.strokeRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,6);
-            }
+            const rg = scene.add.graphics();
+            const bgCol = claimed ? 0x0a1d10 : avail ? 0x0d1f28 : 0x090e1c;
+            const borderCol = claimed ? 0x44aa66 : avail ? diffInfo.col : 0x1a2a3a;
+            const borderAlpha = claimed ? 0.55 : avail ? 0.75 : 0.25;
+            rg.fillStyle(bgCol, 0.96);
+            rg.fillRoundedRect(cx-PW/2+12, ry, PW-24, ROW_H, 8);
+            rg.lineStyle(avail?2:1.5, borderCol, borderAlpha);
+            rg.strokeRoundedRect(cx-PW/2+12, ry, PW-24, ROW_H, 8);
             _scrollCont.add(rg);
 
-            // Tier number + XP
-            _scrollCont.add(scene.add.text(cx-PW/2+20,ry+ROW_H/2-6,""+(i+1),{fontFamily:_F,fontSize:"14px",color:reached?"#ffdd44":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-            _scrollCont.add(scene.add.text(cx-PW/2+20,ry+ROW_H/2+10,tier.xp+" XP",{fontFamily:_F,fontSize:"8px",color:reached?"#6aaa6a":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+            // Difficulty ribbon
+            const ribbonW = 52, ribbonH = 14;
+            const rib = scene.add.graphics();
+            rib.fillStyle(diffInfo.col, 0.92);
+            rib.fillRoundedRect(cx-PW/2+12, ry, ribbonW, ribbonH, 4);
+            _scrollCont.add(rib);
+            const diffLbl = CURRENT_LANG==="tr" ? diffInfo.labelTR : diffInfo.label;
+            _scrollCont.add(scene.add.text(cx-PW/2+12+ribbonW/2, ry+ribbonH/2, diffLbl,
+                {fontFamily:_F, fontSize:"8px", color:"#ffffff", stroke:"#000", strokeThickness:1.5}
+            ).setOrigin(0.5));
 
-            // Free reward cell
-            const freeX=cx-28;
-            const fClaimed=cf;
-            const fAvail=reached&&!fClaimed;
-            const fBg=scene.add.graphics();
-            fBg.fillStyle(fClaimed?0x0a2a14:fAvail?0x0d2838:0x080e18,0.9);
-            fBg.fillRoundedRect(freeX-44,ry+6,88,ROW_H-12,5);
-            fBg.lineStyle(1.5,fClaimed?0x44dd66:fAvail?0x44aacc:0x1a2a3a,fClaimed?0.55:fAvail?0.50:0.20);
-            fBg.strokeRoundedRect(freeX-44,ry+6,88,ROW_H-12,5);
-            _scrollCont.add(fBg);
-            const fLbl=fClaimed?(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"):_rlbl(tier.free);
-            _scrollCont.add(scene.add.text(freeX,ry+ROW_H/2,fLbl,{fontFamily:_F,fontSize:"11px",color:fClaimed?"#44dd66":fAvail?"#ffffff":"#2a3a4a",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-            if(fAvail){
-                _zones.push({x1:freeX-44,x2:freeX+44,y1:ry+6,y2:ry+ROW_H-6,fn:()=>{
-                    const st2=_s();st2.bc["f"+i]=true;_sv(st2);
-                    NT_SFX.play("menu_click");
-                    showBigReward(scene,freeX,SY0+_scrollY-15+ry+ROW_H/2,tier.free.type,tier.free.n,D+10);
-                    scene.time.delayedCall(700,()=>{close();showBP(scene);});
-                }});
+            // Icon
+            const iconX = cx-PW/2+32;
+            const iconY = ry + ROW_H/2 + 6;
+            _scrollCont.add(scene.add.text(iconX, iconY, d.icon,
+                {fontFamily:_F, fontSize:"24px"}
+            ).setOrigin(0.5));
+
+            // Name
+            const txtX = cx-PW/2+60;
+            const name = CURRENT_LANG==="tr" ? d.nameTR : d.name;
+            _scrollCont.add(scene.add.text(txtX, ry+18, name,
+                {fontFamily:_F, fontSize:"13px", color: claimed?"#66aa88":"#ffffff", stroke:"#000", strokeThickness:2}
+            ).setOrigin(0,0));
+
+            // Description (what the mission is about) — wraps if long
+            const descStr = CURRENT_LANG==="tr" ? (d.descTR||"") : (d.desc||"");
+            if(descStr){
+                _scrollCont.add(scene.add.text(txtX, ry+34, descStr,
+                    {fontFamily:_F, fontSize:"9px",
+                     color: claimed?"#557766":"#8aa7bf",
+                     stroke:"#000", strokeThickness:1,
+                     wordWrap:{width: 168}}
+                ).setOrigin(0,0));
             }
 
-            // Premium reward cell
-            const premX=cx+PW/4+10;
-            const pClaimed=cp, pAvail=s.bp&&reached&&!pClaimed;
-            const pBg=scene.add.graphics();
-            pBg.fillStyle(pClaimed?0x1a0a2a:pAvail?0x180a28:0x080810,0.9);
-            pBg.fillRoundedRect(premX-44,ry+6,88,ROW_H-12,5);
-            pBg.lineStyle(1.5,pClaimed?0xcc44ff:pAvail?0xaa44cc:0x1a1030,pClaimed?0.55:pAvail?0.50:0.20);
-            pBg.strokeRoundedRect(premX-44,ry+6,88,ROW_H-12,5);
-            _scrollCont.add(pBg);
-            const pLbl=pClaimed?(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"):(!s.bp?(CURRENT_LANG==="tr"?"KiLiTLi":"LOCKED"):_rlbl(tier.prem));
-            _scrollCont.add(scene.add.text(premX,ry+ROW_H/2,pLbl,{fontFamily:_F,fontSize:"11px",color:pClaimed?"#cc44ff":pAvail?"#dd88ff":"#1e1830",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-            if(pAvail){
-                _zones.push({x1:premX-44,x2:premX+44,y1:ry+6,y2:ry+ROW_H-6,fn:()=>{
-                    const st2=_s();st2.bc["p"+i]=true;_sv(st2);
-                    NT_SFX.play("menu_click");
-                    showBigReward(scene,premX,SY0+_scrollY-15+ry+ROW_H/2,tier.prem.type,tier.prem.n,D+10);
-                    scene.time.delayedCall(700,()=>{close();showBP(scene);});
-                }});
+            // Progress text
+            const progStr = Math.min(q.prog,d.target).toLocaleString()+" / "+d.target.toLocaleString();
+            _scrollCont.add(scene.add.text(txtX, ry+52, progStr,
+                {fontFamily:_F, fontSize:"10px", color: claimed?"#5a8a6a":avail?diffInfo.colStr:"#7a8a9a", stroke:"#000", strokeThickness:1}
+            ).setOrigin(0,0));
+
+            // Progress bar
+            const barX = txtX, barY = ry+68, barW = 150, barH = 6;
+            const bbG = scene.add.graphics();
+            bbG.fillStyle(0x111e30, 1); bbG.fillRoundedRect(barX, barY, barW, barH, 2);
+            bbG.lineStyle(1, 0x2a4060, 0.5); bbG.strokeRoundedRect(barX, barY, barW, barH, 2);
+            _scrollCont.add(bbG);
+            const bfG = scene.add.graphics();
+            const pFrac = Math.min(1, (q.prog||0)/d.target);
+            if(pFrac > 0){
+                const barCol = claimed ? 0x44aa66 : diffInfo.col;
+                bfG.fillStyle(barCol, 0.92);
+                bfG.fillRoundedRect(barX, barY, Math.max(barH, barW*pFrac), barH, 2);
+            }
+            _scrollCont.add(bfG);
+
+            // Reward pills
+            const rewX = cx + PW/2 - 22;
+            let rewY = ry + 14;
+            const r = d.reward;
+            const _addPill = (txt, col, colStr, width)=>{
+                const pg = scene.add.graphics();
+                pg.fillStyle(0x0a1420, 0.92);
+                pg.fillRoundedRect(rewX - width, rewY, width, 16, 4);
+                pg.lineStyle(1, col, 0.45);
+                pg.strokeRoundedRect(rewX - width, rewY, width, 16, 4);
+                _scrollCont.add(pg);
+                _scrollCont.add(scene.add.text(rewX - width/2, rewY+8, txt,
+                    {fontFamily:_F, fontSize:"9px", color:colStr, stroke:"#000", strokeThickness:1}
+                ).setOrigin(0.5));
+                rewY += 18;
+            };
+            if(r.gold) _addPill("+"+r.gold+"g", 0xffcc00, "#ffdd44", 46);
+            if(r.xp)   _addPill("+"+r.xp+"xp",  0x44aaff, "#66ccff", 46);
+            if(r.gem)  _addPill("+"+r.gem+"💎", 0xcc44ff, "#dd88ff", 46);
+
+            // Claim button / badge
+            if(avail){
+                const btnW = 72, btnH = 22;
+                const btnX = cx+PW/2-22 - btnW/2, btnY = ry+ROW_H-btnH-6;
+                const cbg = scene.add.graphics();
+                cbg.fillStyle(diffInfo.col, 0.92);
+                cbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
+                cbg.lineStyle(1.5, 0xffffff, 0.35);
+                cbg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
+                _scrollCont.add(cbg);
+                const cTxt = scene.add.text(btnX+btnW/2, btnY+btnH/2,
+                    CURRENT_LANG==="tr"?"ODUL AL":"CLAIM",
+                    {fontFamily:_F, fontSize:"11px", color:"#ffffff", stroke:"#000", strokeThickness:2}
+                ).setOrigin(0.5);
+                _scrollCont.add(cTxt);
+                scene.tweens.add({targets:[cbg,cTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:650, ease:"Sine.easeInOut"});
+                _zones.push({
+                    x1: btnX, x2: btnX+btnW,
+                    y1: btnY, y2: btnY+btnH,
+                    fn: ()=>{
+                        const xw = btnX+btnW/2, yw = btnY+btnH/2;
+                        _qClaim(scene, q, xw, SY0+yw - _scrollY + 10, D);
+                        scene.time.delayedCall(1200, ()=>{ close(); showMissions(scene); });
+                    }
+                });
+            } else if(claimed){
+                const badgeW = 72;
+                const bgG = scene.add.graphics();
+                bgG.fillStyle(0x0a2214, 0.92);
+                bgG.fillRoundedRect(cx+PW/2-22-badgeW, ry+ROW_H-28, badgeW, 22, 6);
+                bgG.lineStyle(1.5, 0x44dd66, 0.55);
+                bgG.strokeRoundedRect(cx+PW/2-22-badgeW, ry+ROW_H-28, badgeW, 22, 6);
+                _scrollCont.add(bgG);
+                _scrollCont.add(scene.add.text(cx+PW/2-22-badgeW/2, ry+ROW_H-17,
+                    "✓ "+(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"),
+                    {fontFamily:_F, fontSize:"10px", color:"#44dd66", stroke:"#000", strokeThickness:1}
+                ).setOrigin(0.5));
+            } else {
+                const pct = Math.floor(pFrac*100);
+                _scrollCont.add(scene.add.text(cx+PW/2-22-36, ry+ROW_H-17, pct+"%",
+                    {fontFamily:_F, fontSize:"10px", color:"#6a7a8a", stroke:"#000", strokeThickness:1}
+                ).setOrigin(0.5));
             }
 
-            // Stagger in
+            // Stagger fade-in
             rg.setAlpha(0);
-            scene.tweens.add({targets:rg,alpha:1,duration:160,delay:40+i*30,ease:"Quad.easeOut"});
+            scene.tweens.add({targets:rg, alpha:1, duration:200, delay:60+i*70, ease:"Quad.easeOut"});
         });
 
-        const totalH=8+22+BP.length*(ROW_H+ROW_GAP)+12;
-        _scrollMax=Math.max(0,totalH-VIEW_H);
+        // Footer note if no special
+        const hasSpecial = quests.some(q=>{ const d=_qDef(q.id); return d && d.diff==="special"; });
+        if(!hasSpecial){
+            const fY = rowStart + quests.length*(ROW_H+ROW_GAP) + 4;
+            _scrollCont.add(scene.add.text(cx, fY+10,
+                CURRENT_LANG==="tr" ? "💎 OZEL GOREV HER 3 GUNDE BIR GELIR" : "💎 SPECIAL MISSION ARRIVES EVERY 3 DAYS",
+                {fontFamily:_F, fontSize:"10px", color:"#6688aa", stroke:"#000", strokeThickness:1}
+            ).setOrigin(0.5).setAlpha(0.75));
+        }
+
+        const totalH = 8 + quests.length*(ROW_H+ROW_GAP) + 30;
+        _scrollMax = Math.max(0, totalH - VIEW_H);
         _scrollTo(0);
     }
 
     _buildRows();
 
     // Drag + tap scroll handler
-    const scrollHit=A(scene.add.rectangle(cx,SY0+VIEW_H/2,VPORT_W,VIEW_H,0xffffff,0.001).setDepth(D+7).setInteractive({draggable:false}));
-    scrollHit.on("pointerdown",(p)=>{_isDragging=false;_dragStartY=p.y;_dragStartSY=_scrollY;});
-    scrollHit.on("pointermove",(p)=>{if(!p.isDown)return;if(Math.abs(p.y-_dragStartY)>6)_isDragging=true;if(_isDragging)_scrollTo(_dragStartSY-(p.y-_dragStartY));});
-    scrollHit.on("pointerup",(p)=>{
+    const scrollHit = A(scene.add.rectangle(cx, SY0+VIEW_H/2, VPORT_W, VIEW_H, 0xffffff, 0.001).setDepth(D+7).setInteractive({draggable:false}));
+    scrollHit.on("pointerdown", (p)=>{ _isDragging=false; _dragStartY=p.y; _dragStartSY=_scrollY; });
+    scrollHit.on("pointermove", (p)=>{
+        if(!p.isDown) return;
+        if(Math.abs(p.y-_dragStartY)>6) _isDragging=true;
+        if(_isDragging) _scrollTo(_dragStartSY-(p.y-_dragStartY));
+    });
+    scrollHit.on("pointerup", (p)=>{
         if(!_isDragging){
-            const ry=p.y-SY0+_scrollY;
+            const lx = p.x, ly = p.y - SY0 + _scrollY;
             for(const z of _zones){
-                if(p.x>=z.x1&&p.x<=z.x2&&ry>=z.y1&&ry<=z.y2){z.fn();break;}
+                if(lx>=z.x1 && lx<=z.x2 && ly>=z.y1 && ly<=z.y2){ z.fn(); break; }
             }
         }
-        _isDragging=false;
+        _isDragging = false;
     });
 
-    _cleanupBP=()=>{
-        try{scene.input.off("wheel",_bpWheelHandler);}catch(_){}
-        try{maskGfx.destroy();}catch(_){}
-        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
+    _cleanupMQ = ()=>{
+        try{ scene.input.off("wheel", _wheelHandler); }catch(_){}
+        try{ if(_clockEvt) _clockEvt.remove(false); }catch(_){}
+        try{ maskGfx.destroy(); }catch(_){}
+        if(_scrollCont){ try{_scrollCont.destroy();}catch(_){} }
     };
 }
+
+// Legacy shims — kept so any lingering external call is safe
+function showBP(scene){ return showMissions(scene); }
+function addBPXP(n){ /* battle-pass removed — progression now via missions */ }
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -3395,8 +3624,13 @@ return {
     checkDailyReward: checkDaily,
     showFortuneWheel: showWheel,
     showShop: showShop,
-    showBattlePass: showBP,
+    showMissions: showMissions,
     showPostDeathOffer: showDeathOffer,
+    // Quest API — called from game code
+    trackQuests: _qTrackGame,
+    hasUnclaimedQuests: _qHasUnclaimed,
+    // Legacy aliases (safe no-ops / redirects) so older call-sites keep working
+    showBattlePass: showMissions,
     addBattlePassXP: addBPXP,
 
     // Booster queries
@@ -10155,17 +10389,74 @@ class SceneMainMenu extends Phaser.Scene {
             }
         }
 
-                // ── WHEEL + PASS mini buttons ──
+                // ── WHEEL + MISSIONS mini buttons ──
         {
             const miniY=H-26;
-            [{label:'WHEEL',icon:'🎡',cb:()=>NT_Monetization.showFortuneWheel(this)},{label:'PASS',icon:'⭐',cb:()=>NT_Monetization.showBattlePass(this)}].forEach((md,i)=>{
+            const miniBtns=[
+                {label:(CURRENT_LANG==='tr'?'CARK':'WHEEL'), icon:'🎡', cb:()=>NT_Monetization.showFortuneWheel(this), badge:false},
+                {label:(CURRENT_LANG==='tr'?'GOREV':'QUESTS'), icon:'📋', cb:()=>NT_Monetization.showMissions(this), badge:true}
+            ];
+            miniBtns.forEach((md,i)=>{
                 const mx=CX-65+i*130;
                 const mg=this.add.graphics().setDepth(8).setAlpha(0);
                 const _dm=h=>{mg.clear();mg.fillStyle(h?0x1a2a3c:0x0e1828,1);mg.fillRoundedRect(mx-48,miniY-13,96,26,7);mg.lineStyle(1.5,h?0xffdd44:0x3a5a7a,h?0.9:0.5);mg.strokeRoundedRect(mx-48,miniY-13,96,26,7);};
                 _dm(false);
                 const mt=this.add.text(mx,miniY,md.icon+' '+md.label,{fontFamily:'LilitaOne,Arial,sans-serif',fontSize:'11px',color:'#ccddee',stroke:'#000',strokeThickness:2}).setOrigin(0.5).setDepth(9).setAlpha(0);
-                this.add.rectangle(mx,miniY,96,26,0xffffff,0.001).setDepth(10).setInteractive({useHandCursor:true}).on('pointerover',()=>_dm(true)).on('pointerout',()=>_dm(false)).on('pointerdown',()=>{NT_SFX.play('menu_click');md.cb();});
+                const hitBox=this.add.rectangle(mx,miniY,96,26,0xffffff,0.001).setDepth(10).setInteractive({useHandCursor:true});
                 this.tweens.add({targets:[mg,mt],alpha:1,duration:380,delay:650,ease:'Quad.easeOut'});
+
+                // ── Notification badge — pulsing red "!" when missions are completed ──
+                let badgeG=null, badgeTxt=null, badgeTween=null;
+                const _refreshBadge=()=>{
+                    const show = md.badge && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests();
+                    if(show && !badgeG){
+                        // Dot at top-right of button
+                        const bx = mx+40, by = miniY-11;
+                        badgeG = this.add.graphics().setDepth(11);
+                        const _drawBadge=(scale)=>{
+                            badgeG.clear();
+                            // Outer glow
+                            badgeG.fillStyle(0xff3344, 0.35);
+                            badgeG.fillCircle(bx, by, 10*scale);
+                            // Main dot
+                            badgeG.fillStyle(0xff2244, 1);
+                            badgeG.fillCircle(bx, by, 7*scale);
+                            badgeG.lineStyle(1.2, 0xffffff, 0.9);
+                            badgeG.strokeCircle(bx, by, 7*scale);
+                        };
+                        _drawBadge(1);
+                        badgeTxt = this.add.text(bx, by, "!", {
+                            fontFamily:'LilitaOne,Arial,sans-serif', fontSize:'12px',
+                            color:'#ffffff', stroke:'#000', strokeThickness:2, fontStyle:'bold'
+                        }).setOrigin(0.5).setDepth(12);
+                        // Pulsing scale tween
+                        const _sc={v:1};
+                        badgeTween = this.tweens.add({
+                            targets:_sc, v:1.22, duration:620,
+                            yoyo:true, repeat:-1, ease:'Sine.easeInOut',
+                            onUpdate:()=>{
+                                _drawBadge(_sc.v);
+                                if(badgeTxt && !badgeTxt.destroyed) badgeTxt.setScale(_sc.v);
+                            }
+                        });
+                    } else if(!show && badgeG){
+                        try{ badgeTween && badgeTween.remove(); }catch(_){}
+                        try{ badgeG.destroy(); }catch(_){}
+                        try{ badgeTxt && badgeTxt.destroy(); }catch(_){}
+                        badgeG=null; badgeTxt=null; badgeTween=null;
+                    }
+                };
+                // Initial check (slight delay so monetization module is fully ready)
+                this.time.delayedCall(800, _refreshBadge);
+                // Re-check after popup closes
+                hitBox.on('pointerover',()=>_dm(true))
+                      .on('pointerout',()=>_dm(false))
+                      .on('pointerdown',()=>{
+                          NT_SFX.play('menu_click');
+                          md.cb();
+                          this.time.delayedCall(300, _refreshBadge);
+                          this.time.delayedCall(1500, _refreshBadge);
+                      });
             });
         }
         // ── DAILY REWARD CHECK ──
@@ -10738,7 +11029,7 @@ class SceneGame extends Phaser.Scene {
             gold:0, kills:0, t:0, score:0,
             pyramidSpeed:65, spawnDelay:1400, // erken oyun: YOK DENLI yavas baslar (was 90 / 900)
             invincible:false, gameOver:false, pickingUpgrade:false,
-            combo:0, comboTimer:0, comboDmgBoost:1.0, comboXpBoost:1.0,
+            combo:0, maxCombo:0, comboTimer:0, comboDmgBoost:1.0, comboXpBoost:1.0,
             resonanceDist:45, bossActive:false, _bossKills:0,
             directorPhase:"calm",
             activeWeapon:"default", // [v9.4] weapon transformation system
@@ -11164,6 +11455,7 @@ class SceneGame extends Phaser.Scene {
                 if(canCombo){
                     enemy._lastComboTime=now;
                     gs.combo=Math.min(20,gs.combo+2); gs.comboTimer=2200;
+                    if(gs.combo>gs.maxCombo) gs.maxCombo=gs.combo;
                     gs.comboDmgBoost=Math.min(1.35,1+gs.combo*0.018); // sadece referans icin
                     gs.comboXpBoost=Math.min(1.20,1+gs.combo*0.020);
                     syncStatsFromPipeline(gs); // [v9.2] combo bonus pipeline'a dahil
@@ -11185,6 +11477,7 @@ class SceneGame extends Phaser.Scene {
                 if(canCombo){
                     enemy._lastComboTime=now;
                     gs.combo=Math.min(20,gs.combo+1); gs.comboTimer=1500;
+                    if(gs.combo>gs.maxCombo) gs.maxCombo=gs.combo;
                     gs.comboDmgBoost=Math.min(1.20,1+gs.combo*0.010); // referans
                     syncStatsFromPipeline(gs); // [v9.2]
                     // ── COMBO MILESTONE VFX + SFX ──
@@ -15480,7 +15773,7 @@ function gameOver(S){
     S.physics.pause(); S.time.timeScale=1;
     _hideMobileBtns(S);
     PLAYER_GOLD=gs.gold; secureSet("nt_gold",PLAYER_GOLD);
-    NT_Monetization.addBattlePassXP((gs.level||1)*10+(gs.kills||0));
+    NT_Monetization.trackQuests(gs);
     lbSubmitScore(gs.score||0, gs.kills||0, gs.level||1);
 
     const W=360, H=640, CX=W/2;
@@ -15599,98 +15892,44 @@ function gameOver(S){
             cy += 20;
         }
 
-        // ── XP BAR BÖLÜMÜ ────────────────────────────────────────────
+        // ── XP KAZANIMI (sade, bar yok) ──────────────────────────────
         // cy'yi güvende tut — contentBot'a göre yukarı çek
         cy = Math.min(cy, contentBot - 72);
         {
             const sessionXP   = _plvCalcSessionXP(gs);
-            const prevLevel   = PLAYER_LEVEL;
-            const prevLevelXP = PLAYER_LEVEL_XP;
-            const prevNeeded  = _plvXpNeeded(PLAYER_LEVEL);
-            const prevRatio   = Math.min(1, prevLevelXP / prevNeeded);
             const result      = _plvAddXP(sessionXP);
-            const xpNeeded    = _plvXpNeeded(PLAYER_LEVEL);
-            const finalRatio  = Math.min(1, PLAYER_LEVEL_XP / xpNeeded);
             const BD = 910;
 
             // Ayırıcı
             const dg2 = A(S.add.graphics().setDepth(BD));
             dg2.lineStyle(1, 0x664400, 0.5); dg2.lineBetween(TX, cy+2, VX, cy+2);
-            cy += 8;
+            cy += 10;
 
-            // Bar
-            const barX=TX, barW=VX-TX, barH=16, barR=8;
+            // XP kazanımı satırı — tek net sayı, sol etiket + sağ değer
+            const xpLblKey = CURRENT_LANG==="tr" ? "KAZANILAN XP" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО XP" : "XP EARNED";
+            A(S.add.text(TX, cy+10, xpLblKey,
+                NT_STYLE.stat(13, "#88aacc")
+            ).setOrigin(0, 0.5).setDepth(BD+1));
 
-            const barOuter=A(S.add.graphics().setDepth(BD));
-            barOuter.fillStyle(0x080400,0.98);
-            barOuter.fillRoundedRect(barX-2,cy-2,barW+4,barH+4,barR+1);
-            barOuter.lineStyle(2,0xffaa00,0.95);
-            barOuter.strokeRoundedRect(barX-2,cy-2,barW+4,barH+4,barR+1);
+            const xpValTxt = A(S.add.text(VX, cy+10, "+0 XP",
+                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"16px",
+                 color:"#66ccff", stroke:"#000", strokeThickness:3}
+            ).setOrigin(1, 0.5).setDepth(BD+1));
 
-            const barBg=A(S.add.graphics().setDepth(BD+1));
-            barBg.fillStyle(0x180800,1);
-            barBg.fillRoundedRect(barX,cy,barW,barH,barR);
-
-            const barFill=A(S.add.graphics().setDepth(BD+2));
-            const barGlow=A(S.add.graphics().setDepth(BD+3));
-            const barShine=A(S.add.graphics().setDepth(BD+4));
-            const barPulse=A(S.add.graphics().setDepth(BD+5));
-
-            const _drawBar=(ratio)=>{
-                barFill.clear();barGlow.clear();barShine.clear();barPulse.clear();
-                if(ratio<0.005)return;
-                const fw=Math.max(barR*2,(barW-4)*ratio);
-                barFill.fillStyle(0xcc4400,1); barFill.fillRoundedRect(barX+2,cy+2,fw,barH-4,barR-2);
-                barFill.fillStyle(0xff7700,1); barFill.fillRoundedRect(barX+2,cy+2,fw,(barH-4)*0.70,{tl:barR-2,tr:barR-2,bl:0,br:0});
-                barFill.fillStyle(0xffcc00,1); barFill.fillRoundedRect(barX+2,cy+2,fw,(barH-4)*0.32,{tl:barR-2,tr:barR-2,bl:0,br:0});
-                barGlow.fillStyle(0xff6600,0.20); barGlow.fillRoundedRect(barX-1,cy-2,fw+5,barH+4,barR+1);
-                barShine.fillStyle(0xffffff,0.30); barShine.fillRoundedRect(barX+4,cy+3,Math.max(0,fw-6),Math.max(1,Math.floor((barH-4)*0.22)),{tl:barR-2,tr:barR-2,bl:0,br:0});
-                if(fw>8){
-                    const ex=barX+2+fw-4, ey=cy+barH/2;
-                    barPulse.fillStyle(0xffffff,0.90); barPulse.fillCircle(ex,ey,3);
-                    barPulse.fillStyle(0xffdd00,0.40); barPulse.fillCircle(ex,ey,6);
-                }
-            };
-            _drawBar(prevRatio);
-            const _barAnim={v:prevRatio};
-            S.tweens.add({
-                targets:_barAnim,v:finalRatio,
-                duration:1600,delay:400,ease:"Quad.easeOut",
-                onUpdate:()=>_drawBar(_barAnim.v),
-                onComplete:()=>{
-                    _drawBar(finalRatio);
-                    S.tweens.add({targets:barOuter,alpha:0.5,duration:600,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
-                }
-            });
-
-            // Lv etiketi
-            const xpLabelL=A(S.add.text(barX,cy-1,
-                (PLAYER_PRESTIGE>0?"⭐"+PLAYER_PRESTIGE+" ":"")+"Lv "+prevLevel,
-                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#ffaa44",stroke:"#000",strokeThickness:3}
-            ).setOrigin(0,1).setDepth(BD+5));
-            const xpLabelR=A(S.add.text(VX,cy-1,"+0 XP",
-                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#ffdd66",stroke:"#000",strokeThickness:3}
-            ).setOrigin(1,1).setDepth(BD+5));
+            // Sayı sayıp animasyonlu çıksın
             const _xpC={v:0};
             S.tweens.add({
-                targets:_xpC,v:sessionXP,
-                duration:1600,delay:400,ease:"Quad.easeOut",
-                onUpdate:()=>xpLabelR.setText("+"+Math.round(_xpC.v).toLocaleString()+" XP"),
-                onComplete:()=>{ xpLabelR.setText("+"+sessionXP.toLocaleString()+" XP"); NT_SFX.play("xp_pickup"); }
+                targets:_xpC, v:sessionXP,
+                duration:1100, delay:300, ease:"Quad.easeOut",
+                onUpdate:()=>xpValTxt.setText("+"+Math.round(_xpC.v).toLocaleString()+" XP"),
+                onComplete:()=>{
+                    xpValTxt.setText("+"+sessionXP.toLocaleString()+" XP");
+                    NT_SFX.play("xp_pickup");
+                    S.tweens.add({targets:xpValTxt, scaleX:1.25, scaleY:1.25, duration:120, yoyo:true, ease:"Back.easeOut"});
+                }
             });
 
-            // Alt XP text
-            const xpSubLbl=A(S.add.text(CX,cy+barH+4,
-                prevLevelXP+" / "+prevNeeded+" XP",
-                {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",color:"#aa7733",stroke:"#000",strokeThickness:2}
-            ).setOrigin(0.5,0).setDepth(BD+5));
-            S.time.delayedCall(2100,()=>{
-                if(!xpSubLbl.scene)return;
-                xpSubLbl.setText(PLAYER_LEVEL_XP+" / "+xpNeeded+" XP");
-                xpSubLbl.setStyle({color:"#ffcc66"});
-            });
-
-            cy+=barH+14;
+            cy += 24;
 
             // Level up bildirimi
             if(result.levelsGained>0){
@@ -15715,15 +15954,13 @@ function gameOver(S){
                         }
                     }
                     lvUpG.setAlpha(0); lvUpTxt.setAlpha(0);
-                    S.tweens.add({targets:[lvUpG,lvUpTxt],alpha:1,duration:300,delay:1800,ease:"Quad.easeOut"});
-                    S.time.delayedCall(1800,()=>{
+                    S.tweens.add({targets:[lvUpG,lvUpTxt],alpha:1,duration:300,delay:1400,ease:"Quad.easeOut"});
+                    S.time.delayedCall(1400,()=>{
                         S.cameras.main.flash(180,68,255,68,false);
                         NT_SFX.play("level_up");
                     });
                     cy+=26;
                 }
-            } else {
-                S.time.delayedCall(600,()=>NT_SFX.play("xp_pickup"));
             }
 
             if(PLAYER_LEVEL>=50&&result.levelsGained>0&&cy+16<=contentBot-4){
