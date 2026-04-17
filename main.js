@@ -2165,7 +2165,7 @@ const DAILY = [
     { day:4, type:"gold", amount:800  },
     { day:5, type:"gold", amount:1200 },
     { day:6, type:"gold", amount:1800 },
-    { day:7, type:"gem",  amount:5    },
+    { day:7, type:"gem",  amount:10   },
 ];
 
 const WHEEL = [
@@ -2283,7 +2283,7 @@ const QUEST_POOL = [
     { id:"s_score300k",diff:"special", type:"score",   target:300000, name:"Score Legend",     nameTR:"Skor Efsanesi",   icon:"💎", desc:"Score 300,000 points in a single run",    descTR:"Tek oyunda 300.000 puan topla",            reward:{gold:1500, xp:400, gem:3} },
 
     // ─── SOCIAL (one-click, opens external link) ────────────────
-    { id:"x_twitter",  diff:"special", type:"social",  target:1,      name:"Follow Us!",       nameTR:"Bizi Takip Et!",  icon:"🐦", desc:"Follow @notcoin on Twitter/X",             descTR:"Twitter/X'te @notcoin'i takip et",         reward:{gold:500, xp:100, gem:10}, socialURL:"https://x.com/thenotcoin" },
+    { id:"x_twitter",  diff:"special", type:"social",  target:1,      name:"Follow on X!",     nameTR:"X'te Takip Et!", icon:"𝕏",  desc:"Follow @thenotcoin on X to earn 10 gems", descTR:"X'te @thenotcoin'i takip et, 10 elmas kazan", reward:{gold:500, xp:100, gem:10}, socialURL:"https://x.com/thenotcoin" },
 ];
 
 // Difficulty presentation data
@@ -3275,10 +3275,19 @@ function _qGenDaily(){
     const poolE = QUEST_POOL.filter(q=>q.diff==="easy");
     const poolM = QUEST_POOL.filter(q=>q.diff==="medium");
     const poolH = QUEST_POOL.filter(q=>q.diff==="hard");
-    const poolS = QUEST_POOL.filter(q=>q.diff==="special");
+    const poolS = QUEST_POOL.filter(q=>q.diff==="special" && q.type!=="social");
+    const socialQ = QUEST_POOL.find(q=>q.type==="social"); // always include X/notcoin social quest
     const pick = (arr)=>arr[Math.floor(rnd()*arr.length)];
     const out = [pick(poolE), pick(poolM), pick(poolH)];
-    if(_qDayNum()%3===0) out.push(pick(poolS));
+    // 4th quest: always the social (X/notcoin follow) quest
+    if(socialQ) out.push(socialQ);
+    // 5th quest: special every 3 days, otherwise a second easy quest
+    if(_qDayNum()%3===0 && poolS.length){
+        out.push(pick(poolS));
+    } else {
+        const poolE2 = poolE.filter(q=>out.findIndex(x=>x.id===q.id)===-1);
+        if(poolE2.length) out.push(pick(poolE2));
+    }
     return out.map(q=>({ id:q.id, prog:0, claimed:false }));
 }
 
@@ -3549,16 +3558,44 @@ function showMissions(scene){
                 ).setOrigin(0.5));
                 rewY += 18;
             };
-            if(r.gold) _addPill("+"+r.gold+"g",   0xffcc00, "#ffdd44", 46);
+            if(r.gold){
+                const pg2 = scene.add.graphics();
+                pg2.fillStyle(0x0a1420, 0.92);
+                pg2.fillRoundedRect(rewX - 52, rewY, 52, 16, 4);
+                pg2.lineStyle(1, 0xffcc00, 0.45);
+                pg2.strokeRoundedRect(rewX - 52, rewY, 52, 16, 4);
+                _scrollCont.add(pg2);
+                _scrollCont.add(scene.add.text(rewX - 52 + 8, rewY+8, "+"+r.gold,
+                    {fontFamily:_F, fontSize:"9px", color:"#ffdd44", stroke:"#000", strokeThickness:1}
+                ).setOrigin(0,0.5));
+                if(scene.textures.exists("icon_gold")){
+                    _scrollCont.add(scene.add.image(rewX - 8, rewY+8, "icon_gold").setDisplaySize(14,14).setOrigin(0.5));
+                }
+                rewY += 18;
+            }
             if(r.xp)   _addPill("+"+r.xp+" LvXP", 0x44aaff, "#66ccff", 54);
-            if(r.gem)  _addPill("+"+r.gem+"💎",   0xcc44ff, "#dd88ff", 46);
+            if(r.gem){
+                const pg3 = scene.add.graphics();
+                pg3.fillStyle(0x0a1420, 0.92);
+                pg3.fillRoundedRect(rewX - 52, rewY, 52, 16, 4);
+                pg3.lineStyle(1, 0xcc44ff, 0.45);
+                pg3.strokeRoundedRect(rewX - 52, rewY, 52, 16, 4);
+                _scrollCont.add(pg3);
+                _scrollCont.add(scene.add.text(rewX - 52 + 8, rewY+8, "+"+r.gem,
+                    {fontFamily:_F, fontSize:"9px", color:"#dd88ff", stroke:"#000", strokeThickness:1}
+                ).setOrigin(0,0.5));
+                if(scene.textures.exists("icon_gem")){
+                    _scrollCont.add(scene.add.image(rewX - 8, rewY+8, "icon_gem").setDisplaySize(14,14).setOrigin(0.5));
+                }
+                rewY += 18;
+            }
 
             // Claim button / badge / social
             const isSocial = d.type==="social";
             if(isSocial && !done && !claimed){
                 // Social quest — "TAKIP ET" / "FOLLOW" button that opens URL
                 const btnW = 72, btnH = 22;
-                const btnX = cx+PW/2-22 - btnW/2, btnY = ry+ROW_H-btnH-6;
+                const btnX = cx+PW/2-14 - btnW, btnY = ry+ROW_H-btnH-6;
                 const sbg = scene.add.graphics();
                 sbg.fillStyle(0x1da1f2, 0.92);
                 sbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
@@ -3573,7 +3610,7 @@ function showMissions(scene){
                 scene.tweens.add({targets:[sbg,sTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:700, ease:"Sine.easeInOut"});
                 _zones.push({
                     x1: btnX, x2: btnX+btnW,
-                    y1: btnY, y2: btnY+btnH,
+                    y1: btnY - SY0, y2: btnY - SY0 + btnH,
                     fn: ()=>{
                         // Open Twitter link
                         try{ window.open(d.socialURL||"https://x.com", "_blank"); }catch(_){}
@@ -3590,7 +3627,7 @@ function showMissions(scene){
                 });
             } else if(avail){
                 const btnW = 72, btnH = 22;
-                const btnX = cx+PW/2-22 - btnW/2, btnY = ry+ROW_H-btnH-6;
+                const btnX = cx+PW/2-14 - btnW, btnY = ry+ROW_H-btnH-6;
                 const cbg = scene.add.graphics();
                 cbg.fillStyle(diffInfo.col, 0.92);
                 cbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
@@ -3605,7 +3642,7 @@ function showMissions(scene){
                 scene.tweens.add({targets:[cbg,cTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:650, ease:"Sine.easeInOut"});
                 _zones.push({
                     x1: btnX, x2: btnX+btnW,
-                    y1: btnY, y2: btnY+btnH,
+                    y1: btnY - SY0, y2: btnY - SY0 + btnH,
                     fn: ()=>{
                         const xw = btnX+btnW/2, yw = btnY+btnH/2;
                         _qClaim(scene, q, xw, SY0+yw - _scrollY + 10, D);
@@ -3616,11 +3653,11 @@ function showMissions(scene){
                 const badgeW = 72;
                 const bgG = scene.add.graphics();
                 bgG.fillStyle(0x0a2214, 0.92);
-                bgG.fillRoundedRect(cx+PW/2-22-badgeW, ry+ROW_H-28, badgeW, 22, 6);
+                bgG.fillRoundedRect(cx+PW/2-14-badgeW, ry+ROW_H-28, badgeW, 22, 6);
                 bgG.lineStyle(1.5, 0x44dd66, 0.55);
-                bgG.strokeRoundedRect(cx+PW/2-22-badgeW, ry+ROW_H-28, badgeW, 22, 6);
+                bgG.strokeRoundedRect(cx+PW/2-14-badgeW, ry+ROW_H-28, badgeW, 22, 6);
                 _scrollCont.add(bgG);
-                _scrollCont.add(scene.add.text(cx+PW/2-22-badgeW/2, ry+ROW_H-17,
+                _scrollCont.add(scene.add.text(cx+PW/2-14-badgeW/2, ry+ROW_H-17,
                     "✓ "+(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"),
                     {fontFamily:_F, fontSize:"10px", color:"#44dd66", stroke:"#000", strokeThickness:1}
                 ).setOrigin(0.5));
@@ -3714,6 +3751,7 @@ return {
     // Quest API — called from game code
     trackQuests: _qTrackGame,
     hasUnclaimedQuests: _qHasUnclaimed,
+    hasWheelReady: _canFree,
     // Legacy aliases (safe no-ops / redirects) so older call-sites keep working
     showBattlePass: showMissions,
     addBattlePassXP: addBPXP,
@@ -10159,10 +10197,10 @@ class SceneMainMenu extends Phaser.Scene {
         // ── TOP BAR: gem + gold — yanyana tek satir, sicak tema, panelin ustunde ──
         {
             const _self = this;
-            const ICON_SZ = 20, GAP = 4;
-            const PILL_W  = 78, PILL_H = 24;
+            const ICON_SZ = 28, GAP = 4;
+            const PILL_W  = 90, PILL_H = 28;
             const PILL_R  = PILL_H / 2;
-            const TOP_Y   = 10;
+            const TOP_Y   = 8;
             const GEM_X   = W - 8 - PILL_W;
             const GOLD_X  = GEM_X - PILL_W - 6;
             const CY      = TOP_Y + PILL_H/2;
@@ -10203,9 +10241,9 @@ class SceneMainMenu extends Phaser.Scene {
             // ── GOLD pill (sol) ─────────────────────────
             const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
             _drawPill(goldBg, GOLD_X, TOP_Y, PILL_W, PILL_H, 0xddaa22, 0x2a1800);
-            const goldIc = this.add.image(GOLD_X + ICON_SZ/2 + 4, CY, "icon_gold")
+            const goldIc = this.add.image(GOLD_X + ICON_SZ/2 + 3, CY, "icon_gold")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const goldTxt = this.add.text(GOLD_X + PILL_W - 6, CY, PLAYER_GOLD.toLocaleString(), {
+            const goldTxt = this.add.text(GOLD_X + PILL_W - 5, CY, PLAYER_GOLD.toLocaleString(), {
                 fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
                 color: '#ffdd44', stroke: '#1a0800', strokeThickness: 3
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
@@ -10213,7 +10251,7 @@ class SceneMainMenu extends Phaser.Scene {
             // ── GEM pill (sag) ──────────────────────────
             const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
             _drawPill(gemBg, GEM_X, TOP_Y, PILL_W, PILL_H, 0xaa44dd, 0x1a0828);
-            const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 4, CY, "icon_gem")
+            const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 3, CY, "icon_gem")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const gemTxt = this.add.text(GEM_X + PILL_W - 6, CY, PLAYER_GEMS.toLocaleString(), {
                 fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
@@ -10409,8 +10447,8 @@ class SceneMainMenu extends Phaser.Scene {
         {
             const miniY=H-26;
             const miniBtns=[
-                {label:(CURRENT_LANG==='tr'?'CARK':'WHEEL'), icon:'🎡', cb:()=>NT_Monetization.showFortuneWheel(this), badge:false},
-                {label:(CURRENT_LANG==='tr'?'GOREV':'QUESTS'), icon:'📋', cb:()=>NT_Monetization.showMissions(this), badge:true}
+                {label:(CURRENT_LANG==='tr'?'CARK':'WHEEL'), icon:'🎡', cb:()=>NT_Monetization.showFortuneWheel(this), badge:'wheel'},
+                {label:(CURRENT_LANG==='tr'?'GOREV':'QUESTS'), icon:'📋', cb:()=>NT_Monetization.showMissions(this), badge:'quests'}
             ];
             miniBtns.forEach((md,i)=>{
                 const mx=CX-65+i*130;
@@ -10424,7 +10462,8 @@ class SceneMainMenu extends Phaser.Scene {
                 // ── Notification badge — pulsing red "!" when missions are completed ──
                 let badgeG=null, badgeTxt=null, badgeTween=null;
                 const _refreshBadge=()=>{
-                    const show = md.badge && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests();
+                    const show = (md.badge === 'quests' && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests())
+                                || (md.badge === 'wheel' && NT_Monetization.hasWheelReady && NT_Monetization.hasWheelReady());
                     if(show && !badgeG){
                         // Dot at top-right of button
                         const bx = mx+40, by = miniY-11;
@@ -10464,6 +10503,8 @@ class SceneMainMenu extends Phaser.Scene {
                 };
                 // Initial check (slight delay so monetization module is fully ready)
                 this.time.delayedCall(800, _refreshBadge);
+                // Periodic re-check (for wheel countdown expiry)
+                this.time.addEvent({delay:60000, loop:true, callback:_refreshBadge});
                 // Re-check after popup closes
                 hitBox.on('pointerover',()=>_dm(true))
                       .on('pointerout',()=>_dm(false))
@@ -10472,6 +10513,7 @@ class SceneMainMenu extends Phaser.Scene {
                           md.cb();
                           this.time.delayedCall(300, _refreshBadge);
                           this.time.delayedCall(1500, _refreshBadge);
+                          this.time.delayedCall(5000, _refreshBadge);
                       });
             });
         }
