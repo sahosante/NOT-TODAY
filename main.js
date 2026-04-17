@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// NOT TODAY  v9.0  |  by Sahin Beyazgul
+// NOT FAIR  v9.0  |  by Sahin Beyazgul
 // PART A: Dil Sistemi, Sabitler, Epilepsi Sahnesi, Intro Sahnesi
 // ═══════════════════════════════════════════════════════════════
 
@@ -1267,14 +1267,32 @@ const NT_SFX = (function(){
 
 
 
-        // ── PLAYER HURT ───────────────────────────────────────────
+        // ── PLAYER HURT — metallic impact + bass thud ────────────
         player_hurt(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
-            _osc("sawtooth",_vary(155), t, _vary(0.085,0.1), _vol(0.52), _vary(50));
-            _osc("sine",    _vary(78),  t, _vary(0.125,0.1), _vol(0.48), _vary(28));
-            _noise(t, _vary(0.065,0.1), _vol(0.42), 200,3500);
-            _osc("sine",    _vary(900), t+0.03, _vary(0.06,0.1), _vol(0.14), _vary(200));
+            // Metallic clang (high pitch, fast decay)
+            _osc("square",  _vary(680), t, _vary(0.035,0.05), _vol(0.35), _vary(280));
+            // Mid crunch impact
+            _osc("sawtooth",_vary(180), t, _vary(0.07,0.08),  _vol(0.45), _vary(80));
+            // Bass body hit
+            _osc("sine",    _vary(60),  t, _vary(0.12,0.08),  _vol(0.40), _vary(30));
+            // Sharp noise burst
+            _noise(t, _vary(0.04,0.05), _vol(0.35), 300,4500);
+            // Resonant ping
+            _osc("sine",    _vary(1200),t+0.02, _vary(0.04,0.05), _vol(0.12), _vary(400));
+        },
+
+        // ── ENEMY GROUND — heavy thud when triangle hits ground ─────
+        enemy_ground(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Deep bass thump
+            _osc("sine", _vary(55), t, _vary(0.15,0.08), _vol(0.38), _vary(35));
+            // Mid crunch
+            _noise(t, _vary(0.06,0.05), _vol(0.22), 80, 600);
+            // Short sharp attack
+            _osc("triangle", _vary(120), t, _vary(0.04,0.05), _vol(0.18), _vary(60));
         },
 
         // ── GAME OVER (cinematic — NEVER abrupt) ─────────────────
@@ -1951,7 +1969,7 @@ function _plvPrestige(){
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NOT TODAY — AAA MONETIZATION ENGINE v4.0
+// NOT FAIR — AAA MONETIZATION ENGINE v4.0
 // Professional redesign: unified rewards, animations, consistent UI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2143,11 +2161,11 @@ function showBoosterReward(scene, x, y, name, depth){
 const DAILY = [
     { day:1, type:"gold", amount:200  },
     { day:2, type:"gold", amount:350  },
-    { day:3, type:"gold", amount:500  },
-    { day:4, type:"gold", amount:750  },
-    { day:5, type:"gold", amount:1100 },
-    { day:6, type:"gold", amount:1600 },
-    { day:7, type:"gem",  amount:60   },
+    { day:3, type:"gold", amount:550  },
+    { day:4, type:"gold", amount:800  },
+    { day:5, type:"gold", amount:1200 },
+    { day:6, type:"gold", amount:1800 },
+    { day:7, type:"gem",  amount:5    },
 ];
 
 const WHEEL = [
@@ -2156,13 +2174,13 @@ const WHEEL = [
     { type:"gold",  amount:800,   w:18, color:0xffaa00, label:"800" },
     { type:"gold",  amount:2000,  w:8,  color:0xff8800, label:"2000" },
     { type:"gold",  amount:5000,  w:3,  color:0xff6600, label:"5000" },
-    { type:"gem",   amount:3,     w:3,  color:0xcc44ff, label:"3" },
-    { type:"gem",   amount:8,     w:1,  color:0xdd66ff, label:"8" },
-    { type:"gem",   amount:20,    w:0.3,color:0xee88ff, label:"20" },
+    { type:"gem",   amount:1,     w:2,  color:0xcc44ff, label:"1" },
+    { type:"gem",   amount:3,     w:0.5,color:0xdd66ff, label:"3" },
+    { type:"gem",   amount:5,     w:0.1,color:0xee88ff, label:"5" },
     { type:"gold",  amount:600,   w:20, color:0xeebb00, label:"600" },
     { type:"gold",  amount:1200,  w:12, color:0xddaa00, label:"1200" },
 ];
-const WHEEL_FREE_CD = 4*3600000;
+const WHEEL_FREE_CD = 24*3600000;
 const WHEEL_COST = 10;
 
 const CHEST_SKINS = [
@@ -2258,11 +2276,14 @@ const QUEST_POOL = [
     { id:"h_score100k",diff:"hard",    type:"score",   target:100000, name:"High Scorer",      nameTR:"Yuksek Skor",     icon:"🥇", desc:"Score 100,000 points in a single run",    descTR:"Tek oyunda 100.000 puan topla",            reward:{gold:800,  xp:170} },
     { id:"h_combo20",  diff:"hard",    type:"combo",   target:20,     name:"Perfect Streak",   nameTR:"Kusursuz Seri",   icon:"🌀", desc:"Reach max combo (20) in a single run",    descTR:"Tek oyunda max kombo (20) yap",            reward:{gold:900,  xp:190} },
 
-    // ─── SPECIAL (very hard, rare, GEM reward) ──────────────────
-    { id:"s_kill1000", diff:"special", type:"kills",   target:1000,   name:"Legendary Purge",  nameTR:"Efsanevi Temizlik",icon:"🔮", desc:"Kill 1,000 triangles today",              descTR:"Bugun toplam 1.000 ucgen oldur",           reward:{gold:1500, xp:400, gem:5} },
-    { id:"s_lv22",     diff:"special", type:"level",   target:22,     name:"Godlike Ascent",   nameTR:"Tanri Tirmanisi", icon:"⚡", desc:"Reach in-game level 22 in one run",       descTR:"Tek oyunda seviye 22'ye ulas",              reward:{gold:1800, xp:450, gem:8} },
-    { id:"s_boss5",    diff:"special", type:"bosses",  target:5,      name:"Boss Nemesis",     nameTR:"Boss Kabusu",     icon:"🐉", desc:"Defeat 5 bosses today",                   descTR:"Bugun 5 boss yen",                          reward:{gold:1600, xp:400, gem:6} },
-    { id:"s_score300k",diff:"special", type:"score",   target:300000, name:"Score Legend",     nameTR:"Skor Efsanesi",   icon:"💎", desc:"Score 300,000 points in a single run",    descTR:"Tek oyunda 300.000 puan topla",            reward:{gold:1500, xp:400, gem:5} },
+    // ─── SPECIAL (very hard, rare, small GEM reward) ────────────
+    { id:"s_kill1000", diff:"special", type:"kills",   target:1000,   name:"Legendary Purge",  nameTR:"Efsanevi Temizlik",icon:"🔮", desc:"Kill 1,000 triangles today",              descTR:"Bugun toplam 1.000 ucgen oldur",           reward:{gold:1500, xp:400, gem:3} },
+    { id:"s_lv22",     diff:"special", type:"level",   target:22,     name:"Godlike Ascent",   nameTR:"Tanri Tirmanisi", icon:"⚡", desc:"Reach in-game level 22 in one run",       descTR:"Tek oyunda seviye 22'ye ulas",              reward:{gold:1800, xp:450, gem:5} },
+    { id:"s_boss5",    diff:"special", type:"bosses",  target:5,      name:"Boss Nemesis",     nameTR:"Boss Kabusu",     icon:"🐉", desc:"Defeat 5 bosses today",                   descTR:"Bugun 5 boss yen",                          reward:{gold:1600, xp:400, gem:4} },
+    { id:"s_score300k",diff:"special", type:"score",   target:300000, name:"Score Legend",     nameTR:"Skor Efsanesi",   icon:"💎", desc:"Score 300,000 points in a single run",    descTR:"Tek oyunda 300.000 puan topla",            reward:{gold:1500, xp:400, gem:3} },
+
+    // ─── SOCIAL (one-click, opens external link) ────────────────
+    { id:"x_twitter",  diff:"special", type:"social",  target:1,      name:"Follow Us!",       nameTR:"Bizi Takip Et!",  icon:"🐦", desc:"Follow @notcoin on Twitter/X",             descTR:"Twitter/X'te @notcoin'i takip et",         reward:{gold:500, xp:100, gem:10}, socialURL:"https://x.com/thenotcoin" },
 ];
 
 // Difficulty presentation data
@@ -2301,6 +2322,7 @@ function _s(){
     s.dd=s.dd||0; s.dl=s.dl||0; s.wl=s.wl||0; s.fl=s.fl||0;
     s.bo=s.bo||{}; s.bx=s.bx||0; s.bp=s.bp||false; s.bc=s.bc||{};
     s.sp=s.sp||false; s.gm=s.gm||0;
+    s._socialDone=s._socialDone||{};
     return s;
 }
 
@@ -2551,22 +2573,22 @@ function showWheel(scene){
         }
     }
     for(let i=0;i<SC;i++){
-        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.65;
+        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.42;
         const sl=WHEEL[i];
         const isGld=sl.type==="gold";
         // Show only the number — icon handles type indication
         const lbl=String(sl.amount);
         const col=isGld?"#ffe066":"#ffccff";
         const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
-            fontFamily:_F,fontSize:sl.amount>=500?"15px":"17px",color:col,stroke:"#000",strokeThickness:5,align:"center"
+            fontFamily:_F,fontSize:sl.amount>=500?"14px":"16px",color:col,stroke:"#000",strokeThickness:5,align:"center"
         }).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
         lbls.push(t);
 
-        // Add single large icon per slice
+        // Add single large icon per slice — outer ring, away from number
         const icKey = isGld ? "icon_gold" : "icon_gem";
         const icArr = [];
-        const icR = R * 0.52; // icon closer to outer ring
-        const icSz = 34; // BIG icon
+        const icR = R * 0.72; // icon near outer ring
+        const icSz = 26; // slightly smaller to avoid crowding
         if(scene.textures.exists(icKey)){
             const ic = A(scene.add.image(
                 CX + Math.cos(mid) * icR,
@@ -2884,7 +2906,7 @@ function showShop(scene){
                     _add(bg2);
                     _add(T(cx-PW/2+22,ry+14,L(u.nameKey),{fontFamily:_F,fontSize:"14px",color:"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     // Description text
-                    _add(T(cx-PW/2+22,ry+32,u.descTxt||"",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+22,ry+32,(CURRENT_LANG==="tr"?u.descTxtTR:u.descTxt)||"",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     _add(T(cx-PW/2+22,ry+48,mx?(CURRENT_LANG==="tr"?"MAX SEVIYE ✓":"MAX LEVEL ✓"):"Lv "+u.level+" / "+u.maxLevel,{fontFamily:_F,fontSize:"12px",color:mx?"#55dd55":"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     if(!mx){
                         const bx=cx+PW/2-52, bw=72, bh=28;
@@ -3266,6 +3288,13 @@ function _qEnsureToday(){
     if(s.qd !== today || !Array.isArray(s.ql) || s.ql.length===0){
         s.qd = today;
         s.ql = _qGenDaily();
+        // Social quests: if already claimed once ever, mark as done+claimed
+        s.ql.forEach(q=>{
+            const d = _qDef(q.id);
+            if(d && d.type==="social" && s._socialDone && s._socialDone[q.id]){
+                q.prog = d.target; q.claimed = true;
+            }
+        });
         _sv(s);
     }
     return s;
@@ -3374,6 +3403,12 @@ function showMissions(scene){
     _updClock();
     const _clockEvt = scene.time.addEvent({delay:30000, loop:true, callback:_updClock});
 
+    // Small legend note — clarifies LvXP is for the account level bar
+    A(scene.add.text(cx, bY+hdrH+18,
+        CURRENT_LANG==="tr"?"LvXP = hesap seviyeni yukseltir":"LvXP = raises your account level",
+        {fontFamily:_F, fontSize:"9px", color:"#6688aa", stroke:"#000", strokeThickness:1}
+    ).setOrigin(0.5).setDepth(D+4).setAlpha(0.8));
+
     // Progress mini-bar
     const pbX = cx-PW/2+18, pbW = PW-36, pbY = bY+28, pbH = 5;
     const pbBg = A(scene.add.graphics().setDepth(D+3));
@@ -3393,7 +3428,7 @@ function showMissions(scene){
     });
 
     // ── SCROLL AREA ──────────────────────────────────────────
-    const SY0 = bY + hdrH + 10;
+    const SY0 = bY + hdrH + 30;   // +30 to include legend note
     const VIEW_H = contentBot - SY0 - 4;
     const VPORT_X = cx-PW/2+10, VPORT_W = PW-20;
 
@@ -3514,12 +3549,46 @@ function showMissions(scene){
                 ).setOrigin(0.5));
                 rewY += 18;
             };
-            if(r.gold) _addPill("+"+r.gold+"g", 0xffcc00, "#ffdd44", 46);
-            if(r.xp)   _addPill("+"+r.xp+"xp",  0x44aaff, "#66ccff", 46);
-            if(r.gem)  _addPill("+"+r.gem+"💎", 0xcc44ff, "#dd88ff", 46);
+            if(r.gold) _addPill("+"+r.gold+"g",   0xffcc00, "#ffdd44", 46);
+            if(r.xp)   _addPill("+"+r.xp+" LvXP", 0x44aaff, "#66ccff", 54);
+            if(r.gem)  _addPill("+"+r.gem+"💎",   0xcc44ff, "#dd88ff", 46);
 
-            // Claim button / badge
-            if(avail){
+            // Claim button / badge / social
+            const isSocial = d.type==="social";
+            if(isSocial && !done && !claimed){
+                // Social quest — "TAKIP ET" / "FOLLOW" button that opens URL
+                const btnW = 72, btnH = 22;
+                const btnX = cx+PW/2-22 - btnW/2, btnY = ry+ROW_H-btnH-6;
+                const sbg = scene.add.graphics();
+                sbg.fillStyle(0x1da1f2, 0.92);
+                sbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
+                sbg.lineStyle(1.5, 0xffffff, 0.4);
+                sbg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
+                _scrollCont.add(sbg);
+                const sTxt = scene.add.text(btnX+btnW/2, btnY+btnH/2,
+                    CURRENT_LANG==="tr"?"TAKIP ET":"FOLLOW",
+                    {fontFamily:_F, fontSize:"10px", color:"#ffffff", stroke:"#000", strokeThickness:2}
+                ).setOrigin(0.5);
+                _scrollCont.add(sTxt);
+                scene.tweens.add({targets:[sbg,sTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:700, ease:"Sine.easeInOut"});
+                _zones.push({
+                    x1: btnX, x2: btnX+btnW,
+                    y1: btnY, y2: btnY+btnH,
+                    fn: ()=>{
+                        // Open Twitter link
+                        try{ window.open(d.socialURL||"https://x.com", "_blank"); }catch(_){}
+                        // Mark as completed
+                        const s2 = _s();
+                        const qr = s2.ql.find(x=>x.id===q.id);
+                        if(qr){ qr.prog = d.target; _sv(s2); }
+                        // Mark permanently so it doesn't repeat
+                        if(!s2._socialDone) s2._socialDone = {};
+                        s2._socialDone[q.id] = true; _sv(s2);
+                        NT_SFX.play("menu_click");
+                        scene.time.delayedCall(800, ()=>{ close(); showMissions(scene); });
+                    }
+                });
+            } else if(avail){
                 const btnW = 72, btnH = 22;
                 const btnX = cx+PW/2-22 - btnW/2, btnY = ry+ROW_H-btnH-6;
                 const cbg = scene.add.graphics();
@@ -3556,10 +3625,26 @@ function showMissions(scene){
                     {fontFamily:_F, fontSize:"10px", color:"#44dd66", stroke:"#000", strokeThickness:1}
                 ).setOrigin(0.5));
             } else {
+                // In-progress — percentage + animated pulsing "!" exclamation
                 const pct = Math.floor(pFrac*100);
-                _scrollCont.add(scene.add.text(cx+PW/2-22-36, ry+ROW_H-17, pct+"%",
+                const pctTxt = scene.add.text(cx+PW/2-22-36, ry+ROW_H-17, pct+"%",
                     {fontFamily:_F, fontSize:"10px", color:"#6a7a8a", stroke:"#000", strokeThickness:1}
-                ).setOrigin(0.5));
+                ).setOrigin(0.5);
+                _scrollCont.add(pctTxt);
+
+                // Animated exclamation mark on the left side — shows quest is active
+                const exX = cx-PW/2+18, exY = ry+ROW_H/2+6;
+                const exG = scene.add.graphics();
+                exG.fillStyle(diffInfo.col, 0.85);
+                exG.fillCircle(exX, exY, 8);
+                exG.lineStyle(1, 0xffffff, 0.4);
+                exG.strokeCircle(exX, exY, 8);
+                _scrollCont.add(exG);
+                const exTxt = scene.add.text(exX, exY, "!",
+                    {fontFamily:_F, fontSize:"12px", color:"#ffffff", stroke:"#000", strokeThickness:2, fontStyle:"bold"}
+                ).setOrigin(0.5);
+                _scrollCont.add(exTxt);
+                scene.tweens.add({targets:[exG,exTxt], scaleX:{from:1,to:1.2}, scaleY:{from:1,to:1.2}, yoyo:true, repeat:-1, duration:800, ease:"Sine.easeInOut"});
             }
 
             // Stagger fade-in
@@ -3859,7 +3944,7 @@ const LANG_DATA = {
         evoMirrorStormDesc:"Ilk sekmede 3'e bolunur",
         comingSoon:"🔒 YAKINDA",required:"Gerekli:",unlocked:"✓ ACIK",
         creditsTitle:"KREDILER",creditsBy:"YAPIMCI",
-        footerSignature:"NOT TODAY  —  Sahin Beyazgul",
+        footerSignature:"NOT FAIR  —  Sahin Beyazgul",
         cosmingSoonLabel:"🎨 Yakinda... / Coming Soon",
         evolutionsLabel:"— EVRIMLER —",
         synergyTitle:"⚡ SINERJI ⚡",
@@ -3984,7 +4069,7 @@ const LANG_DATA = {
         evoMirrorStormDesc:"First bounce splits into 3",
         comingSoon:"🔒  COMING SOON",required:"Required:",unlocked:"✓ UNLOCKED",
         creditsTitle:"CREDITS",creditsBy:"DEVELOPER",
-        footerSignature:"NOT TODAY  —  Sahin Beyazgul",
+        footerSignature:"NOT FAIR  —  Sahin Beyazgul",
         cosmingSoonLabel:"🎨 Coming Soon...",
         evolutionsLabel:"— EVOLUTIONS —",
         synergyTitle:"⚡ SYNERGY ⚡",
@@ -4099,7 +4184,7 @@ const LANG_DATA = {
         evoMirrorStormDesc:"Первый рикошет разделяется на 3",
         comingSoon:"🔒  СКОРО",required:"Требуется:",unlocked:"✓ ОТКРЫТО",
         creditsTitle:"ТИТРЫ",creditsBy:"РАЗРАБОТЧИК",
-        footerSignature:"NOT TODAY  —  Sahin Beyazgul",
+        footerSignature:"NOT FAIR  —  Sahin Beyazgul",
         cosmingSoonLabel:"🎨 Скоро...",
         evolutionsLabel:"— ЭВОЛЮЦИИ —",
         synergyTitle:"⚡ СИНЕРГИЯ ⚡",
@@ -4445,13 +4530,13 @@ const ENEMY_POOL=[
 
 const GOLD_UPGRADES=[
     // [v10.2] Yuksek maliyet egrisi:
-    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level"},
-    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:21000,  baseCost:21000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level"},
-    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level"},
-    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:24000,  baseCost:24000,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level"},
-    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:75000, baseCost:75000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death"},
-    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:18000,  baseCost:18000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level"},
-    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:45000, baseCost:45000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level"},
+    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level",     descTxtTR:"Her seviye baslangic HP'yi +3 arttirir"},
+    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:21000,  baseCost:21000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level",  descTxtTR:"Her seviye baslangic hasari +%12 arttirir"},
+    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level", descTxtTR:"Her seviye hareket hizini +%10 arttirir"},
+    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:24000,  baseCost:24000,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level",              descTxtTR:"Her seviye +%18 daha fazla altin kazan"},
+    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:75000, baseCost:75000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death",               descTxtTR:"Olunce ekstra bir can kazanirsin"},
+    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:18000,  baseCost:18000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level",                descTxtTR:"Her seviye +%15 daha fazla XP kazan"},
+    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:45000, baseCost:45000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level", descTxtTR:"Her seviye kritik sans +%4 arttirir"},
 ];
 
 let GS;
@@ -6908,6 +6993,7 @@ function tickEnemies(S){
             if(pb>=GROUND_Y&&!p.groundHit){
                 p.groundHit=true;p.setVelocity(0,0);
                 if(p._shadowGfx){try{p._shadowGfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}p._shadowGfx=null;}
+                NT_SFX.play("enemy_ground");
                 try{if(window.Telegram&&window.Telegram.WebApp&&window.Telegram.WebApp.HapticFeedback){window.Telegram.WebApp.HapticFeedback.impactOccurred("light");}else if(navigator.vibrate){navigator.vibrate(8);}}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 killEnemy(S,p,false);
             }
@@ -7158,6 +7244,7 @@ function tickEnemies(S){
             p.y=GROUND_Y - _halfH;
             p.setVelocity(0,0);
             if(p.body){p.body.velocity.x=0;p.body.velocity.y=0;}
+            NT_SFX.play("enemy_ground");
             // GROUND IMPACT SQUASH — flatten on Y, expand on X, then snap
             try{
                 const _gsx = p.scaleX||1, _gsy = p.scaleY||1;
@@ -9994,7 +10081,7 @@ class SceneMainMenu extends Phaser.Scene {
         const stripCY = pTop + m.stripH/2;   // center of orange strip (world y)
 
         // ── TITLE with glow pulse + breathing effect ───────────────────────
-        const title = this.add.text(CX, stripCY, "NOT TODAY", NT_STYLE.title(40)).setOrigin(0.5).setDepth(6);
+        const title = this.add.text(CX, stripCY, "NOT FAIR", NT_STYLE.title(40)).setOrigin(0.5).setDepth(6);
         // Outer glow halo behind title
         const titleGlow=this.add.graphics().setDepth(5);
         const _titleGlowDummy={v:0};
@@ -10023,7 +10110,7 @@ class SceneMainMenu extends Phaser.Scene {
         // Phaser glyph warm-up: tum buton labellarini invisible text olarak render et
         // Phaser'in internal canvas'i glyphleri cache'e alir → gercek butonlar siyah cikmaz
         const _warmLabels = ["PLAY","SETTINGS","SHOP","HOW TO PLAY","LEADERBOARD",
-                             "RESUME","MAIN MENU","PAUSED","STATS","NOT TODAY"];
+                             "RESUME","MAIN MENU","PAUSED","STATS","NOT FAIR"];
         const _warmObjs = _warmLabels.map(lbl=>{
             const t = this.add.text(CX, H/2, lbl, NT_STYLE.label(24));
             t.setVisible(false).setDepth(0);
@@ -10069,12 +10156,16 @@ class SceneMainMenu extends Phaser.Scene {
         this.time.delayedCall(80,  ()=>this._smooth());
         this.time.delayedCall(500, ()=>this._smooth());
 
-        // ── TOP BAR: gem, gold — sag uste alt alta, sayi once ikon sonra ──
+        // ── TOP BAR: gem + gold — yanyana tek satir, sicak tema, panelin ustunde ──
         {
             const _self = this;
-            const ICON_SZ = 38, GAP = 8, ROW_GAP = 2;
-            const GEM_CY  = 22;
-            const GOLD_CY = GEM_CY + ICON_SZ + ROW_GAP;
+            const ICON_SZ = 20, GAP = 4;
+            const PILL_W  = 78, PILL_H = 24;
+            const PILL_R  = PILL_H / 2;
+            const TOP_Y   = 10;
+            const GEM_X   = W - 8 - PILL_W;
+            const GOLD_X  = GEM_X - PILL_W - 6;
+            const CY      = TOP_Y + PILL_H/2;
 
             // [QUALITY] Apply LINEAR filter to icon textures
             this.time.delayedCall(50, () => {
@@ -10096,30 +10187,40 @@ class SceneMainMenu extends Phaser.Scene {
                 } catch (_) {}
             });
 
-            // ── GEM row: [sayi] [ikon] — sag hizali ───────────────
-            // Ikon en sagda, sayi ikonun solunda
-            const gemIc = this.add.image(W - 10 - ICON_SZ/2, GEM_CY, "icon_gem")
-                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const gemTxt = this.add.text(W - 10 - ICON_SZ - GAP, GEM_CY, PLAYER_GEMS.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '20px',
-                color: '#ee88ff', stroke: '#1a0022', strokeThickness: 5
-            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
-            const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
+            // ── Pill cizim — sicak/amber tonu, oyun temasiyla uyumlu ──
+            const _drawPill = (g, x, y, w, h, accentCol, fillCol) => {
+                g.clear();
+                g.fillStyle(0x000000, 0.30);
+                g.fillRoundedRect(x+1, y+1, w, h, PILL_R);
+                g.fillStyle(fillCol, 0.94);
+                g.fillRoundedRect(x, y, w, h, PILL_R);
+                g.fillStyle(0xffffff, 0.08);
+                g.fillRoundedRect(x+2, y+1, w-4, h*0.42, PILL_R);
+                g.lineStyle(1.5, accentCol, 0.85);
+                g.strokeRoundedRect(x, y, w, h, PILL_R);
+            };
 
-            const _drawGemPill = () => { gemBg.clear(); };
-
-            // ── GOLD row: [sayi] [ikon] — sag hizali ──────────────
-            const goldIc = this.add.image(W - 10 - ICON_SZ/2, GOLD_CY, "icon_gold")
-                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
-            const goldTxt = this.add.text(W - 10 - ICON_SZ - GAP, GOLD_CY, PLAYER_GOLD.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '20px',
-                color: '#FFD700', stroke: '#1a0c00', strokeThickness: 5
-            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
+            // ── GOLD pill (sol) ─────────────────────────
             const goldBg = this.add.graphics().setDepth(7).setAlpha(0);
+            _drawPill(goldBg, GOLD_X, TOP_Y, PILL_W, PILL_H, 0xddaa22, 0x2a1800);
+            const goldIc = this.add.image(GOLD_X + ICON_SZ/2 + 4, CY, "icon_gold")
+                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            const goldTxt = this.add.text(GOLD_X + PILL_W - 6, CY, PLAYER_GOLD.toLocaleString(), {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
+                color: '#ffdd44', stroke: '#1a0800', strokeThickness: 3
+            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
-            const _drawGoldPill = () => { goldBg.clear(); };
+            // ── GEM pill (sag) ──────────────────────────
+            const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
+            _drawPill(gemBg, GEM_X, TOP_Y, PILL_W, PILL_H, 0xaa44dd, 0x1a0828);
+            const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 4, CY, "icon_gem")
+                .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
+            const gemTxt = this.add.text(GEM_X + PILL_W - 6, CY, PLAYER_GEMS.toLocaleString(), {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
+                color: '#dd99ff', stroke: '#0a0018', strokeThickness: 3
+            }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
-            this.tweens.add({targets:[goldTxt,goldIc,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
+            this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
 
             // ── HUD REFRESH ─────────────────────────────────────────
             _self._mmGoldTxt = goldTxt;
@@ -10137,176 +10238,91 @@ class SceneMainMenu extends Phaser.Scene {
             }});
         }
 
-        // ── PLAYER LEVEL — sol ust, ornek gorsel stili (bakir/bronz daire + bar) ──
+        // ── PLAYER LEVEL — sol ust, dairesel XP dolum halkasi ──
         {
-            // ── Layout sabitleri ────────────────────────────────────────
-            const CIR_R   = 26;          // dis daire yaricapi — buyutuldu
-            const CIR_CX  = 14 + CIR_R; // sol ust koseden iceride, pencereye degmiyor
-            const CIR_CY  = 10 + CIR_R; // ust kenara bogaz birakiliyor
-            const BAR_X   = CIR_CX + CIR_R - 2;  // bar baslangic X
-            const BAR_W   = 128;
-            const BAR_H   = 16;
-            const BAR_R   = BAR_H / 2;  // tam yuvarlak uc
+            const CIR_R   = 22;
+            const CIR_CX  = 14 + CIR_R;
+            const CIR_CY  = 12 + CIR_R;
+            const RING_W  = 4;
 
-            // ── XP hesabi ──────────────────────────────────────────────
             const xpNeeded = _plvXpNeeded(PLAYER_LEVEL);
             const xpRatio  = Math.min(1, PLAYER_LEVEL_XP / xpNeeded);
 
-            // ── Ana graphics ────────────────────────────────────────────
             const lvG = this.add.graphics().setDepth(9).setAlpha(0);
 
-            // ── Bakir/bronz renk paleti (referans gorsel) ───────────────
-            const CU_DARK   = 0x7a3e1a;   // koyu bakir (dis cerceve golgesi)
-            const CU_MID    = 0xb5652a;   // orta bakir
-            const CU_LIGHT  = 0xd4874a;   // acik bakir (highlight)
-            const CU_SHINE  = 0xeebb88;   // parlaklik seridi
-            const CREAM     = 0xf5edd5;   // krem ic alan
-            const CREAM_DRK = 0xd4c4a0;   // krem golge
-            const TXT_DRK   = 0x3d1a08;   // koyu kahve metin
+            const BG_DARK     = 0x1a0e04;
+            const RING_EMPTY  = 0x2a1808;
+            const RING_FILL   = 0xffaa00;
+            const RING_HI     = 0xffdd44;
+            const BORDER_COL  = 0xcc8822;
 
-            // ── Daire + Bar birlesik cizim fonksiyonu ───────────────────
-            const _drawAll = (ratio, glowV, shimT) => {
+            const _drawCircle = (ratio, glowV) => {
                 lvG.clear();
-
-                // ══ BAR BOLUMU ════════════════════════════════════════
-
-                // Bar dis bakir cercevesi (dolgu)
-                lvG.fillStyle(CU_DARK, 1);
-                lvG.fillRoundedRect(BAR_X, CIR_CY - BAR_H/2 - 3, BAR_W + 3, BAR_H + 6, BAR_R + 3);
-
-                // Bar orta katmani (acik bakir)
-                lvG.fillStyle(CU_MID, 1);
-                lvG.fillRoundedRect(BAR_X, CIR_CY - BAR_H/2 - 1, BAR_W + 1, BAR_H + 2, BAR_R + 1);
-
-                // Bar ic zemin (gri-krem)
-                lvG.fillStyle(0xc8bfae, 1);
-                lvG.fillRoundedRect(BAR_X + 2, CIR_CY - BAR_H/2 + 1, BAR_W - 2, BAR_H - 2, BAR_R - 1);
-
-                // Bar dolum (sicak turuncu-amber)
-                if(ratio > 0.005){
-                    const fw = Math.max(BAR_H - 2, (BAR_W - 4) * ratio);
-                    // Taban (koyu turuncu)
-                    lvG.fillStyle(0xcc5500, 1);
-                    lvG.fillRoundedRect(BAR_X + 2, CIR_CY - BAR_H/2 + 1, fw, BAR_H - 2, BAR_R - 1);
-                    // Orta parlak katman
-                    lvG.fillStyle(0xff8800, 0.95);
-                    lvG.fillRoundedRect(BAR_X + 2, CIR_CY - BAR_H/2 + 2, fw, (BAR_H - 4) * 0.68, BAR_R - 1);
-                    // Ust highlight (sari-altin)
-                    lvG.fillStyle(0xffdd44, 0.55);
-                    lvG.fillRoundedRect(BAR_X + 4, CIR_CY - BAR_H/2 + 2, fw - 4, (BAR_H - 6) * 0.40, BAR_R - 2);
-                    // Ince parlak ust serit
-                    lvG.fillStyle(0xffffff, 0.28);
-                    lvG.fillRoundedRect(BAR_X + 5, CIR_CY - BAR_H/2 + 2, fw - 6, 3, BAR_R - 2);
-                    // Alt koyu golge
-                    lvG.fillStyle(0x6a2200, 0.70);
-                    lvG.fillRoundedRect(BAR_X + 3, CIR_CY + BAR_H/2 - 5, fw - 2, 3, {tl:0,tr:0,bl:BAR_R-2,br:BAR_R-2});
-                    // Kayan shimmer
-                    const shimX = BAR_X + 2 + ((shimT * 1.1) % 1) * (fw + 50) - 50;
-                    lvG.fillStyle(0xffffff, 0.20);
-                    lvG.fillRect(Math.max(BAR_X + 3, shimX), CIR_CY - BAR_H/2 + 2, 22, BAR_H - 5);
-                    // Uc parlama
-                    const edgeX = BAR_X + 2 + fw;
-                    lvG.fillStyle(0xffcc44, 0.60 + glowV * 0.40);
-                    lvG.fillRoundedRect(edgeX - 5, CIR_CY - BAR_H/2 + 2, 5, BAR_H - 4, {tl:0,tr:BAR_R-2,bl:0,br:BAR_R-2});
-                }
-
-                // Bar ust highlight seridi (cerceve parlakligi)
-                lvG.fillStyle(CU_SHINE, 0.55);
-                lvG.fillRoundedRect(BAR_X, CIR_CY - BAR_H/2 - 1, BAR_W + 1, 3, {tl:BAR_R+1,tr:BAR_R+1,bl:0,br:0});
-
-                // ══ DAIRE BOLUMU ══════════════════════════════════════
-                // (barin ustune cizilir, sol tarafa yapisik gorunur)
-
-                // En dis glow (hafif, pulse)
-                lvG.fillStyle(0xff8800, 0.04 + glowV * 0.08);
-                lvG.fillCircle(CIR_CX, CIR_CY, CIR_R + 9);
-
-                // Dis koyu bakir golge cemberi
-                lvG.fillStyle(CU_DARK, 1);
-                lvG.fillCircle(CIR_CX, CIR_CY, CIR_R + 3);
-
-                // Orta bakir ana cember
-                lvG.fillStyle(CU_MID, 1);
+                lvG.fillStyle(RING_FILL, 0.03 + glowV * 0.05);
+                lvG.fillCircle(CIR_CX, CIR_CY, CIR_R + 5);
+                lvG.fillStyle(0x000000, 0.35);
+                lvG.fillCircle(CIR_CX+1, CIR_CY+2, CIR_R + 2);
+                lvG.fillStyle(RING_EMPTY, 1);
                 lvG.fillCircle(CIR_CX, CIR_CY, CIR_R + 1);
-
-                // Ic krem alan
-                lvG.fillStyle(CREAM, 1);
-                lvG.fillCircle(CIR_CX, CIR_CY, CIR_R - 4);
-
-                // Ic krem golge (alt yari hafif koyu)
-                lvG.fillStyle(CREAM_DRK, 0.45);
-                lvG.fillCircle(CIR_CX + 1, CIR_CY + 3, CIR_R - 6);
-
-                // Bakir ic kenar cizgisi
-                lvG.lineStyle(2, CU_DARK, 0.55);
-                lvG.strokeCircle(CIR_CX, CIR_CY, CIR_R - 4);
-
-                // Dis bakir kenar cizgisi (derinlik)
-                lvG.lineStyle(1.5, CU_SHINE, 0.45 + glowV * 0.25);
+                if(ratio > 0.01){
+                    const startAngle = -Math.PI/2;
+                    const endAngle   = startAngle + Math.PI*2*ratio;
+                    lvG.lineStyle(RING_W + 2, RING_FILL, 0.95);
+                    lvG.beginPath();
+                    lvG.arc(CIR_CX, CIR_CY, CIR_R - RING_W/2, startAngle, endAngle, false);
+                    lvG.strokePath();
+                    lvG.lineStyle(RING_W - 1, RING_HI, 0.45);
+                    lvG.beginPath();
+                    lvG.arc(CIR_CX, CIR_CY, CIR_R - RING_W/2 + 1, startAngle, endAngle, false);
+                    lvG.strokePath();
+                    const ex = CIR_CX + Math.cos(endAngle) * (CIR_R - RING_W/2);
+                    const ey = CIR_CY + Math.sin(endAngle) * (CIR_R - RING_W/2);
+                    lvG.fillStyle(0xffffff, 0.65 + glowV*0.35);
+                    lvG.fillCircle(ex, ey, 3);
+                    lvG.fillStyle(RING_FILL, 0.35);
+                    lvG.fillCircle(ex, ey, 5);
+                }
+                lvG.fillStyle(BG_DARK, 0.98);
+                lvG.fillCircle(CIR_CX, CIR_CY, CIR_R - RING_W - 2);
+                lvG.lineStyle(1.2, BORDER_COL, 0.5);
+                lvG.strokeCircle(CIR_CX, CIR_CY, CIR_R - RING_W - 2);
+                lvG.lineStyle(1.5, BORDER_COL, 0.7 + glowV*0.2);
                 lvG.strokeCircle(CIR_CX, CIR_CY, CIR_R + 1);
-
-                // Percin noktalari (referans gorseldeki kucuk cikintilar — 4 yonde)
-                const rivetR = 3.5;
-                const rivetDist = CIR_R - 1;
-                [[0, -1],[1, 0],[0, 1],[-1, 0]].forEach(([dx,dy]) => {
-                    const rx = CIR_CX + dx * rivetDist;
-                    const ry = CIR_CY + dy * rivetDist;
-                    lvG.fillStyle(CU_DARK, 1);
-                    lvG.fillCircle(rx, ry, rivetR);
-                    lvG.fillStyle(CU_LIGHT, 0.8);
-                    lvG.fillCircle(rx - 0.8, ry - 0.8, rivetR - 1.2);
-                    lvG.lineStyle(1, CU_DARK, 0.6);
-                    lvG.strokeCircle(rx, ry, rivetR);
-                });
-
-                // Dairenin ust parlaklik yayi (highlight)
-                lvG.lineStyle(3, 0xffffff, 0.18 + glowV * 0.10);
+                lvG.lineStyle(1.5, 0xffffff, 0.06 + glowV*0.04);
                 lvG.beginPath();
-                lvG.arc(CIR_CX, CIR_CY, CIR_R - 2, -Math.PI * 0.85, -Math.PI * 0.15, false);
+                lvG.arc(CIR_CX, CIR_CY, CIR_R, -Math.PI*0.8, -Math.PI*0.2, false);
                 lvG.strokePath();
             };
 
-            // ── Level numarasi — krem dairenin ortasinda ────────────────
-            const _lvFS = PLAYER_LEVEL >= 100 ? '15px' : PLAYER_LEVEL >= 10 ? '19px' : '23px';
-            const lvNumTxt = this.add.text(CIR_CX, CIR_CY, String(PLAYER_LEVEL), {
-                fontFamily: 'LilitaOne, Arial, sans-serif',
-                fontSize: _lvFS,
-                color: '#3d1a08',
-                stroke: '#a0724a',
-                strokeThickness: 3
+            const _lvFS = PLAYER_LEVEL >= 100 ? '11px' : PLAYER_LEVEL >= 10 ? '15px' : '18px';
+            const lvNumTxt = this.add.text(CIR_CX, CIR_CY - 2, String(PLAYER_LEVEL), {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: _lvFS,
+                color: '#ffdd44', stroke: '#1a0800', strokeThickness: 3
             }).setOrigin(0.5, 0.5).setDepth(10).setAlpha(0);
 
-            // ── XP orani metni (barin altinda) ──────────────────────────
-            const lvXpTxt = this.add.text(BAR_X + 4, CIR_CY + BAR_H/2 + 5,
-                PLAYER_LEVEL_XP.toLocaleString() + " / " + xpNeeded.toLocaleString() + " XP", {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '9px',
-                color: '#cc7722', stroke: '#000', strokeThickness: 2
-            }).setOrigin(0, 0).setDepth(9).setAlpha(0);
+            const lvLabelTxt = this.add.text(CIR_CX, CIR_CY + 10, "LV", {
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '7px',
+                color: '#aa8844', stroke: '#000', strokeThickness: 2
+            }).setOrigin(0.5, 0.5).setDepth(10).setAlpha(0);
 
-            // ── Prestige yildizlari ──────────────────────────────────────
             let lvPrestigeTxt = null;
             if(PLAYER_PRESTIGE > 0){
-                lvPrestigeTxt = this.add.text(CIR_CX, CIR_CY + CIR_R - 6,
-                    "⭐".repeat(Math.min(PLAYER_PRESTIGE, 5)), { fontSize: '7px' })
+                lvPrestigeTxt = this.add.text(CIR_CX, CIR_CY + CIR_R + 6,
+                    "⭐".repeat(Math.min(PLAYER_PRESTIGE, 5)), { fontSize: '6px' })
                     .setOrigin(0.5, 0).setDepth(10).setAlpha(0);
             }
 
-            // ── Animasyon durumu ─────────────────────────────────────────
-            const _anim = { ratio: xpRatio, shimmer: 0, glow: 0 };
-            this.tweens.add({ targets: _anim, shimmer: 100, duration: 180000, repeat: -1 });
+            const _anim = { ratio: xpRatio, glow: 0 };
             this.tweens.add({ targets: _anim, glow: 1, duration: 2200,
                 yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-
             this.time.addEvent({ delay: 33, loop: true, callback: () => {
                 if (!lvG.scene) return;
-                _drawAll(_anim.ratio, _anim.glow, _anim.shimmer);
+                _drawCircle(_anim.ratio, _anim.glow);
             }});
 
-            // ── Giris animasyonu ─────────────────────────────────────────
-            const _lvItems = [lvG, lvNumTxt, lvXpTxt];
+            const _lvItems = [lvG, lvNumTxt, lvLabelTxt];
             if(lvPrestigeTxt) _lvItems.push(lvPrestigeTxt);
             this.tweens.add({ targets: _lvItems, alpha: 1, duration: 420, delay: 520, ease: 'Quad.easeOut' });
-
             // ── LEVEL UP MENU BILDIRIMI ─────────────────────────────────
             const _pendingLvUp = parseInt(secureGet("nt_lvup_pending", "0", "0"));
             if(_pendingLvUp > 0){
@@ -10321,10 +10337,10 @@ class SceneMainMenu extends Phaser.Scene {
                         : L("levelUp");
                     const lvUpBg = this.add.graphics().setDepth(14).setAlpha(0);
                     lvUpBg.fillStyle(0x2a1000, 0.92);
-                    lvUpBg.fillRoundedRect(BAR_X, CIR_CY + BAR_H/2 + 18, BAR_W, 22, 7);
+                    lvUpBg.fillRoundedRect(CIR_CX - CIR_R, CIR_CY + CIR_R + 8, 120, 22, 7);
                     lvUpBg.lineStyle(2, 0xffcc00, 0.90);
-                    lvUpBg.strokeRoundedRect(BAR_X, CIR_CY + BAR_H/2 + 18, BAR_W, 22, 7);
-                    const lvUpTxt = this.add.text(BAR_X + BAR_W/2, CIR_CY + BAR_H/2 + 29, lvUpStr, {
+                    lvUpBg.strokeRoundedRect(CIR_CX - CIR_R, CIR_CY + CIR_R + 8, 120, 22, 7);
+                    const lvUpTxt = this.add.text(CIR_CX - CIR_R + 60, CIR_CY + CIR_R + 19, lvUpStr, {
                         fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '12px',
                         color: '#ffee44', stroke: '#3d1400', strokeThickness: 4
                     }).setOrigin(0.5, 0.5).setDepth(15).setAlpha(0);
@@ -10360,7 +10376,7 @@ class SceneMainMenu extends Phaser.Scene {
 
             // ── Prestige button (level >= 50) ───────────────────────────
             if(PLAYER_LEVEL >= 50){
-                const prBtnY = CIR_CY + BAR_H/2 + 20;
+                const prBtnY = CIR_CY + CIR_R + 8;
                 const prG = this.add.graphics().setDepth(8).setAlpha(0);
                 const _dPr = (h) => {
                     prG.clear();
@@ -13059,7 +13075,7 @@ function closeLevelUpPanel(scene, ui){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  NOT TODAY  ·  AAA LEVEL-UP CARD SYSTEM  ·  LoL Inspired  ·  v10.3
+//  NOT FAIR  ·  AAA LEVEL-UP CARD SYSTEM  ·  LoL Inspired  ·  v10.3
 //  ─────────────────────────────────────────────────────────────────────────────
 //  CHANGES vs v10.2:
 //    ✦ Layout:     ALL positions calculated from canvas center (CX=180, CY=320)
@@ -15829,98 +15845,59 @@ function gameOver(S){
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
         const isNew=gs.score>prevHs;
 
-        let cy=contentTop+6;
+        let cy=contentTop+12;
 
         // ── SKOR ─────────────────────────────────────────────────────
         A(S.add.text(CX,cy,gs.score.toLocaleString(),
-            NT_STYLE.title(34,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
-        cy+=40;
-
-        const hsColor=isNew?"#ffcc00":"#8899aa";
-        const hsLabel=isNew?L("goNewRecord"):("BEST: "+prevHs.toLocaleString());
-        A(S.add.text(CX,cy,hsLabel,NT_STYLE.accent(12,hsColor)).setOrigin(0.5,0).setDepth(D));
-        cy+=18;
+            NT_STYLE.title(32,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
+        cy+=42;
 
         // ── AYIRICI ──────────────────────────────────────────────────
         const dg=A(S.add.graphics().setDepth(902));
-        dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy+3,VX,cy+3);
-        cy+=10;
+        dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy,VX,cy);
+        cy+=12;
 
         // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
-            if(cy+20>contentBot-86) return;
+            if(cy+20>contentBot-96) return;
             A(S.add.text(TX,cy,lbl,NT_STYLE.stat(13,"#88aacc")).setOrigin(0,0.5).setDepth(D));
             A(S.add.text(VX,cy,val,NT_STYLE.stat(13,col)).setOrigin(1,0.5).setDepth(D));
-            cy+=20;
+            cy+=22;
         };
         const kLbl=CURRENT_LANG==="en"?"KILLS":CURRENT_LANG==="ru"?"УБИТО":"KILL";
         const lLbl=CURRENT_LANG==="en"?"LEVEL":CURRENT_LANG==="ru"?"УРОВЕНЬ":"SEVIYE";
         _row(kLbl, String(gs.kills), "#ff7777");
         _row(lLbl, "Lv "+gs.level,  "#88ddff");
 
-        // ── GOLD SATIRI — ikon kullan ────────────────────────────────
-        if(cy+20<=contentBot-86){
-            const goldTarget = Math.max(0, gs.gold || 0);
-            const gLbl=CURRENT_LANG==="en"?"GOLD":CURRENT_LANG==="ru"?"ЗОЛОТО":"ALTIN";
-            A(S.add.text(TX,cy,gLbl,NT_STYLE.stat(13,"#88aacc")).setOrigin(0,0.5).setDepth(D));
-
-            // Sayı metni (sağda)
-            const goldVal = A(S.add.text(VX-28, cy, "0", NT_STYLE.stat(13,"#ffcc44")).setOrigin(1,0.5).setDepth(D));
-            // Gold ikonu (sayının sağında)
-            if(S.textures.exists("icon_gold")){
-                A(S.add.image(VX-12, cy, "icon_gold").setDisplaySize(22,22).setDepth(D+1));
-            }
-
-            const _goldAnim = {v:0};
-            let _lastGoldTick = 0;
-            S.tweens.add({
-                targets: _goldAnim, v: goldTarget,
-                duration: 1600, delay: 300, ease: "Quad.easeOut",
-                onUpdate: () => {
-                    const cur = Math.round(_goldAnim.v);
-                    goldVal.setText(cur.toLocaleString());
-                    if(cur - _lastGoldTick >= Math.max(1, Math.floor(goldTarget / 22))){
-                        _lastGoldTick = cur;
-                        if(goldTarget > 0) NT_SFX.play("gold");
-                    }
-                },
-                onComplete: () => {
-                    goldVal.setText(goldTarget.toLocaleString());
-                    if(goldTarget > 0) S.tweens.add({targets: goldVal, scaleX:1.3, scaleY:1.3, duration:120, yoyo:true, ease:"Back.easeOut"});
-                }
-            });
-            cy += 20;
-        }
-
-        // ── XP KAZANIMI (sade, bar yok) ──────────────────────────────
-        // cy'yi güvende tut — contentBot'a göre yukarı çek
-        cy = Math.min(cy, contentBot - 72);
+        // ── KAZANIMLAR (XP + GOLD, sade, net) ─────────────────────────
+        cy = Math.min(cy, contentBot - 96);
         {
             const sessionXP   = _plvCalcSessionXP(gs);
             const result      = _plvAddXP(sessionXP);
+            const goldEarned  = Math.max(0, gs.gold || 0);
             const BD = 910;
 
             // Ayırıcı
             const dg2 = A(S.add.graphics().setDepth(BD));
-            dg2.lineStyle(1, 0x664400, 0.5); dg2.lineBetween(TX, cy+2, VX, cy+2);
+            dg2.lineStyle(1, 0x44aacc, 0.45); dg2.lineBetween(TX, cy+2, VX, cy+2);
             cy += 10;
 
-            // XP kazanımı satırı — tek net sayı, sol etiket + sağ değer
+            // ── XP KAZANILDI satırı — açık renkli, net ──
             const xpLblKey = CURRENT_LANG==="tr" ? "KAZANILAN XP" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО XP" : "XP EARNED";
             A(S.add.text(TX, cy+10, xpLblKey,
-                NT_STYLE.stat(13, "#88aacc")
+                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
+                 color:"#ffffff", stroke:"#000", strokeThickness:3}
             ).setOrigin(0, 0.5).setDepth(BD+1));
 
             const xpValTxt = A(S.add.text(VX, cy+10, "+0 XP",
-                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"16px",
-                 color:"#66ccff", stroke:"#000", strokeThickness:3}
+                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"18px",
+                 color:"#66ddff", stroke:"#001833", strokeThickness:4}
             ).setOrigin(1, 0.5).setDepth(BD+1));
 
-            // Sayı sayıp animasyonlu çıksın
             const _xpC={v:0};
             S.tweens.add({
                 targets:_xpC, v:sessionXP,
-                duration:1100, delay:300, ease:"Quad.easeOut",
+                duration:1000, delay:280, ease:"Quad.easeOut",
                 onUpdate:()=>xpValTxt.setText("+"+Math.round(_xpC.v).toLocaleString()+" XP"),
                 onComplete:()=>{
                     xpValTxt.setText("+"+sessionXP.toLocaleString()+" XP");
@@ -15928,7 +15905,48 @@ function gameOver(S){
                     S.tweens.add({targets:xpValTxt, scaleX:1.25, scaleY:1.25, duration:120, yoyo:true, ease:"Back.easeOut"});
                 }
             });
+            cy += 26;
 
+            // ── GOLD KAZANILDI satırı — her zaman göster, 0 bile olsa ──
+            const goldLblKey = CURRENT_LANG==="tr" ? "KAZANILAN ALTIN" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО ЗОЛОТА" : "GOLD EARNED";
+            A(S.add.text(TX, cy+10, goldLblKey,
+                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
+                 color:"#ffffff", stroke:"#000", strokeThickness:3}
+            ).setOrigin(0, 0.5).setDepth(BD+1));
+
+            // Value + icon on the right
+            const goldValTxt = A(S.add.text(VX-26, cy+10, "+0",
+                {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"18px",
+                 color: goldEarned>0 ? "#ffdd44" : "#888a8a",
+                 stroke:"#1a0c00", strokeThickness:4}
+            ).setOrigin(1, 0.5).setDepth(BD+1));
+            if(S.textures.exists("icon_gold")){
+                const gIc = A(S.add.image(VX-10, cy+10, "icon_gold").setDisplaySize(20,20).setDepth(BD+2));
+                if(goldEarned<=0) gIc.setAlpha(0.45);
+            }
+
+            if(goldEarned > 0){
+                const _gC = {v:0};
+                let _lastTick = 0;
+                S.tweens.add({
+                    targets:_gC, v:goldEarned,
+                    duration:1000, delay:280, ease:"Quad.easeOut",
+                    onUpdate:()=>{
+                        const cur = Math.round(_gC.v);
+                        goldValTxt.setText("+"+cur.toLocaleString());
+                        if(cur-_lastTick >= Math.max(1, Math.floor(goldEarned/22))){
+                            _lastTick = cur; NT_SFX.play("gold");
+                        }
+                    },
+                    onComplete:()=>{
+                        goldValTxt.setText("+"+goldEarned.toLocaleString());
+                        S.tweens.add({targets:goldValTxt, scaleX:1.25, scaleY:1.25, duration:120, yoyo:true, ease:"Back.easeOut"});
+                    }
+                });
+            } else {
+                // Keep "+0" but subdued — player sees they earned nothing
+                goldValTxt.setText("+0");
+            }
             cy += 24;
 
             // Level up bildirimi
@@ -15944,7 +15962,6 @@ function gameOver(S){
                     const lvUpTxt=A(S.add.text(TX+6,cy+11,lvUpStr,
                         {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",color:"#88ff44",stroke:"#000",strokeThickness:3}
                     ).setOrigin(0,0.5).setDepth(BD+1));
-                    // Gold ikon + miktar (level up ikramiyesi)
                     if(result.goldEarned>0){
                         const goldEarnedTxt = A(S.add.text(VX-26,cy+11,"+"+result.goldEarned.toLocaleString(),
                             {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",color:"#ffdd44",stroke:"#000",strokeThickness:2}
@@ -15954,8 +15971,8 @@ function gameOver(S){
                         }
                     }
                     lvUpG.setAlpha(0); lvUpTxt.setAlpha(0);
-                    S.tweens.add({targets:[lvUpG,lvUpTxt],alpha:1,duration:300,delay:1400,ease:"Quad.easeOut"});
-                    S.time.delayedCall(1400,()=>{
+                    S.tweens.add({targets:[lvUpG,lvUpTxt],alpha:1,duration:300,delay:1300,ease:"Quad.easeOut"});
+                    S.time.delayedCall(1300,()=>{
                         S.cameras.main.flash(180,68,255,68,false);
                         NT_SFX.play("level_up");
                     });
@@ -15971,25 +15988,7 @@ function gameOver(S){
             }
         }
 
-        // ── SHARE BUTONU ─────────────────────────────────────────────
-        if(cy+30<contentBot-6){
-            cy+=4;
-            const shBg=A(S.add.graphics().setDepth(902));
-            const _dSh=(h)=>{
-                shBg.clear();
-                shBg.fillStyle(h?0x226688:0x0d2a36,1);
-                shBg.fillRoundedRect(CX-74,cy,148,26,7);
-                shBg.lineStyle(1.5,0x44aacc,h?0.9:0.5);
-                shBg.strokeRoundedRect(CX-74,cy,148,26,7);
-            };
-            _dSh(false);
-            A(S.add.text(CX,cy+13,L("goShare"),NT_STYLE.body(11,"#aaddff")).setOrigin(0.5).setDepth(D));
-            A(S.add.rectangle(CX,cy+13,148,26,0xffffff,0.001).setDepth(D+1)
-                .setInteractive({useHandCursor:true})
-                .on("pointerover",()=>_dSh(true))
-                .on("pointerout",()=>_dSh(false))
-                .on("pointerdown",()=>shareTelegramScore(gs.score,gs.kills,gs.level)));
-        }
+        // (Share button removed — earnings display replaces it)
 
         // ── BUTONLAR ─────────────────────────────────────────────────
         const resetFn=()=>{
@@ -16432,7 +16431,7 @@ function doRevive(S, panel){
 
 // ── TELEGRAM SKOR PAYLASIM ────────────────────────────────────
 function shareTelegramScore(score, kills, level){
-    const txt=`🎮 NOT TODAY\n🏆 Skor: ${score.toLocaleString()}\n☠ Kill: ${kills} | ⭐ Lv${level}\n👉 Sen de oyna!`;
+    const txt=`🎮 NOT FAIR\n🏆 Skor: ${score.toLocaleString()}\n☠ Kill: ${kills} | ⭐ Lv${level}\n👉 Sen de oyna!`;
     try{
         // Telegram Mini App API
         if(window.Telegram&&window.Telegram.WebApp){
@@ -17255,7 +17254,7 @@ function playerCollisionExplosion(S, x, y, type){
 
 
 // ════════════════════════════════════════════════════════════════
-// AAA VFX MODULE  —  Not Today v9.0 VFX Engine
+// AAA VFX MODULE  —  Not Fair v9.0 VFX Engine
 // ════════════════════════════════════════════════════════════════
 
 // ── GLOBAL VFX STATE ─────────────────────────────────────────
