@@ -15800,9 +15800,8 @@ function triggerRunEvent(S){
     showRunEventUI(S,ev);
 }
 
-// [UI REDESIGN] showRunEventUI — ui_pause_win sprite + altin buton
-// Onceki: basit siyah rect panel + cizilmis butonlar
-// Simdi: ui_pause_win sprite kullanilarak oyunun diger panelleriyle tutarli gorunum
+// [UI REDESIGN v2] showRunEventUI — Tamamen yeniden yazildi
+// Duzeltmeler: LilitaOne font, icon dairesi, yan yana Accept/Decline, tik-tak sesi
 function showRunEventUI(S, ev){
     const gs=GS;
     if(gs.pickingUpgrade || _upgradeLock > 0) return;
@@ -15810,74 +15809,110 @@ function showRunEventUI(S, ev){
     const W=360, H=640, CX=W/2;
     const ui=new UIGroup(S);
 
+    // ── TIK-TAK ZAMANLAYICI ───────────────────────────────────────
+    // Panel acikken tik-tak sesi cal, kapaninca dur (muzik etkilenmez)
+    let _tickPhase=0, _tickTimer=null;
+    function _doTick(){
+        _tickPhase=1-_tickPhase;
+        try{
+            // Tek ses ile ritmik tik-tak efekti
+            NT_SFX.play("countdown_tick");
+        }catch(_){}
+    }
+    _doTick(); // ilk ani tik
+    _tickTimer=setInterval(_doTick, 700);
+    function _stopTick(){
+        if(_tickTimer){ clearInterval(_tickTimer); _tickTimer=null; }
+    }
+
     // Dark overlay
     const ov=ui.add(S.add.rectangle(CX,H/2,W,H,0x000000,0).setDepth(800));
     S.tweens.add({targets:ov,fillAlpha:0.82,duration:220});
 
-    // Panel — ui_pause_win sprite (diger panellerle tutarli)
+    // Panel — ui_pause_win sprite
     const pm=NT_Measure(S,"ui_pause_win",310);
     const panelCY=H/2 - 8;
     const sprite=ui.add(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc*0.05).setAlpha(0).setDepth(801));
     const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
     const stripCY    = pTop + pm.stripH/2;
-    const contentTop = pTop + pm.stripH + 12;
-    const contentBot = pBot - Math.max(pm.goldH, 50) - 6;
-    const btnCY      = pBot - Math.max(pm.goldH/2, 25);
+    const contentTop = pTop + pm.stripH + 16;
     const D=802;
 
     // Panel pop-in animasyonu
     S.tweens.add({targets:sprite, scaleX:pm.sc, scaleY:pm.sc, alpha:1, duration:240, ease:"Back.easeOut"});
 
-    // Icon dairesi — baslik seridinin sol tarafinda
-    const icR = 22;
-    const icX = CX - 55;
-    const icBg=ui.add(S.add.graphics().setDepth(D+1));
-    icBg.fillStyle(ev.color, 0.20); icBg.fillCircle(icX, stripCY, icR);
-    icBg.lineStyle(2, ev.color, 0.90); icBg.strokeCircle(icX, stripCY, icR);
-    // Pulse halkasi
+    // ── ICON DAIRESI (sol, serit merkezinde) ──────────────────────
+    const icR  = 26;
+    const icX  = CX - pm.W/2 + 18 + icR;
+
+    // Nabiz glow halkasi (arka)
     const icGlow=ui.add(S.add.graphics().setDepth(D));
-    icGlow.fillStyle(ev.color, 0.08); icGlow.fillCircle(icX, stripCY, icR+10);
-    S.tweens.add({targets:icGlow,scaleX:1.25,scaleY:1.25,alpha:0.2,duration:900,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+    icGlow.fillStyle(ev.color, 0.15); icGlow.fillCircle(icX, stripCY, icR+14);
+    S.tweens.add({targets:icGlow,scaleX:1.40,scaleY:1.40,alpha:0,duration:1000,
+        yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
 
+    // Daire zemin (koyu + kenarlık)
+    const icBg=ui.add(S.add.graphics().setDepth(D+1).setAlpha(0));
+    icBg.fillStyle(0x000000, 0.45);
+    icBg.fillCircle(icX, stripCY, icR);
+    icBg.lineStyle(3, 0xffffff, 0.80);
+    icBg.strokeCircle(icX, stripCY, icR);
+
+    // Emoji ikon — duzgun boyutla
     const iconTxt=ui.add(S.add.text(icX, stripCY, ev.icon,{
-        font:"18px LilitaOne, Arial, sans-serif"
-    }).setOrigin(0.5).setDepth(D+2).setAlpha(0));
-    S.tweens.add({targets:iconTxt,scaleX:1.1,scaleY:1.1,duration:700,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
+        font:"24px Arial, sans-serif",
+        color:"#ffffff"
+    }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
+    S.tweens.add({targets:iconTxt,scaleX:1.15,scaleY:1.15,
+        duration:800,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
 
-    // Baslik — ikona sag yanda
+    // ── BASLIK METNI — LilitaOne, buyuk, okunabilir ───────────────
     const title=LLang(ev,"title","titleEN","titleRU");
-    const titleTxt=ui.add(S.add.text(CX - 28, stripCY, title,{
-        font:"bold 15px LilitaOne, Arial, sans-serif",
-        color:"#ffeecc", stroke:"#330000", strokeThickness:2
-    }).setOrigin(0, 0.5).setDepth(D+2).setAlpha(0));
+    const titleStartX = icX + icR + 10;
+    const titleMaxW   = (CX + pm.W/2 - 14) - titleStartX;
+    const titleTxt=ui.add(S.add.text(titleStartX, stripCY, title,{
+        font:"bold 22px LilitaOne, Arial, sans-serif",
+        color:"#ffffff",
+        stroke:"#00000099",
+        strokeThickness:4,
+        fixedWidth: titleMaxW,
+        wordWrap:{width: titleMaxW}
+    }).setOrigin(0, 0.5).setDepth(D+3).setAlpha(0));
 
-    // Ayrac cizgisi
-    const divG=ui.add(S.add.graphics().setDepth(D+1));
-    divG.lineStyle(1, ev.color, 0.30);
-    divG.lineBetween(CX-120, contentTop-2, CX+120, contentTop-2);
+    // ── AYRAC CIZGISI ─────────────────────────────────────────────
+    const divG=ui.add(S.add.graphics().setDepth(D+1).setAlpha(0));
+    divG.lineStyle(1.5, ev.color, 0.45);
+    divG.lineBetween(CX-pm.W/2+18, contentTop-2, CX+pm.W/2-18, contentTop-2);
 
-    // Aciklama metni
+    // ── ACIKLAMA METNI ────────────────────────────────────────────
     const desc=LLang(ev,"desc","descEN","descRU");
-    const descTxt=ui.add(S.add.text(CX, contentTop+10, desc,{
-        font:"13px LilitaOne, Arial, sans-serif", color:"#ccccdd",
-        wordWrap:{width:pm.W-48}, align:"center", lineSpacing:4
+    const descTxt=ui.add(S.add.text(CX, contentTop+16, desc,{
+        font:"15px LilitaOne, Arial, sans-serif",
+        color:"#ddeeff",
+        wordWrap:{width:pm.W-44},
+        align:"center",
+        lineSpacing:6
     }).setOrigin(0.5, 0).setDepth(D+2).setAlpha(0));
 
-    // ── Butonlar ──────────────────────────────────────────────
-    const choiceCount = ev.choices.length;
-    const BTN_W = 240;
+    // ── YAN YANA BUTONLAR (Accept sag, Decline sol) ───────────────
+    const BTN_H  = 52;
+    const GAP    = 8;
+    const BTN_W2 = (pm.W - 36 - GAP) / 2;   // her buton yarı genişlik
+    const btnRowY= pBot - 38;
+    const btnLX  = CX - GAP/2 - BTN_W2/2;   // Decline merkezi (sol)
+    const btnRX  = CX + GAP/2 + BTN_W2/2;   // Accept merkezi (sag)
 
-    // Accept (i=0) — NT_YellowBtn ile altin stil
-    const ch0 = ev.choices[0];
+    // ── ACCEPT (sag, altin sari) ──────────────────────────────────
+    const ch0  = ev.choices[0];
     const lbl0 = LLang(ch0,"label","labelEN","labelRU");
-    NT_YellowBtn(S, CX, btnCY, BTN_W, 46, lbl0, D+2, ()=>{
+    NT_YellowBtn(S, btnRX, btnRowY, BTN_W2, BTN_H, lbl0, D+2, ()=>{
+        _stopTick();
         S.cameras.main.shake(35, 0.006);
-        // Parcacik patlamasi
         for(let ei=0;ei<14;ei++){
             S.time.delayedCall(ei*18,()=>{
                 const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
                 const ep=S.add.graphics().setDepth(812);
-                ep.x=CX; ep.y=btnCY;
+                ep.x=btnRX; ep.y=btnRowY;
                 ep.fillStyle(ev.color,0.9); ep.fillRect(-2,-2,4,4);
                 S.tweens.add({targets:ep,
                     x:ep.x+Math.cos(ang)*Phaser.Math.Between(30,90),
@@ -15893,32 +15928,34 @@ function showRunEventUI(S, ev){
         S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
     }).forEach(o=>ui.add(o));
 
-    // Decline ve diger secenekler — gri buton stili, icerik alani altinda
-    for(let i=1; i<choiceCount; i++){
+    // ── DECLINE (sol, koyu gri) ───────────────────────────────────
+    for(let i=1; i<ev.choices.length; i++){
         const chi = ev.choices[i];
         const lbI = LLang(chi,"label","labelEN","labelRU");
-        // Decline butonu contentBot ile btnCY arasina yerlestir
-        const decY = contentBot - (choiceCount - 1 - i) * 44 - 6;
 
         const dBtnG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
         const _drawDec=(h)=>{
             dBtnG.clear();
-            dBtnG.fillStyle(h?0x2a2a3a:0x15151e,1);
-            dBtnG.fillRoundedRect(CX-BTN_W/2, decY-18, BTN_W, 36, 8);
-            dBtnG.lineStyle(1.5, h?0x8888aa:0x40404e, h?0.85:0.50);
-            dBtnG.strokeRoundedRect(CX-BTN_W/2, decY-18, BTN_W, 36, 8);
+            dBtnG.fillStyle(h?0x2c2c42:0x1a1a24,1);
+            dBtnG.fillRoundedRect(btnLX-BTN_W2/2, btnRowY-BTN_H/2, BTN_W2, BTN_H, 10);
+            dBtnG.lineStyle(1.5, h?0x9999cc:0x44444e, h?0.90:0.55);
+            dBtnG.strokeRoundedRect(btnLX-BTN_W2/2, btnRowY-BTN_H/2, BTN_W2, BTN_H, 10);
         };
         _drawDec(false);
 
-        const dTxt=ui.add(S.add.text(CX, decY, lbI,{
-            font:"13px LilitaOne, Arial, sans-serif", color:"#888899"
+        const dTxt=ui.add(S.add.text(btnLX, btnRowY, lbI,{
+            font:"bold 13px LilitaOne, Arial, sans-serif",
+            color:"#aaaacc",
+            align:"center",
+            wordWrap:{width:BTN_W2-10}
         }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
 
-        const dHit=ui.add(S.add.rectangle(CX, decY, BTN_W, 36, 0xffffff, 0.001)
+        const dHit=ui.add(S.add.rectangle(btnLX, btnRowY, BTN_W2, BTN_H, 0xffffff, 0.001)
             .setInteractive({useHandCursor:true}).setDepth(D+4));
-        dHit.on("pointerover",()=>{ _drawDec(true); dTxt.setColor("#ccccdd"); });
-        dHit.on("pointerout", ()=>{ _drawDec(false); dTxt.setColor("#888899"); });
+        dHit.on("pointerover",()=>{ _drawDec(true); dTxt.setColor("#ffffff"); });
+        dHit.on("pointerout", ()=>{ _drawDec(false); dTxt.setColor("#aaaacc"); });
         dHit.on("pointerdown",()=>{
+            _stopTick();
             NT_SFX.play("menu_click");
             chi.fn(S);
             ui.fadeAndDestroy(180);
@@ -15932,12 +15969,14 @@ function showRunEventUI(S, ev){
 
     // Icerik elementleri fade-in
     S.time.delayedCall(80,()=>{
-        S.tweens.add({targets:[iconTxt,titleTxt,descTxt,divG,icBg],alpha:1,duration:200,ease:"Quad.easeOut"});
+        S.tweens.add({targets:[icBg,iconTxt,titleTxt,descTxt,divG],
+            alpha:1,duration:220,ease:"Quad.easeOut"});
     });
 
-    // Auto-close after 8s
+    // Otomatik kapanma (8 saniye)
     S.time.delayedCall(8000,()=>{
         if(gs.pickingUpgrade&&!gs.gameOver){
+            _stopTick();
             EventManager.endEvent(GS);
             ui.fadeAndDestroy(200);
             S.time.delayedCall(220,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
