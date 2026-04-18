@@ -9061,6 +9061,11 @@ function spawnDamageText(S, x, y, value, isCrit){
                 });
             }
         });
+        // Hard TTL: crit animasyonu 90+55+680 = ~825ms — 1400ms'de garantili temizlik
+        S.time.delayedCall(1400, ()=>{
+            _dmgNumCount=Math.max(0,_dmgNumCount-1);
+            _jtDestroy([t, glow]);
+        });
 
         // Crit ring
         const cr = S.add.graphics().setDepth(42);
@@ -9110,6 +9115,8 @@ function spawnDamageText(S, x, y, value, isCrit){
                     });
                 }
             });
+            // Hard TTL safeguard
+            S.time.delayedCall(80+dur+300, ()=>{ _dmgNumCount=Math.max(0,_dmgNumCount-1); try{t.destroy();}catch(e){} });
         } else {
             S.tweens.add({targets:t, y:ty-rise, alpha:0,
                 duration:dur, ease:"Quad.easeOut",
@@ -9118,6 +9125,8 @@ function spawnDamageText(S, x, y, value, isCrit){
                     try{t.destroy();}catch(e){}
                 }
             });
+            // Hard TTL safeguard
+            S.time.delayedCall(dur+300, ()=>{ _dmgNumCount=Math.max(0,_dmgNumCount-1); try{t.destroy();}catch(e){} });
         }
     }
 }
@@ -9167,7 +9176,16 @@ function spawnComboText(S, x, y, combo){
 
     const allC = [t, glow].filter(Boolean);
 
-    // Giris: squash → elastic pop → settle
+    // [FIX] Hard TTL — repeat:-1 tween'ler için garantili temizlik
+    // Toplam süre: 80+180+100+520+380 = ~1260ms → 1800ms'de temizle
+    let _comboBreath = null, _comboSwing = null;
+    const _comboTTL = S.time.delayedCall(1800, ()=>{
+        try{ if(_comboBreath) _comboBreath.stop(); }catch(e){}
+        try{ if(_comboSwing)  _comboSwing.stop();  }catch(e){}
+        _jtDestroy([t, glow]);
+    });
+
+    // Giris: squash → elastic pop → settle (düzleştirilmiş)
     S.tweens.add({
         targets: allC,
         scaleX: baseScale * 0.6,
@@ -9191,8 +9209,8 @@ function spawnComboText(S, x, y, combo){
                         ease: "Quad.easeOut",
                         onComplete: ()=>{
 
-                            // Nefes alma
-                            const breath = S.tweens.add({
+                            // Nefes alma — ref sakla
+                            _comboBreath = S.tweens.add({
                                 targets: allC,
                                 scaleX: { from: baseScale, to: baseScale * 1.09 },
                                 scaleY: { from: baseScale, to: baseScale * 1.09 },
@@ -9202,8 +9220,8 @@ function spawnComboText(S, x, y, combo){
                                 repeat: -1
                             });
 
-                            // Sag-sol sallama
-                            const swing = S.tweens.add({
+                            // Sag-sol sallama — ref sakla
+                            _comboSwing = S.tweens.add({
                                 targets: allC,
                                 angle: { from: -4, to: 4 },
                                 duration: 220,
@@ -9224,10 +9242,13 @@ function spawnComboText(S, x, y, combo){
                                 delay: 520,
                                 ease: "Quad.easeIn",
                                 onStart: ()=>{
-                                    breath.stop();
-                                    swing.stop();
+                                    if(_comboBreath) _comboBreath.stop();
+                                    if(_comboSwing)  _comboSwing.stop();
                                 },
-                                onComplete: ()=>{ _jtDestroy([t, glow]); }
+                                onComplete: ()=>{
+                                    try{ _comboTTL.remove(); }catch(e){}
+                                    _jtDestroy([t, glow]);
+                                }
                             });
                         }
                     });
@@ -9281,6 +9302,8 @@ function spawnGoldText(S, x, y, amount){
             });
         }
     });
+    // Hard TTL safeguard: 90+160+580 = ~830ms → 1300ms'de garantili temizlik
+    S.time.delayedCall(1300, ()=>{ _jtDestroy([t, glow]); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -9338,6 +9361,8 @@ function spawnKillText(S, x, y){
             });
         }
     });
+    // Hard TTL safeguard: 80+60+200+500 = ~840ms → 1400ms'de garantili temizlik
+    S.time.delayedCall(1400, ()=>{ _jtDestroy([t, glow]); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -9663,20 +9688,29 @@ const _ftPerfectCooldown = 400; // ms
 // Merge buffer: ayni prefix'li LOW textleri birlestir
 const _ftMergeBuf = {}; // { key: {S, x, y, total, timer} }
 
+// ── _ftForceDestroy — tüm tween'leri durdur ve objeleri yok et ──────────
+// _ftEvict, update loop temizleme ve TTL callback bu fonksiyonu kullanır.
+// Eski yapıda breathTween/swingTween entry'de saklanmıyordu → evict edilince
+// repeat:-1 tween'ler sonsuza çalışıyordu (ekranda donma bug'ı). Düzeltildi.
+function _ftForceDestroy(e){
+    if(!e || e._destroyed) return;
+    e._destroyed = true;
+    try{ if(e.entryTween)  e.entryTween.stop();  }catch(x){}
+    try{ if(e.tween)       e.tween.stop();        }catch(x){}
+    try{ if(e.breathTween) e.breathTween.stop();  }catch(x){}
+    try{ if(e.swingTween)  e.swingTween.stop();   }catch(x){}
+    try{ if(e._ttlTimer)   e._ttlTimer.remove();  }catch(x){}
+    const idx = _ftActive.indexOf(e);
+    if(idx !== -1) _ftActive.splice(idx, 1);
+    _jtDestroy(e.allObjs || (e.obj ? [e.obj] : []));
+}
+
 function _ftEvict(){
     // Slot doluysa: once LOW, sonra NORMAL sil
     for(const pri of [FT_LOW, FT_NORMAL]){
         const idx = _ftActive.findIndex(e => e.priority === pri);
         if(idx !== -1){
-            const e = _ftActive.splice(idx, 1)[0];
-            try{ if(e.tween) e.tween.stop(); }catch(ex){}
-            // [BUG FIX] allObjs icindeki tum objeleri (glow dahil) destroy et
-            // Sadece e.obj destroy edilirse glow ekranda sonsuza kalir
-            if(e.allObjs && e.allObjs.length > 0){
-                _jtDestroy(e.allObjs);
-            } else {
-                try{ e.obj.destroy(); }catch(ex){}
-            }
+            _ftForceDestroy(_ftActive[idx]); // tüm tween'leri durdurur + destroy eder
             return true;
         }
     }
@@ -9771,98 +9805,82 @@ function showFloatingText(S, priority, text, x, y){
     }
 
     // ── Entry animation ─────────────────────────────────────────
-    // Giris acisi: hafif egik basla, dik gel
+    // [FIX] Eski yapı: 3 iç içe onComplete zinciri — mobile throttling altında
+    // zincir kırılıyor, breathTween/swingTween (repeat:-1) entry'de saklanmıyordu
+    // → _ftEvict() bunları durduramıyor → ekranda sonsuza kalıyordu.
+    // Yeni yapı: düzleştirilmiş zincir + tüm tween'ler entry'de + hard TTL.
     const entryAngle = Phaser.Math.Between(-8, 8);
     allObjs.forEach(o=>{ if(o) o.setAngle(entryAngle); });
 
-    S.tweens.add({
+    // ── Hard TTL — zincir kırılsa bile her şeyi garanti siler ──
+    const _entryDur   = priority === FT_CRITICAL ? 140 : 85;
+    const _maxTTL     = _entryDur + 130 + stayDur + fadeDur + 500;
+    entry._ttlTimer   = S.time.delayedCall(_maxTTL, () => _ftForceDestroy(entry));
+
+    // Giriş tweeni — entry'de sakla ki evict ederken durdurabilelim
+    entry.entryTween = S.tweens.add({
         targets: allObjs,
         alpha: 1,
         scaleX: scaleIn * 1.18,
         scaleY: scaleIn * 1.18,
         angle: 0,
         y: ty - riseY * 0.3,
-        duration: priority === FT_CRITICAL ? 140 : 85,
+        duration: _entryDur,
         ease: "Back.easeOut",
         onComplete: () => {
-            // Settle: hafif squash
+            if(entry._destroyed) return;
+            // Settle: tek tween'e indirgendi (70+55 → 120ms)
             S.tweens.add({
                 targets: allObjs,
-                scaleX: scaleIn * 0.92,
-                scaleY: scaleIn * 1.06,
-                duration: 70,
-                ease: "Quad.easeOut",
+                scaleX: scaleIn,
+                scaleY: scaleIn,
+                duration: 120,
+                ease: "Back.easeOut",
                 onComplete: () => {
-                    S.tweens.add({
+                    if(entry._destroyed) return;
+
+                    // ── NEFES ALMA (breathing) — entry'de sakla ──────
+                    if((priority===FT_CRITICAL||priority===FT_IMPORTANT||isPerfect) && _perfMode!=="low"){
+                        entry.breathTween = S.tweens.add({
+                            targets: allObjs,
+                            scaleX: { from: scaleIn, to: scaleIn * 1.08 },
+                            scaleY: { from: scaleIn, to: scaleIn * 1.08 },
+                            duration: 260, ease: "Sine.easeInOut", yoyo: true, repeat: -1
+                        });
+                    }
+
+                    // ── SAG-SOL SALLAMA (swing) — entry'de sakla ────
+                    if((priority===FT_CRITICAL||isPerfect) && _perfMode!=="low"){
+                        const swingAmp = priority===FT_CRITICAL ? 5 : 3;
+                        entry.swingTween = S.tweens.add({
+                            targets: allObjs,
+                            angle: { from: -swingAmp, to: swingAmp },
+                            duration: 180, ease: "Sine.easeInOut", yoyo: true, repeat: -1
+                        });
+                    } else if(priority===FT_IMPORTANT && _perfMode!=="low"){
+                        entry.swingTween = S.tweens.add({
+                            targets: allObjs,
+                            x: { from: tx-2, to: tx+2 },
+                            duration: 200, ease: "Sine.easeInOut", yoyo: true, repeat: -1
+                        });
+                    }
+
+                    // ── FADE OUT — entry.tween'e ata ────────────────
+                    entry.tween = S.tweens.add({
                         targets: allObjs,
-                        scaleX: scaleIn,
-                        scaleY: scaleIn,
-                        duration: 55,
-                        ease: "Quad.easeOut",
-                        onComplete: () => {
-
-                            // ── NEFES ALMA (breathing) ─────────────────
-                            // Sadece CRITICAL ve IMPORTANT metinlerde + isPerfect
-                            let breathTween = null;
-                            if((priority === FT_CRITICAL || priority === FT_IMPORTANT || isPerfect) && _perfMode !== "low"){
-                                breathTween = S.tweens.add({
-                                    targets: allObjs,
-                                    scaleX: { from: scaleIn, to: scaleIn * 1.08 },
-                                    scaleY: { from: scaleIn, to: scaleIn * 1.08 },
-                                    duration: 260,
-                                    ease: "Sine.easeInOut",
-                                    yoyo: true,
-                                    repeat: -1
-                                });
-                            }
-
-                            // ── SAG-SOL SALLAMA (swing) ────────────────
-                            // CRITICAL ve IMPORTANT + perfect icin sag-sol titre
-                            let swingTween = null;
-                            if((priority === FT_CRITICAL || isPerfect) && _perfMode !== "low"){
-                                const swingAmp = priority === FT_CRITICAL ? 5 : 3;
-                                swingTween = S.tweens.add({
-                                    targets: allObjs,
-                                    angle: { from: -swingAmp, to: swingAmp },
-                                    duration: 180,
-                                    ease: "Sine.easeInOut",
-                                    yoyo: true,
-                                    repeat: -1
-                                });
-                            } else if(priority === FT_IMPORTANT && _perfMode !== "low"){
-                                swingTween = S.tweens.add({
-                                    targets: allObjs,
-                                    x: { from: tx - 2, to: tx + 2 },
-                                    duration: 200,
-                                    ease: "Sine.easeInOut",
-                                    yoyo: true,
-                                    repeat: -1
-                                });
-                            }
-
-                            // ── FADE OUT ───────────────────────────────
-                            const tw = S.tweens.add({
-                                targets: allObjs,
-                                alpha: 0,
-                                y: ty - riseY,
-                                scaleX: 0.6,
-                                scaleY: 0.6,
-                                angle: 0,
-                                duration: fadeDur,
-                                ease: "Quad.easeIn",
-                                delay: stayDur,
-                                onStart: () => {
-                                    if(breathTween) breathTween.stop();
-                                    if(swingTween)  swingTween.stop();
-                                },
-                                onComplete: () => {
-                                    const idx = _ftActive.indexOf(entry);
-                                    if(idx !== -1) _ftActive.splice(idx, 1);
-                                    _jtDestroy(allObjs);
-                                }
-                            });
-                            entry.tween = tw;
-                        }
+                        alpha: 0,
+                        y: ty - riseY,
+                        scaleX: 0.6,
+                        scaleY: 0.6,
+                        angle: 0,
+                        duration: fadeDur,
+                        ease: "Quad.easeIn",
+                        delay: stayDur,
+                        onStart: () => {
+                            if(entry.breathTween) entry.breathTween.stop();
+                            if(entry.swingTween)  entry.swingTween.stop();
+                        },
+                        onComplete: () => _ftForceDestroy(entry)
                     });
                 }
             });
@@ -17742,11 +17760,11 @@ function periodicSceneCleanup(S){
         }
     }catch(_){}
 
-    // 3) Floating text birikimi temizle
+    // 3) Floating text birikimi temizle — _ftForceDestroy kullan (tween'leri de durdurur)
     try{
         for(let i=_ftActive.length-1;i>=0;i--){
             const e=_ftActive[i];
-            if(!e || !e.obj || !e.obj.scene){ _ftActive.splice(i,1); }
+            if(!e || !e.obj || !e.obj.scene){ _ftForceDestroy(e); }
         }
     }catch(_){}
 
