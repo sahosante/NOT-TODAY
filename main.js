@@ -10569,6 +10569,111 @@ class SceneMainMenu extends Phaser.Scene {
                     });
                 this.tweens.add({targets:[prG, prTxt], alpha:1, duration:380, delay:700, ease:'Quad.easeOut'});
             }
+
+            // ── LEVEL DAİRESİNE TIKLAMA → XP PANEL ─────────────────────
+            const _lvHitZone = this.add.circle(CIR_CX, CIR_CY, CIR_R + 10, 0xffffff, 0.001)
+                .setDepth(11).setInteractive({useHandCursor: true});
+            _lvHitZone.on("pointerdown", () => {
+                const xpNeeded  = _plvXpNeeded(PLAYER_LEVEL);
+                const xpCurrent = PLAYER_LEVEL_XP;
+                const xpLeft    = xpNeeded - xpCurrent;
+                const ratio     = Math.min(1, xpCurrent / xpNeeded);
+                const PW = 230, PH = 178;
+                const PX = 10,  PY = CIR_CY * 2 + 14;
+                const DP = 210;
+                const objs = [];
+                const _A  = o => { objs.push(o); return o; };
+                const _cl = () => { objs.forEach(o => { try{ o.destroy(); }catch(_){} }); };
+                const CX2 = PX + PW / 2;
+                const isTR = CURRENT_LANG === "tr";
+
+                // Overlay — tıklayınca kapansın
+                _A(this.add.rectangle(180, 320, 360, 640, 0x000000, 0.60)
+                    .setDepth(DP).setInteractive()).on("pointerdown", _cl);
+
+                // Panel arkaplanı
+                const pg = _A(this.add.graphics().setDepth(DP+1));
+                pg.fillStyle(0x0d0800, 0.97);
+                pg.fillRoundedRect(PX, PY, PW, PH, 13);
+                pg.lineStyle(2, 0xffaa00, 0.85);
+                pg.strokeRoundedRect(PX, PY, PW, PH, 13);
+                // İç parlama — üst kenar
+                pg.lineStyle(1, 0xffdd44, 0.18);
+                pg.beginPath(); pg.moveTo(PX+13, PY+1); pg.lineTo(PX+PW-13, PY+1); pg.strokePath();
+                pg.setAlpha(0);
+                this.tweens.add({ targets: pg, alpha: 1, duration: 220, ease: 'Back.easeOut' });
+
+                // Başlık
+                const titleTxt = _A(this.add.text(CX2, PY + 20,
+                    "⭐  LEVEL " + PLAYER_LEVEL + (PLAYER_PRESTIGE > 0 ? "  ✦"+PLAYER_PRESTIGE : ""),
+                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'17px',
+                      color:'#ffdd44', stroke:'#000', strokeThickness:3 }
+                ).setOrigin(0.5).setDepth(DP+2).setAlpha(0));
+
+                // Ayırıcı çizgi
+                const divG = _A(this.add.graphics().setDepth(DP+2).setAlpha(0));
+                divG.lineStyle(1, 0x443300, 0.7);
+                divG.beginPath(); divG.moveTo(PX+16, PY+33); divG.lineTo(PX+PW-16, PY+33); divG.strokePath();
+
+                // Satır yardımcısı
+                const _row = (label, val, rowY, valColor) => {
+                    _A(this.add.text(PX+16, PY+rowY, label, {
+                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
+                        color:'#aa8844', stroke:'#000', strokeThickness:1
+                    }).setOrigin(0, 0.5).setDepth(DP+2).setAlpha(0));
+                    _A(this.add.text(PX+PW-16, PY+rowY, val, {
+                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
+                        color: valColor || '#ffcc44', stroke:'#000', strokeThickness:1
+                    }).setOrigin(1, 0.5).setDepth(DP+2).setAlpha(0));
+                };
+
+                _row(isTR?"Mevcut XP:"       :"Current XP:",     xpCurrent.toLocaleString()+" XP",  50, "#ffcc44");
+                _row(isTR?"Sonraki seviye:"  :"Next level at:",  xpNeeded.toLocaleString()+" XP",   68, "#ffcc44");
+                _row(isTR?"Kalan XP:"        :"XP remaining:",   xpLeft.toLocaleString()+" XP",     86, "#ff9944");
+                _row(isTR?"Toplam XP (kümül)":"Total XP earned",
+                    (function(){ let t=0; for(let i=1;i<PLAYER_LEVEL;i++) t+=_plvXpNeeded(i); return (t+xpCurrent).toLocaleString(); })()+" XP",
+                    104, "#cc88ff");
+
+                // XP bar arka plan + dolum
+                const barX=PX+16, barY=PY+118, barW=PW-32, barH=13;
+                const barG = _A(this.add.graphics().setDepth(DP+2).setAlpha(0));
+                barG.fillStyle(0x2a1400, 1);
+                barG.fillRoundedRect(barX, barY, barW, barH, 5);
+                if(ratio > 0.015){
+                    barG.fillStyle(0xff8800, 1);
+                    barG.fillRoundedRect(barX, barY, Math.max(6, barW*ratio), barH, 5);
+                    barG.fillStyle(0xffdd44, 0.35);
+                    barG.fillRoundedRect(barX, barY+1, Math.max(6, barW*ratio), barH/2-1, {tl:5,tr:3,bl:0,br:0});
+                }
+                barG.lineStyle(1, 0x664400, 0.7);
+                barG.strokeRoundedRect(barX, barY, barW, barH, 5);
+                _A(this.add.text(PX+PW/2+16, PY+124, Math.round(ratio*100)+"%", {
+                    fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'9px',
+                    color:'#fff', stroke:'#000', strokeThickness:2
+                }).setOrigin(0.5).setDepth(DP+3).setAlpha(0));
+
+                // Sonraki level altın ödülü
+                const nextGold = Math.round(_plvGoldReward(PLAYER_LEVEL+1) * _plvPrestigeMultiplier());
+                _A(this.add.text(CX2, PY+139,
+                    (isTR?"Seviye atladığında: ":"On level up: ")+"+"+nextGold.toLocaleString()+" 🪙",
+                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'10px',
+                      color:'#ccaa44', stroke:'#000', strokeThickness:1 }
+                ).setOrigin(0.5).setDepth(DP+2).setAlpha(0));
+
+                // Kapat
+                const closeZone = _A(this.add.text(CX2, PY+PH-14,
+                    isTR?"KAPAT  ✕":"CLOSE  ✕",
+                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'10px',
+                      color:'#665533', stroke:'#000', strokeThickness:1 }
+                ).setOrigin(0.5).setDepth(DP+2).setInteractive({useHandCursor:true}).setAlpha(0));
+                closeZone.on("pointerdown", _cl);
+
+                // Hepsini fade in
+                objs.filter(o => o && o.setAlpha && o.alpha === 0).forEach(o =>
+                    this.tweens.add({ targets:o, alpha:1, duration:180, ease:'Quad.easeOut' }));
+
+                try{ NT_SFX.playUI("click"); }catch(_){}
+            });
         }
 
                 // ── WHEEL + MISSIONS mini buttons ──
