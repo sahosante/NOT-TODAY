@@ -2702,11 +2702,12 @@ function showWheel(scene){
     // ── FREE SPIN button ──
     const fY=WY+R+52;
     const fBg=A(scene.add.graphics().setDepth(D+3));
-    const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
+    let _freeAvail=cf; // mutable: tracks if free spin is currently available
+    const _dF=h=>{fBg.clear();const c=_freeAvail?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,_freeAvail?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(_freeAvail&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
-    A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
+    const _freeTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
-    .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
+    .on("pointerover",()=>{if(_freeAvail)_dF(true);}).on("pointerout",()=>_dF(false))
     .on("pointerdown",()=>{if(!_canFree()||spinning)return;_spin(true);});
 
     // ── GEM SPIN button ──
@@ -2734,6 +2735,13 @@ function showWheel(scene){
         _lastTickIdx=-1;
         // Reset arrow position in case previous bounce left it offset
         ar.y = _arOrigY;
+        // ── FREE SPIN: hemen timestamp kaydet ve butonu anında güncelle ──
+        if(isFree){
+            const st=_s(); st.wl=Date.now(); _sv(st);
+            _freeAvail=false;
+            if(_freeTxt.scene) _freeTxt.setText(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING...").setColor("#777777");
+            _dF(false);
+        }
         // Weighted random
         const tw=WHEEL.reduce((s,x)=>s+x.w,0); let rn=Math.random()*tw, wi=0;
         for(let i=0;i<SC;i++){rn-=WHEEL[i].w;if(rn<=0){wi=i;break;}}
@@ -2771,7 +2779,7 @@ function showWheel(scene){
                 wAngle=sp.a%(Math.PI*2); spinning=false;
                 ar.y = _arOrigY; // ensure arrow is reset
                 const prize=WHEEL[wi];
-                if(isFree){const st=_s();st.wl=Date.now();_sv(st);}
+                // wl already saved at spin start for free spins
                 // Big flash on win
                 const winFlash=scene.add.graphics().setDepth(D+20);
                 winFlash.fillStyle(prize.color||0xffcc00, 0.35);
@@ -8547,7 +8555,8 @@ function buildUI(S){
     pH.on("pointerdown",  ()=>{
         NT_SFX.play("menu_click");
         pH.setAlpha(0.5);
-        window.setTimeout(()=>{ pH.setAlpha(0.80); showPause(S); }, 60);
+        showPause(S);
+        scene.time.delayedCall(120,()=>{ if(pH.scene) pH.setAlpha(0.80); });
     });
 
     // ── COMBO — invisible placeholder (combo gosterimi spawnComboText ile yapilir)
@@ -10026,7 +10035,7 @@ function NT_YellowBtn(scene, cx, cy, bw, bh, label, depth, fn){
     const t=scene.add.text(cx,cy,label,NT_STYLE.label(17)).setOrigin(0.5).setDepth(depth+1);
     const h=scene.add.rectangle(cx,cy,bw,bh,0xffffff,0.001).setDepth(depth+2).setInteractive({useHandCursor:true});
     h.on("pointerover",()=>draw(true)).on("pointerout",()=>draw(false));
-    h.on("pointerdown",()=>{ NT_SFX.play("menu_click"); scene.tweens.add({targets:[g,t],alpha:0.6,duration:50,yoyo:true,onComplete:fn}); });
+    h.on("pointerdown",()=>{ NT_SFX.play("menu_click"); scene.tweens.add({targets:[g,t],alpha:0.6,duration:40,yoyo:true}); fn(); });
     return [g,t,h];
 }
 
@@ -10436,10 +10445,10 @@ class SceneMainMenu extends Phaser.Scene {
         // ── TOP BAR: gem + gold — yanyana tek satir, sicak tema, panelin ustunde ──
         {
             const _self = this;
-            const ICON_SZ = 28, GAP = 4;
-            const PILL_W  = 90, PILL_H = 28;
+            const ICON_SZ = 34, GAP = 4;
+            const PILL_W  = 110, PILL_H = 34;
             const PILL_R  = PILL_H / 2;
-            const TOP_Y   = 8;
+            const TOP_Y   = 6;
             const GEM_X   = W - 8 - PILL_W;
             const GOLD_X  = GEM_X - PILL_W - 6;
             const CY      = TOP_Y + PILL_H/2;
@@ -10483,7 +10492,7 @@ class SceneMainMenu extends Phaser.Scene {
             const goldIc = this.add.image(GOLD_X + ICON_SZ/2 + 3, CY, "icon_gold")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const goldTxt = this.add.text(GOLD_X + PILL_W - 5, CY, PLAYER_GOLD.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '15px',
                 color: '#ffdd44', stroke: '#1a0800', strokeThickness: 3
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
@@ -10493,7 +10502,7 @@ class SceneMainMenu extends Phaser.Scene {
             const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 3, CY, "icon_gem")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const gemTxt = this.add.text(GEM_X + PILL_W - 6, CY, PLAYER_GEMS.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '15px',
                 color: '#dd99ff', stroke: '#0a0018', strokeThickness: 3
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
@@ -10506,7 +10515,7 @@ class SceneMainMenu extends Phaser.Scene {
             _self._mmGoldIc  = goldIc;
             _self._mmGemBg   = gemBg;
             _self._mmGemIc   = gemIc;
-            _self._hudRefreshTimer = this.time.addEvent({delay:300, loop:true, callback:()=>{
+            _self._hudRefreshTimer = this.time.addEvent({delay:100, loop:true, callback:()=>{
                 if(!goldTxt.scene) return;
                 const gStr   = PLAYER_GOLD.toLocaleString();
                 const gemStr = PLAYER_GEMS.toLocaleString();
