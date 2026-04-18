@@ -3138,13 +3138,13 @@ function showShop(scene){
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#aa7700",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                 y+=18;
                 const GOLD_PACKS=[
-                    {gold:5000,   price:"50 💎",  gemCost:50,   bonus:0,    tag:null,    popular:false},
-                    {gold:12000,  price:"100 💎", gemCost:100,  bonus:2000, tag:"popular",popular:true},
-                    {gold:30000,  price:"200 💎", gemCost:200,  bonus:8000, tag:null,    popular:false},
-                    {gold:80000,  price:"400 💎", gemCost:400,  bonus:25000,tag:"best",  popular:false},
+                    {gold:5000,   price:"$0.99",  bonus:0,     tag:null,     popular:false},
+                    {gold:12000,  price:"$1.99",  bonus:2000,  tag:"popular",popular:true},
+                    {gold:30000,  price:"$3.99",  bonus:8000,  tag:null,     popular:false},
+                    {gold:80000,  price:"$7.99",  bonus:25000, tag:"best",   popular:false},
                 ];
-                GOLD_PACKS.forEach((gp)=>{
-                    const rowH=58, canB=PLAYER_GEMS>=gp.gemCost;
+                GOLD_PACKS.forEach((gp,i)=>{
+                    const rowH=58;
                     const gg=G();
                     gg.fillStyle(0x120a00,0.97);gg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
                     gg.lineStyle(1.5,gp.popular?0xffcc00:0x443300,gp.popular?0.6:0.35);gg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
@@ -3156,14 +3156,13 @@ function showShop(scene){
                     _add(T(cx-PW/2+44,SY0+y+20,tot.toLocaleString()+(gp.bonus>0?" (+"+gp.bonus.toLocaleString()+(CURRENT_LANG==="tr"?" bonus)":"  bonus)"):""),{fontFamily:_F,fontSize:"15px",color:"#ffcc44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     _add(T(cx-PW/2+20,SY0+y+42,gp.price,{fontFamily:_F,fontSize:"12px",color:"#7766aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=68,bh=30;
-                    _btn(bx,SY0+y+rowH/2,bw,bh,canB?(CURRENT_LANG==="tr"?"AL":"BUY"):"💎",canB?0x584200:0x1a1a1a,canB?0xffcc00:0x555555,null);
+                    _btn(bx,SY0+y+rowH/2,bw,bh,CURRENT_LANG==="tr"?"AL":"BUY",0x584200,0xffcc00,null);
                     _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
-                        if(!canB){scene.cameras.main.shake(30,0.006);return;}
-                        if(PLAYER_GEMS<gp.gemCost){scene.cameras.main.shake(30,0.006);return;}
-                        spendGems(gp.gemCost);
-                        PLAYER_GOLD+=tot;secureSet("nt_gold",PLAYER_GOLD);
-                        showBigReward(scene,cx,SY0+y+rowH/2,"gold",tot,D+10);
-                        scene.time.delayedCall(700,()=>_sh());
+                        if(window.Telegram?.WebApp?.openInvoice){
+                            window.Telegram.WebApp.openInvoice("gold_"+i,(st)=>{
+                                if(st==="paid"){PLAYER_GOLD+=tot;secureSet("nt_gold",PLAYER_GOLD);showBigReward(scene,cx,SY0+y+rowH/2,"gold",tot,D+10);scene.time.delayedCall(700,()=>_sh());}
+                            });
+                        }
                     });
                     y+=rowH+6;
                 });
