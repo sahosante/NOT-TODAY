@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Not Today</title>
+<title>Not Fair</title>
 
 <!-- ── LilitaOne font — CSS ile preload (Phaser'dan önce yüklenir) ── -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -87,12 +87,12 @@ html, body {
 
 <!-- Font warm-up div — tarayıcı LilitaOne'ı DOM'a render eder, cache'ler -->
 <div id="font-warmup" aria-hidden="true">
-  PLAY SETTINGS HOW TO PLAY LEADERBOARD NOT TODAY LEVEL UP PAUSED RESUME MAIN MENU
+  PLAY SETTINGS HOW TO PLAY LEADERBOARD NOT FAIR LEVEL UP PAUSED RESUME MAIN MENU
   ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!?.,:/-+
 </div>
 
 <div id="loading-screen">
-  <div class="load-logo">NOT TODAY</div>
+  <div class="load-logo">NOT FAIR</div>
   <div class="load-bar-bg"><div class="load-bar-fill" id="load-bar"></div></div>
   <div class="load-txt" id="load-txt">YÜKLENİYOR...</div>
 </div>
@@ -157,12 +157,12 @@ html, body {
           if (wu) wu.remove();
           document.getElementById('loading-screen').classList.add('hidden');
           document.getElementById('game-container').classList.add('active');
-        }, 300);
+        }, 300);  
       };
       g.onerror = function() {
         ltxt.textContent = 'HATA: main.js yüklenemedi';
         ltxt.style.color = '#ff4444';
-      };
+      }; 
       document.body.appendChild(g);
     };
     ph.onerror = function() {
