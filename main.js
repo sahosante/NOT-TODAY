@@ -3304,9 +3304,6 @@ function _qHasUnclaimed(){
     const s = _qEnsureToday();
     return s.ql.some(q=> _qIsDone(q) && !q.claimed);
 }
-
-// ── Check if any quest is still in progress (not completed) ──
-// Used for the yellow "!" notification dot on the MISSIONS button
 function _qHasPending(){
     const s = _qEnsureToday();
     return s.ql.some(q=> !_qIsDone(q));
@@ -5587,78 +5584,119 @@ function buildTextures(S){
 
     const g=S.add.graphics();
 
-   // ── MERMILER — hepsi ayni ince dikdortgen form, sadece renk/detay farkli ──
-    // Boyut: 6x18 (default ile ayni), hizalama merkez
+   // ── MERMILER v11 — profesyonel, enerji topları + ışıltılı ──────────────
+    // Her mermi: parlak çekirdek + yumuşak glow dış halkası + keskin trail
 
-    // DEFAULT / RAPID — sari, standart v2 (6x18) — daha parlak gradient
-    g.fillStyle(0x443300,1); g.fillRect(2,0,2,2);       // koyu uc
-    g.fillStyle(0x886600,1); g.fillRect(2,2,2,2);       // ust gecis
-    g.fillStyle(0xddaa00,1); g.fillRect(2,4,2,2);       // orta gecis
-    g.fillStyle(0xffcc00,1); g.fillRect(2,6,2,7);       // parlak govde
-    g.fillStyle(0xffee55,1); g.fillRect(2,6,1,5);       // sol highlight
-    g.fillStyle(0xffffff,0.5); g.fillRect(2,6,1,3);     // beyaz isik
-    g.fillStyle(0xbb8800,1); g.fillRect(2,13,2,2);      // alt soner
-    g.fillStyle(0x664400,0.7); g.fillRect(2,15,2,2);    // kuyruk
-    g.fillStyle(0x442200,0.35); g.fillRect(2,17,2,1);   // soluk kuyruk
-    g.generateTexture("tex_bullet",6,18); g.clear();
+    // ── DEFAULT / RAPID — altın enerji küresi (10x22)
+    // Dış glow halkası
+    g.fillStyle(0xcc8800,0.18); g.fillCircle(5,4,5);
+    g.fillStyle(0xffcc00,0.35); g.fillCircle(5,4,4);
+    // Mermi govdesi — sicak sari gradient
+    g.fillStyle(0x664400,1); g.fillRect(3,0,4,2);
+    g.fillStyle(0xaa6600,1); g.fillRect(3,2,4,2);
+    g.fillStyle(0xffaa00,1); g.fillRect(3,4,4,3);
+    g.fillStyle(0xffcc22,1); g.fillRect(3,7,4,6);
+    g.fillStyle(0xffee88,1); g.fillRect(4,7,2,5);     // ic parlama
+    g.fillStyle(0xffffff,0.85); g.fillRect(4,8,1,3);  // beyaz cekirdek
+    g.fillStyle(0xdd9900,1); g.fillRect(3,13,4,3);
+    g.fillStyle(0x885500,0.9); g.fillRect(3,16,4,2);
+    g.fillStyle(0x442200,0.5); g.fillRect(3,18,4,2);
+    g.fillStyle(0x220e00,0.25); g.fillRect(3,20,4,2);
+    // Sivri uc
+    g.fillStyle(0xffffff,0.95); g.fillTriangle(4,0,6,0,5,3);
+    g.generateTexture("tex_bullet",10,22); g.clear();
 
-    // SPREAD — mor/pembe, parlak, belirgin (6x18)
-    g.fillStyle(0x220033,1); g.fillRect(2,0,2,2);         // koyu mor uc
-    g.fillStyle(0x660088,1); g.fillRect(2,2,2,3);         // mor govde ust
-    g.fillStyle(0xcc00ff,1); g.fillRect(2,5,2,9);         // parlak mor
-    g.fillStyle(0xff44ff,1); g.fillRect(2,5,1,6);         // pembe highlight
-    g.fillStyle(0xffffff,0.7); g.fillRect(2,5,1,3);       // beyaz parlamasi
-    g.fillStyle(0x880088,1); g.fillRect(2,14,2,2);        // alt soner
-    g.fillStyle(0x330044,0.7); g.fillRect(2,16,2,2);      // kuyruk
-    g.generateTexture("tex_bullet_spread",6,18); g.clear();
+    // ── SPREAD — mor enerji küresi, parlak (10x22)
+    g.fillStyle(0x6600aa,0.2); g.fillCircle(5,4,5);
+    g.fillStyle(0xcc44ff,0.40); g.fillCircle(5,4,4);
+    g.fillStyle(0x2a0044,1); g.fillRect(3,0,4,2);
+    g.fillStyle(0x7700bb,1); g.fillRect(3,2,4,3);
+    g.fillStyle(0xcc00ff,1); g.fillRect(3,5,4,8);
+    g.fillStyle(0xff55ff,1); g.fillRect(4,5,2,6);
+    g.fillStyle(0xffffff,0.9); g.fillRect(4,5,1,4);
+    g.fillStyle(0xaa00dd,1); g.fillRect(3,13,4,3);
+    g.fillStyle(0x550077,0.8); g.fillRect(3,16,4,2);
+    g.fillStyle(0x220033,0.4); g.fillRect(3,18,4,2);
+    g.fillStyle(0xffffff,0.9); g.fillTriangle(4,0,6,0,5,3);
+    g.generateTexture("tex_bullet_spread",10,22); g.clear();
 
-    // CHAIN — mavi/cyan, elektrik hissi (6x18)
-    g.fillStyle(0x001133,1); g.fillRect(2,0,2,2);         // koyu mavi uc
-    g.fillStyle(0x003388,1); g.fillRect(2,2,2,3);         // mavi govde ust
-    g.fillStyle(0x44aaff,1); g.fillRect(2,5,2,9);         // parlak mavi ana
-    g.fillStyle(0x88ddff,1); g.fillRect(2,5,1,6);         // acik mavi highlight
-    g.fillStyle(0xffffff,0.6); g.fillRect(2,6,1,3);       // beyaz parlamasi
-    g.fillStyle(0x2266aa,1); g.fillRect(2,14,2,2);        // alt soner
-    g.fillStyle(0x113366,0.7); g.fillRect(2,16,2,2);      // kuyruk
-    g.generateTexture("tex_bullet_chain",6,18); g.clear();
+    // ── CHAIN — elektrik mavisi küre (10x22)
+    g.fillStyle(0x0044aa,0.2); g.fillCircle(5,4,5);
+    g.fillStyle(0x44aaff,0.40); g.fillCircle(5,4,4);
+    g.fillStyle(0x001133,1); g.fillRect(3,0,4,2);
+    g.fillStyle(0x003399,1); g.fillRect(3,2,4,3);
+    g.fillStyle(0x2288ff,1); g.fillRect(3,5,4,8);
+    g.fillStyle(0x66ccff,1); g.fillRect(4,5,2,6);
+    g.fillStyle(0xffffff,0.9); g.fillRect(4,5,1,4);
+    g.fillStyle(0x1166cc,1); g.fillRect(3,13,4,3);
+    g.fillStyle(0x003388,0.8); g.fillRect(3,16,4,2);
+    g.fillStyle(0x001155,0.4); g.fillRect(3,18,4,2);
+    // Elektrik detay çizgiler
+    g.fillStyle(0xaaddff,0.7); g.fillRect(3,6,1,2);
+    g.fillStyle(0xaaddff,0.7); g.fillRect(6,8,1,3);
+    g.fillStyle(0xffffff,0.9); g.fillTriangle(4,0,6,0,5,3);
+    g.generateTexture("tex_bullet_chain",10,22); g.clear();
 
-    // CANNON — fuze mermisi: sivri uc, ates izi, ince (8x22)
-    // Cannon — metalik celik mermi v2 — daha detayli
-    g.fillStyle(0xeeffff,1); g.fillTriangle(3,0,5,0,4,2); // sivri uc parlak
-    g.fillStyle(0xffffff,0.9); g.fillRect(3,0,1,2);
-    g.fillStyle(0x1a2838,1); g.fillRect(2,2,4,2);          // ust bant
-    g.fillStyle(0x3a5570,1); g.fillRect(2,4,4,10);         // ana govde
-    g.fillStyle(0x5580a0,1); g.fillRect(3,4,2,9);          // ic parlama
-    g.fillStyle(0x88bbdd,0.7); g.fillRect(3,4,1,7);        // sol highlight
-    g.fillStyle(0xaaddee,0.5); g.fillRect(3,5,1,4);        // ince highlight
-    g.fillStyle(0x0f1822,1); g.fillRect(2,14,4,2);         // alt bant
-    g.fillStyle(0x4488bb,0.5); g.fillRect(2,14,4,1);       // bant highlight
-    g.fillStyle(0x1a2838,1); g.fillRect(2,16,4,2);         // motor bolumu
-    // Ates izi — kademeli sonen
-    g.fillStyle(0xff8800,0.55); g.fillRect(3,18,2,1);
-    g.fillStyle(0xff6600,0.40); g.fillRect(2,19,4,1);
-    g.fillStyle(0xff4400,0.25); g.fillRect(2,20,4,1);
-    g.fillStyle(0xff2200,0.12); g.fillRect(2,21,4,1);
-    g.generateTexture("tex_bullet_cannon",8,22); g.clear();
+    // ── CANNON — ağır top mermisi (12x28) çelik gövde + ateş kuyruğu
+    // Dış metal parıltısı
+    g.fillStyle(0x88bbee,0.15); g.fillCircle(6,4,6);
+    // Sivri koni uç
+    g.fillStyle(0xeeffff,1); g.fillTriangle(3,0,9,0,6,4);
+    g.fillStyle(0xffffff,0.9); g.fillTriangle(5,0,7,0,6,3);
+    // Govde
+    g.fillStyle(0x1a2a3a,1); g.fillRect(3,4,6,3);
+    g.fillStyle(0x3a6080,1); g.fillRect(3,7,6,12);
+    g.fillStyle(0x5599cc,1); g.fillRect(4,7,4,10);
+    g.fillStyle(0x88bbee,0.8); g.fillRect(5,7,2,8);
+    g.fillStyle(0xffffff,0.5); g.fillRect(5,8,1,5);
+    // Alt bant
+    g.fillStyle(0x0f1a28,1); g.fillRect(3,19,6,3);
+    g.fillStyle(0x3388aa,0.5); g.fillRect(3,19,6,1);
+    // Motor / itici
+    g.fillStyle(0x1a2838,1); g.fillRect(3,22,6,2);
+    // Ateş izi — parlak turuncu→kızıl→saydam
+    g.fillStyle(0xffcc44,0.8); g.fillRect(4,24,4,1);
+    g.fillStyle(0xff8800,0.6); g.fillRect(3,25,6,1);
+    g.fillStyle(0xff4400,0.4); g.fillRect(3,26,6,1);
+    g.fillStyle(0xff2200,0.2); g.fillRect(3,27,6,1);
+    g.generateTexture("tex_bullet_cannon",12,28); g.clear();
 
-    // PRECISION — kirmizi, cok ince (4x22), keskin igne hissi
-    g.fillStyle(0x220000,1); g.fillRect(1,0,2,2);
-    g.fillStyle(0x880011,1); g.fillRect(1,2,2,4);
-    g.fillStyle(0xdd0022,1); g.fillRect(1,6,2,12);
-    g.fillStyle(0xff2244,1); g.fillRect(1,8,2,7);
-    g.fillStyle(0xff88aa,0.8); g.fillRect(1,8,1,5);
-    g.fillStyle(0xffffff,0.9); g.fillRect(1,0,1,3);
-    g.generateTexture("tex_bullet_precision",4,22); g.clear();
+    // ── PRECISION — lazer iğnesi (6x28), keskin, kırmızı–beyaz
+    // Çekirdek
+    g.fillStyle(0x1a0000,1); g.fillRect(2,0,2,2);
+    g.fillStyle(0x550011,1); g.fillRect(2,2,2,3);
+    g.fillStyle(0xff0033,1); g.fillRect(2,5,2,14);
+    g.fillStyle(0xff5577,1); g.fillRect(2,7,2,9);
+    g.fillStyle(0xff99aa,0.9); g.fillRect(3,8,1,7);
+    g.fillStyle(0xffffff,1.0); g.fillRect(3,9,1,4);
+    // İnce glow
+    g.fillStyle(0xff0033,0.25); g.fillRect(1,5,4,14);
+    g.fillStyle(0xff2244,0.40); g.fillRect(2,6,2,12);
+    // Sivri uç
+    g.fillStyle(0xffffff,1); g.fillTriangle(2,0,4,0,3,4);
+    // Kuyruk sönümü
+    g.fillStyle(0xcc0022,0.7); g.fillRect(2,19,2,3);
+    g.fillStyle(0x880011,0.4); g.fillRect(2,22,2,3);
+    g.fillStyle(0x440008,0.2); g.fillRect(2,25,2,3);
+    g.generateTexture("tex_bullet_precision",6,28); g.clear();
 
-    // REFLECT — teal/cyan, standart boyut (6x18), metalik
-    g.fillStyle(0x001a11,1); g.fillRect(2,0,2,2);
-    g.fillStyle(0x004433,1); g.fillRect(2,2,2,4);
-    g.fillStyle(0x00aa88,1); g.fillRect(2,6,2,9);
-    g.fillStyle(0x00ddbb,1); g.fillRect(2,6,1,7);
-    g.fillStyle(0x20ffdd,0.7); g.fillRect(3,7,1,4);
-    g.fillStyle(0xffffff,0.8); g.fillRect(2,6,1,2);
-    g.fillStyle(0x003322,0.7); g.fillRect(2,15,2,3);
-    g.generateTexture("tex_bullet_reflect",6,18); g.clear();
+    // ── REFLECT — teal/zümrüt, sekme efektli (10x22)
+    g.fillStyle(0x006644,0.2); g.fillCircle(5,4,5);
+    g.fillStyle(0x00ddaa,0.35); g.fillCircle(5,4,4);
+    g.fillStyle(0x001a11,1); g.fillRect(3,0,4,2);
+    g.fillStyle(0x004433,1); g.fillRect(3,2,4,3);
+    g.fillStyle(0x00bb88,1); g.fillRect(3,5,4,8);
+    g.fillStyle(0x00ffcc,1); g.fillRect(4,5,2,6);
+    g.fillStyle(0xaaffee,0.9); g.fillRect(4,5,1,4);
+    g.fillStyle(0xffffff,0.9); g.fillRect(4,6,1,2);
+    g.fillStyle(0x009966,1); g.fillRect(3,13,4,3);
+    g.fillStyle(0x003322,0.7); g.fillRect(3,16,4,3);
+    g.fillStyle(0x001a11,0.4); g.fillRect(3,19,4,3);
+    // Sekme kıvılcımı detayı
+    g.fillStyle(0x44ffee,0.6); g.fillRect(3,8,1,2);
+    g.fillStyle(0x44ffee,0.6); g.fillRect(6,10,1,2);
+    g.fillStyle(0xffffff,0.95); g.fillTriangle(4,0,6,0,5,3);
+    g.generateTexture("tex_bullet_reflect",10,22); g.clear();
 
     // ── ORBIT BLADE — elektrik/yildirim orb ──
     g.lineStyle(1,0x88aaff,0.9); g.strokeCircle(6,6,5);
@@ -10550,27 +10588,23 @@ class SceneMainMenu extends Phaser.Scene {
                 const hitBox=this.add.rectangle(mx,miniY,96,26,0xffffff,0.001).setDepth(10).setInteractive({useHandCursor:true});
                 this.tweens.add({targets:[mg,mt],alpha:1,duration:380,delay:650,ease:'Quad.easeOut'});
 
-                // ── Notification badge: sarı=pending / kırmızı=claimable / yok=tümü alındı ──
+                // ── Notification badge — sarı(pending)/kırmızı(claimable)/yok(alındı) ──
                 let badgeG=null, badgeTxt=null, badgeTween=null;
                 const _refreshBadge=()=>{
-                    const isWheel  = md.badge === 'wheel';
-                    const isQuest  = md.badge === 'quests';
-                    const unclaimed= isQuest && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests();
-                    const pending  = isQuest && !unclaimed && NT_Monetization.hasPendingQuests && NT_Monetization.hasPendingQuests();
-                    const wheelRdy = isWheel && NT_Monetization.hasWheelReady && NT_Monetization.hasWheelReady();
-                    const show = unclaimed || pending || wheelRdy;
-                    const badgeCol = (unclaimed || wheelRdy) ? 0xff2244 : 0xffcc00;
-                    const glowCol  = (unclaimed || wheelRdy) ? 0xff3344 : 0xffdd44;
+                    const isQ=md.badge==='quests', isW=md.badge==='wheel';
+                    const unclaimed=isQ&&NT_Monetization.hasUnclaimedQuests&&NT_Monetization.hasUnclaimedQuests();
+                    const pending  =isQ&&!unclaimed&&NT_Monetization.hasPendingQuests&&NT_Monetization.hasPendingQuests();
+                    const wheelRdy =isW&&NT_Monetization.hasWheelReady&&NT_Monetization.hasWheelReady();
+                    const show=unclaimed||pending||wheelRdy;
+                    const badgeCol=(unclaimed||wheelRdy)?0xff2244:0xffcc00;
+                    const glowCol =(unclaimed||wheelRdy)?0xff3344:0xffdd44;
                     if(show && !badgeG){
-                        // Dot at top-right of button
                         const bx = mx+40, by = miniY-11;
                         badgeG = this.add.graphics().setDepth(11);
                         const _drawBadge=(scale)=>{
                             badgeG.clear();
-                            // Outer glow
                             badgeG.fillStyle(glowCol, 0.35);
                             badgeG.fillCircle(bx, by, 10*scale);
-                            // Main dot
                             badgeG.fillStyle(badgeCol, 1);
                             badgeG.fillCircle(bx, by, 7*scale);
                             badgeG.lineStyle(1.2, 0xffffff, 0.9);
@@ -10739,8 +10773,8 @@ class SceneMainMenu extends Phaser.Scene {
                 });
                 return { bg, txt, _draw };
             };
-            const enBtn = _langBtn("en", VX - 80);
-            const trBtn = _langBtn("tr", VX - 30);
+            const enBtn = _langBtn("en", VX - 50);
+            const trBtn = _langBtn("tr", VX - 2);
             ly += 46;
         }
         ly+=12;
@@ -12601,88 +12635,137 @@ function doLightning(S){
         }).slice(0,1+lv);
     if(!targets.length) return;
 
-    let prev={x:S.player.x, y:S.player.y-28};
-    targets.forEach(t=>{
-        // BALANCE: lightning uses BASE_DAMAGE as anchor, not gs.damage
-        // This prevents lightning from becoming a second main weapon at late game
-        // Lv1: 0.80x base, Lv2: 1.00x base, Lv3: 1.20x base — meaningful but not dominant
-        const _lightningDmg = Math.min(gs.damage * 0.7, BASE_DAMAGE * (0.80 + lv * 0.20));
-        applyDmg(S,t,_lightningDmg,false);
-        if(gs._synergyChainStorm) applyChainStormToLightning(S,t);
+    // Her hedef bağımsız olarak YUKARIDAN çarpar — karakter değil gök!
+    targets.forEach((t,idx)=>{
+        S.time.delayedCall(idx*55,()=>{
+            if(!t||!t.active||!S||GS.gameOver) return;
 
-        const ex=t.x, ey=t.y-8;
-        const sx=prev.x, sy=prev.y;
+            // BUFF: biraz daha güçlü
+            const _lightningDmg = Math.min(gs.damage * 0.88, BASE_DAMAGE * (1.05 + lv * 0.28));
+            applyDmg(S,t,_lightningDmg,false);
+            if(gs._synergyChainStorm) applyChainStormToLightning(S,t);
 
-        // ── LEVEL-BASED RENK — Lightning ──
-        const _ltColors = [
-            {glow2:0x2244ff, glow1:0x44aaff, outer:0x4488ff, mid:0xaaddff, core:0xffffff, flash1:0xffffff, flash2:0xffee44, hit:0xaaddff},
-            {glow2:0x0088aa, glow1:0x22ddee, outer:0x22ccdd, mid:0x88ffff, core:0xffffff, flash1:0xffffff, flash2:0x44ffee, hit:0x88ffff},
-            {glow2:0x886600, glow1:0xffcc44, outer:0xffaa22, mid:0xffee88, core:0xffffff, flash1:0xffffff, flash2:0xffff88, hit:0xffee88},
-        ];
-        const _lc = _ltColors[Math.min(lv-1, _ltColors.length-1)];
+            const ex=t.x, ey=t.y-8;
+            // ORIGIN: ekranın üstü, hedefe yakın rasgele kayma
+            const sx=ex + Phaser.Math.Between(-18,18), sy=-12;
 
-        // ── GLOW KATMANI — kalin dis parilti
-        const glow2=S.add.graphics().setDepth(19);
-        glow2.lineStyle(8,_lc.glow2,0.06);
-        glow2.beginPath(); glow2.moveTo(sx,sy); glow2.lineTo(ex,ey); glow2.strokePath();
-        const glow1=S.add.graphics().setDepth(20);
-        glow1.lineStyle(4,_lc.glow1,0.15);
-        glow1.beginPath(); glow1.moveTo(sx,sy); glow1.lineTo(ex,ey); glow1.strokePath();
+            const _ltColors=[
+                {glow2:0x1133cc,glow1:0x3399ff,outer:0x4488ff,mid:0xaaddff,core:0xffffff,
+                 flash1:0xeef8ff,flash2:0xffee44,hit:0x88ccff,charge:0x66aaff,branch:0x88bbff,afterglow:0x2266cc},
+                {glow2:0x005577,glow1:0x11ccdd,outer:0x22ccdd,mid:0x88ffff,core:0xffffff,
+                 flash1:0xeeffff,flash2:0x44ffee,hit:0x44eeff,charge:0x22ddee,branch:0x66eeff,afterglow:0x009988},
+                {glow2:0x664400,glow1:0xffaa22,outer:0xffcc44,mid:0xffee99,core:0xffffff,
+                 flash1:0xfffff0,flash2:0xffff88,hit:0xffee88,charge:0xffcc44,branch:0xffeebb,afterglow:0xcc8811},
+            ];
+            const _lc=_ltColors[Math.min(lv-1,_ltColors.length-1)];
 
-        // ── ZIGZAG BOLT — 8 adim, gercek elektrik hissi
-        const _drawBolt=(width,colHex,alpha,jitter)=>{
-            const bolt=S.add.graphics().setDepth(21+width);
-            bolt.lineStyle(width,colHex,alpha);
-            bolt.beginPath();
-            const steps=8;
-            let cx=sx, cy=sy;
-            bolt.moveTo(cx,cy);
-            for(let s=1;s<steps;s++){
-                const t2=s/steps;
-                const nx=sx+(ex-sx)*t2 + Phaser.Math.Between(-jitter,jitter);
-                const ny=sy+(ey-sy)*t2 + Phaser.Math.Between(-jitter*0.6,jitter*0.6);
-                bolt.lineTo(nx,ny);
-                cx=nx; cy=ny;
+            // ── AŞAMA 1: Yükleme parıltısı (0ms) — hedefteki elektrik yığılımı
+            const chargeG=S.add.graphics().setDepth(24);
+            chargeG.fillStyle(_lc.charge,0.35); chargeG.fillCircle(ex,ey,28);
+            chargeG.fillStyle(_lc.charge,0.6);  chargeG.fillCircle(ex,ey,14);
+            // Gök çıkış noktası
+            chargeG.fillStyle(_lc.charge,0.7);  chargeG.fillCircle(sx,sy+12,5);
+            chargeG.lineStyle(1.5,_lc.charge,0.8);
+            for(let ci=0;ci<5;ci++){
+                const ca=Phaser.Math.DegToRad(ci*72+Phaser.Math.Between(-18,18));
+                const cl=Phaser.Math.Between(7,18);
+                chargeG.lineBetween(sx,sy+12, sx+Math.cos(ca)*cl, sy+12+Math.sin(ca)*cl);
             }
-            bolt.lineTo(ex,ey);
-            bolt.strokePath();
-            return bolt;
-        };
+            S.tweens.add({targets:chargeG,alpha:0,duration:65,onComplete:()=>chargeG.destroy()});
 
-        const boltOuter = _drawBolt(3, _lc.outer, 0.6, 12); // dis
-        const boltMid   = _drawBolt(2, _lc.mid, 0.8, 8);  // orta
-        const boltCore  = _drawBolt(1, _lc.core, 1.0, 5);  // beyaz cekirdek
+            // ── AŞAMA 2: Şimşek darbesi (35ms sonra)
+            S.time.delayedCall(35,()=>{
+                if(!S||GS.gameOver) return;
 
-        // ── HEDEF HIT FLASH — patlama
-        const flash=S.add.graphics().setDepth(23);
-        flash.fillStyle(_lc.flash1,0.7); flash.fillCircle(ex,ey,6);
-        flash.fillStyle(_lc.flash2,0.5); flash.fillCircle(ex,ey,10);
-        // Hit parcaciklari
-        for(let _i=0;_i<5;_i++){
-            const _pa=Phaser.Math.DegToRad(_i*72+Phaser.Math.Between(-15,15));
-            const _spd=Phaser.Math.Between(12,28);
-            const _pp=S.add.graphics().setDepth(23);
-            _pp.x=ex; _pp.y=ey;
-            _pp.fillStyle(_lc.hit,0.9); _pp.fillRect(-1,-1,2,2);
-            S.tweens.add({targets:_pp,
-                x:ex+Math.cos(_pa)*_spd, y:ey+Math.sin(_pa)*_spd,
-                alpha:0, scaleX:0, scaleY:0,
-                duration:Phaser.Math.Between(80,160), ease:"Quad.easeOut",
-                onComplete:()=>_pp.destroy()});
-        }
-        // ── KAYNAK FLASH — oyuncudan cikis parlamasi
-        const srcFlash=S.add.graphics().setDepth(22);
-        srcFlash.fillStyle(0x88ccff,0.5); srcFlash.fillCircle(sx,sy,4);
+                // Yardımcı fonksiyon: kırık çizgili şimşek segmenti
+                const _drawBolt=(width,col,alpha,steps,jitter,depth)=>{
+                    const bolt=S.add.graphics().setDepth(depth||22);
+                    bolt.lineStyle(width,col,alpha);
+                    bolt.beginPath(); bolt.moveTo(sx,sy);
+                    let cx=sx, cy=sy;
+                    for(let s=1;s<steps;s++){
+                        const t2=s/steps;
+                        cx=sx+(ex-sx)*t2 + Phaser.Math.Between(-jitter,jitter);
+                        cy=sy+(ey-sy)*t2 + Phaser.Math.Between(-jitter*0.35,jitter*0.35);
+                        bolt.lineTo(cx,cy);
+                    }
+                    bolt.lineTo(ex,ey); bolt.strokePath();
+                    return bolt;
+                };
 
-        // Hepsini fade et
-        S.tweens.add({targets:[glow2,glow1,boltOuter,boltMid,boltCore,flash,srcFlash],
-            alpha:0, duration:Phaser.Math.Between(120,180), ease:"Quad.easeOut",
-            onComplete:()=>{
-                try{glow2.destroy();glow1.destroy();boltOuter.destroy();
-                    boltMid.destroy();boltCore.destroy();flash.destroy();srcFlash.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
-            }});
+                // Dal şimşek — ana gövdeden ayrılan kısa yan kol
+                const _drawBranch=()=>{
+                    const bg=S.add.graphics().setDepth(21);
+                    bg.lineStyle(1.2,_lc.branch,0.55);
+                    bg.beginPath();
+                    const bt=0.25+Math.random()*0.45;
+                    const bpx=sx+(ex-sx)*bt + Phaser.Math.Between(-8,8);
+                    const bpy=sy+(ey-sy)*bt;
+                    bg.moveTo(bpx,bpy);
+                    const bDir=Math.random()<0.5?1:-1;
+                    const bex=bpx+bDir*Phaser.Math.Between(12,38);
+                    const bey=bpy+Phaser.Math.Between(14,36);
+                    // Kırık dal
+                    const bm1x=bpx+(bex-bpx)*0.5+Phaser.Math.Between(-8,8);
+                    bg.lineTo(bm1x,bpy+(bey-bpy)*0.5);
+                    bg.lineTo(bex,bey); bg.strokePath();
+                    return bg;
+                };
 
-        prev=t;
+                // Geniş arka ışıma
+                const glowWide=S.add.graphics().setDepth(19);
+                glowWide.lineStyle(18,_lc.glow2,0.07); glowWide.lineBetween(sx,sy,ex,ey);
+                glowWide.lineStyle(9, _lc.glow1,0.16); glowWide.lineBetween(sx,sy,ex,ey);
+
+                // Ana şimşek katmanları
+                const boltOuter=_drawBolt(4.5,_lc.outer,0.80,13,15,22);
+                const boltMid  =_drawBolt(2.8,_lc.mid,  0.92,15,10,23);
+                const boltCore =_drawBolt(1.4,_lc.core, 1.0, 18,5, 24);
+
+                // Dal şimşekler
+                const br1=_drawBranch(), br2=_drawBranch();
+
+                // Gök kaynağı parlaması
+                const skyFlash=S.add.graphics().setDepth(25);
+                skyFlash.fillStyle(_lc.flash1,0.9); skyFlash.fillCircle(sx,sy,8);
+                skyFlash.fillStyle(_lc.glow1,0.5);  skyFlash.fillCircle(sx,sy,16);
+                skyFlash.lineStyle(1.5,_lc.charge,0.7); skyFlash.strokeCircle(sx,sy,12);
+
+                // Hedef çarpma patlaması
+                const flash=S.add.graphics().setDepth(26);
+                flash.fillStyle(_lc.flash1,0.95); flash.fillCircle(ex,ey,10);
+                flash.fillStyle(_lc.flash2,0.7);  flash.fillCircle(ex,ey,18);
+                flash.fillStyle(_lc.flash1,0.25); flash.fillCircle(ex,ey,30);
+                flash.lineStyle(1.5,_lc.mid,0.6); flash.strokeCircle(ex,ey,22);
+
+                // Çarpma kıvılcımları (8 yön)
+                for(let _i=0;_i<8;_i++){
+                    const _pa=Phaser.Math.DegToRad(_i*45+Phaser.Math.Between(-10,10));
+                    const _spd=Phaser.Math.Between(20,48);
+                    const _pp=S.add.graphics().setDepth(26);
+                    _pp.x=ex; _pp.y=ey;
+                    _pp.fillStyle(_lc.hit,0.95); _pp.fillRect(-2,-2,4,4);
+                    S.tweens.add({targets:_pp,
+                        x:ex+Math.cos(_pa)*_spd, y:ey+Math.sin(_pa)*_spd,
+                        alpha:0,scaleX:0,scaleY:0,
+                        duration:Phaser.Math.Between(90,200),ease:"Quad.easeOut",
+                        onComplete:()=>_pp.destroy()});
+                }
+
+                // Artık ışıma (daha yavaş solar)
+                const afterG=S.add.graphics().setDepth(18);
+                afterG.lineStyle(3,_lc.afterglow,0.18); afterG.lineBetween(sx,sy,ex,ey);
+
+                // Hızlı söndür
+                S.tweens.add({targets:[glowWide,boltOuter,boltMid,boltCore,br1,br2,skyFlash,flash],
+                    alpha:0,duration:Phaser.Math.Between(100,155),ease:"Quad.easeOut",
+                    onComplete:()=>{try{glowWide.destroy();boltOuter.destroy();boltMid.destroy();
+                        boltCore.destroy();br1.destroy();br2.destroy();skyFlash.destroy();flash.destroy();}catch(e){}}});
+                // Artık ışıma yavaş söner
+                S.tweens.add({targets:afterG,alpha:0,duration:320,delay:60,ease:"Sine.easeOut",
+                    onComplete:()=>{try{afterG.destroy();}catch(e){}}});
+            });
+        });
     });
 }
 function doLaser(S){
@@ -12776,41 +12859,136 @@ function doLaser(S){
 }
 function doThunderStrike(S){
     const gs=GS, lv=UPGRADES.thunder.level;
-    // [DENGE] Onceki: count=3+lv, hasar=1.2+lv*0.45 → cok guclu
-    // Simdi: count=2+lv, hasar=0.7+lv*0.2 → dengeli
     const count=2+lv;
     for(let i=0;i<count;i++){
-        S.time.delayedCall(i*120,()=>{
+        S.time.delayedCall(i*95,()=>{
             const te=nearestE(S,S.player.x+Phaser.Math.Between(-80,80),S.player.y+Phaser.Math.Between(-50,50),999);
-            if(!te) return;
-            // BALANCE: thunder uses BASE_DAMAGE anchor like lightning
-            const _thunderDmg = Math.min(gs.damage * 0.65, BASE_DAMAGE * (0.70 + lv * 0.20));
+            if(!te||!te.active) return;
+            const _thunderDmg=Math.min(gs.damage*0.65, BASE_DAMAGE*(0.70+lv*0.20));
             applyDmg(S,te,_thunderDmg,false);
-            const bx=te.x;
-            // ── LEVEL-BASED RENK — Thunder ──
-            const _thColors = [
-                {warn:0xffee00,bolt1:0xffffff,bolt2:0xffee44,bolt3:0xffcc00,imp1:0xffffff,imp2:0xffcc00},
-                {warn:0x44aaff,bolt1:0xffffff,bolt2:0x44bbff,bolt3:0x2288dd,imp1:0xffffff,imp2:0x44bbff},
-                {warn:0xcc44ff,bolt1:0xffffff,bolt2:0xbb55ff,bolt3:0x8822cc,imp1:0xffffff,imp2:0xbb55ff},
+            const bx=te.x, by=te.y-4;
+
+            const _thColors=[
+                {warn:0xffee00,bolt1:0xffffff,bolt2:0xffee66,bolt3:0xffcc00,
+                 imp1:0xffffff,imp2:0xffcc00,glow:0xffdd00,branch:0xffee88,
+                 sky:0xffffaa,shockwave:0xffcc44},
+                {warn:0x44aaff,bolt1:0xffffff,bolt2:0x55ccff,bolt3:0x2299ee,
+                 imp1:0xffffff,imp2:0x44ccff,glow:0x2299ee,branch:0x88ddff,
+                 sky:0xaaddff,shockwave:0x44aaff},
+                {warn:0xcc44ff,bolt1:0xffffff,bolt2:0xcc55ff,bolt3:0x9922cc,
+                 imp1:0xffffff,imp2:0xcc55ff,glow:0xaa33ee,branch:0xddaaff,
+                 sky:0xeeccff,shockwave:0xcc44ff},
             ];
-            const _thC = _thColors[Math.min(lv-1, _thColors.length-1)];
-            // Uyari — ince
+            const _thC=_thColors[Math.min(lv-1,_thColors.length-1)];
+
+            // ── AŞAMA 1: Uyarı — nişan (0ms)
             const warn=S.add.graphics().setDepth(20);
-            warn.lineStyle(1,_thC.warn,0.6); warn.lineBetween(bx,0,bx,te.y);
-            S.tweens.add({targets:warn,alpha:0,duration:80,onComplete:()=>warn.destroy()});
-            S.time.delayedCall(80,()=>{
-                // Gok gurultusu cakmasi
-                const tg=S.add.graphics().setDepth(22);
-                tg.lineStyle(5,_thC.bolt1,1.0);  tg.lineBetween(bx,0,bx,te.y);
-                tg.lineStyle(3,_thC.bolt2,0.9);  tg.lineBetween(bx,0,bx,te.y);
-                tg.lineStyle(12,_thC.bolt3,0.18); tg.lineBetween(bx,0,bx,te.y);
-                // Carpma noktasi
-                const imp=S.add.graphics().setDepth(22);
-                imp.x=bx; imp.y=te.y;
-                imp.lineStyle(2,_thC.imp1,0.85); imp.strokeCircle(0,0,7);
-                imp.lineStyle(1,_thC.imp2,0.6);  imp.strokeCircle(0,0,12);
-                S.cameras.main.shake(20,0.003);
-                S.tweens.add({targets:[tg,imp],alpha:0,duration:140,onComplete:()=>{try{tg.destroy();imp.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
+            // İnce pilot ışın yukarıdan
+            warn.lineStyle(1.5,_thC.warn,0.65); warn.lineBetween(bx,0,bx,by);
+            // Gök şarj noktası
+            warn.fillStyle(_thC.warn,0.8); warn.fillCircle(bx,4,6);
+            warn.lineStyle(1.5,_thC.warn,0.5); warn.strokeCircle(bx,4,10);
+            // Hedef nişan halkası — büyüyerek kapanır
+            warn.lineStyle(2,_thC.warn,0.9); warn.strokeCircle(bx,by,22);
+            warn.lineStyle(1,_thC.warn,0.5);  warn.strokeCircle(bx,by,36);
+            // Çarpı nişan
+            warn.lineStyle(1.5,_thC.warn,0.7);
+            warn.lineBetween(bx-16,by,bx-6,by); warn.lineBetween(bx+6,by,bx+16,by);
+            warn.lineBetween(bx,by-16,bx,by-6); warn.lineBetween(bx,by+6,bx,by+16);
+            S.tweens.add({targets:warn,alpha:0,duration:95,onComplete:()=>warn.destroy()});
+
+            // ── AŞAMA 2: Darbe (85ms sonra)
+            S.time.delayedCall(85,()=>{
+                if(!S||GS.gameOver) return;
+
+                // Kırık çizgili şimşek çizer
+                const _thBolt=(w,col,a,steps,jit,depth)=>{
+                    const bg=S.add.graphics().setDepth(depth||23);
+                    bg.lineStyle(w,col,a); bg.beginPath();
+                    let cx2=bx,cy2=0; bg.moveTo(cx2,cy2);
+                    for(let s=1;s<steps;s++){
+                        const t2=s/steps;
+                        cx2=bx+Phaser.Math.Between(-jit,jit);
+                        cy2=by*t2;
+                        bg.lineTo(cx2,cy2);
+                    }
+                    bg.lineTo(bx,by); bg.strokePath();
+                    return bg;
+                };
+
+                // Dal şimşek
+                const _thBranch=()=>{
+                    const bg=S.add.graphics().setDepth(22);
+                    bg.lineStyle(1.5,_thC.branch,0.6);
+                    const bt=0.2+Math.random()*0.5;
+                    const bpy2=by*bt;
+                    const bDir=Math.random()<0.5?1:-1;
+                    const bLen=Phaser.Math.Between(16,45);
+                    bg.beginPath(); bg.moveTo(bx,bpy2);
+                    // İki parçalı kırık dal
+                    const mid1=bx+bDir*Phaser.Math.Between(6,22);
+                    const midy=bpy2+Phaser.Math.Between(8,20);
+                    bg.lineTo(mid1,midy);
+                    bg.lineTo(bx+bDir*bLen, bpy2+Phaser.Math.Between(20,50));
+                    bg.strokePath();
+                    return bg;
+                };
+
+                // Geniş glow ışıması
+                const gBeam=S.add.graphics().setDepth(19);
+                gBeam.lineStyle(22,_thC.glow,0.09); gBeam.lineBetween(bx,0,bx,by);
+                gBeam.lineStyle(10,_thC.glow,0.20); gBeam.lineBetween(bx,0,bx,by);
+
+                // Şimşek katmanları
+                const bolt1=_thBolt(5.5,_thC.bolt1,1.0,15,8, 25);  // parlak beyaz çekirdek
+                const bolt2=_thBolt(3.5,_thC.bolt2,0.9,13,12,24);  // renkli orta
+                const bolt3=_thBolt(10, _thC.bolt3,0.22,10,6,22);  // yumuşak dış
+                const br1=_thBranch(), br2=_thBranch();
+
+                // Gök kaynağı patlaması
+                const skyG=S.add.graphics().setDepth(26);
+                skyG.fillStyle(_thC.bolt1,0.95); skyG.fillCircle(bx,0,9);
+                skyG.fillStyle(_thC.sky,0.6);    skyG.fillCircle(bx,0,18);
+                skyG.lineStyle(2,_thC.glow,0.7); skyG.strokeCircle(bx,0,14);
+
+                // Çarpma patlaması
+                const imp=S.add.graphics().setDepth(26);
+                imp.x=bx; imp.y=by;
+                imp.fillStyle(_thC.imp1,0.95); imp.fillCircle(0,0,9);
+                imp.fillStyle(_thC.imp2,0.7);  imp.fillCircle(0,0,18);
+                imp.fillStyle(_thC.glow,0.3);  imp.fillCircle(0,0,30);
+                imp.lineStyle(2.5,_thC.imp1,0.9); imp.strokeCircle(0,0,12);
+                imp.lineStyle(1.5,_thC.imp2,0.6); imp.strokeCircle(0,0,22);
+
+                // Şok dalgası halkası
+                const shock=S.add.graphics().setDepth(25);
+                shock.lineStyle(3,_thC.shockwave,0.8); shock.strokeCircle(bx,by,5);
+                S.tweens.add({targets:shock,
+                    scaleX:{from:1,to:4},scaleY:{from:1,to:4},alpha:{from:0.8,to:0},
+                    duration:260,ease:"Quad.easeOut",onComplete:()=>shock.destroy()});
+
+                // Kıvılcımlar (6 yön)
+                for(let _i=0;_i<6;_i++){
+                    const _pa=Phaser.Math.DegToRad(_i*60+Phaser.Math.Between(-15,15));
+                    const _spd=Phaser.Math.Between(22,52);
+                    const _sp=S.add.graphics().setDepth(26);
+                    _sp.x=bx; _sp.y=by;
+                    _sp.fillStyle(_thC.bolt2,0.95); _sp.fillRect(-2,-2,4,4);
+                    S.tweens.add({targets:_sp,
+                        x:bx+Math.cos(_pa)*_spd, y:by+Math.sin(_pa)*_spd,
+                        alpha:0,scaleX:0,scaleY:0,
+                        duration:Phaser.Math.Between(130,250),ease:"Quad.easeOut",
+                        onComplete:()=>_sp.destroy()});
+                }
+
+                S.cameras.main.shake(28,0.005);
+
+                // Söndür
+                S.tweens.add({targets:[gBeam,bolt1,bolt2,bolt3,br1,br2,skyG],
+                    alpha:0,duration:135,ease:"Quad.easeOut",
+                    onComplete:()=>{try{gBeam.destroy();bolt1.destroy();bolt2.destroy();bolt3.destroy();br1.destroy();br2.destroy();skyG.destroy();}catch(e){}}});
+                S.tweens.add({targets:imp,scaleX:2.5,scaleY:2.5,alpha:0,
+                    duration:280,ease:"Quad.easeOut",onComplete:()=>{try{imp.destroy();}catch(e){}}});
             });
         });
     }
