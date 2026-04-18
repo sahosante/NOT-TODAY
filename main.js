@@ -2283,7 +2283,8 @@ const QUEST_POOL = [
     { id:"s_score300k",diff:"special", type:"score",   target:300000, name:"Score Legend",     nameTR:"Skor Efsanesi",   icon:"💎", desc:"Score 300,000 points in a single run",    descTR:"Tek oyunda 300.000 puan topla",            reward:{gold:1500, xp:400, gem:3} },
 
     // ─── SOCIAL (one-click, opens external link) ────────────────
-    { id:"x_twitter",  diff:"special", type:"social",  target:1,      name:"Follow on X!",     nameTR:"X'te Takip Et!", icon:"𝕏",  desc:"Follow @thenotcoin on X to earn 10 gems", descTR:"X'te @thenotcoin'i takip et, 10 elmas kazan", reward:{gold:500, xp:100, gem:10}, socialURL:"https://x.com/thenotcoin" },
+    { id:"x_notcoin",  diff:"special", type:"social",  target:1,      name:"Follow Notcoin!",  nameTR:"Notcoin Takip Et!", icon:"𝕏",  desc:"Follow @notcoin on X to earn 5 gems", descTR:"X'ten @notcoin'i takip et, 5 elmas kazan", reward:{gold:0, xp:50, gem:5}, socialURL:"https://x.com/notcoin" },
+    { id:"x_notpixel", diff:"special", type:"social",  target:1,      name:"Follow NotPixel!", nameTR:"NotPixel Takip Et!",icon:"𝕏",  desc:"Follow @notpixelx on X to earn 5 gems", descTR:"X'ten @notpixelx'i takip et, 5 elmas kazan", reward:{gold:0, xp:50, gem:5}, socialURL:"https://x.com/notpixelx" },
 ];
 
 // Difficulty presentation data
@@ -2557,58 +2558,48 @@ function showWheel(scene){
     _drawWheel(0);
 
     // ── Slice labels (rotate with wheel) ──
+    // Layout: icon at R*0.76 (outer), number at R*0.46 (inner) — clear separation
     const lbls=[];
-    const sliceIcons=[]; // array of arrays — icons per slice
-    // Icon count based on amount
-    function _iconCount(sl){
-        if(sl.type==="gold"){
-            if(sl.amount<=100) return 1;
-            if(sl.amount<=200) return 2;
-            if(sl.amount<=500) return 3;
-            return 4;
-        } else {
-            if(sl.amount<=3) return 1;
-            if(sl.amount<=8) return 2;
-            return 3;
-        }
-    }
+    const sliceIcons=[];
+    const _LBL_R  = R * 0.46;  // number label radius (inner zone)
+    const _ICO_R  = R * 0.76;  // icon radius (near rim)
+    const _ICO_SZ = 38;        // icon display size — large & crisp
     for(let i=0;i<SC;i++){
-        const mid=i*SA+SA/2-Math.PI/2, lr=R*0.42;
+        const mid=i*SA+SA/2-Math.PI/2;
         const sl=WHEEL[i];
         const isGld=sl.type==="gold";
-        // Show only the number — icon handles type indication
         const lbl=String(sl.amount);
         const col=isGld?"#ffe066":"#ffccff";
-        const t=A(scene.add.text(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr,lbl,{
-            fontFamily:_F,fontSize:sl.amount>=500?"14px":"16px",color:col,stroke:"#000",strokeThickness:5,align:"center"
-        }).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
+        // Number label — positioned in inner zone
+        const t=A(scene.add.text(
+            CX+Math.cos(mid)*_LBL_R,
+            WY+Math.sin(mid)*_LBL_R,
+            lbl,
+            {fontFamily:_F,fontSize:"11px",color:col,stroke:"#000",strokeThickness:4,align:"center"}
+        ).setOrigin(0.5).setDepth(D+3).setRotation(mid+Math.PI/2));
         lbls.push(t);
-
-        // Add single large icon per slice — outer ring, away from number
-        const icKey = isGld ? "icon_gold" : "icon_gem";
-        const icArr = [];
-        const icR = R * 0.72; // icon near outer ring
-        const icSz = 26; // slightly smaller to avoid crowding
+        // Icon — positioned near outer rim
+        const icKey=isGld?"icon_gold":"icon_gem";
+        const icArr=[];
         if(scene.textures.exists(icKey)){
-            const ic = A(scene.add.image(
-                CX + Math.cos(mid) * icR,
-                WY + Math.sin(mid) * icR,
+            const ic=A(scene.add.image(
+                CX+Math.cos(mid)*_ICO_R,
+                WY+Math.sin(mid)*_ICO_R,
                 icKey
-            ).setDisplaySize(icSz, icSz).setDepth(D+4).setRotation(mid + Math.PI/2));
-            icArr.push({img:ic, offsetAngle:0, radius:icR});
+            ).setDisplaySize(_ICO_SZ,_ICO_SZ).setDepth(D+4).setRotation(mid+Math.PI/2));
+            icArr.push({img:ic,offsetAngle:0});
         }
         sliceIcons.push(icArr);
     }
     function _uL(a){
         for(let i=0;i<SC;i++){
-            const mid=a+i*SA+SA/2-Math.PI/2,lr=R*0.65;
-            lbls[i].setPosition(CX+Math.cos(mid)*lr,WY+Math.sin(mid)*lr).setRotation(mid+Math.PI/2);
-            // Update icons
+            const mid=a+i*SA+SA/2-Math.PI/2;
+            lbls[i].setPosition(CX+Math.cos(mid)*_LBL_R,WY+Math.sin(mid)*_LBL_R).setRotation(mid+Math.PI/2);
             const icons=sliceIcons[i];
             for(let j=0;j<icons.length;j++){
                 const ic=icons[j];
                 const icAngle=mid+ic.offsetAngle;
-                ic.img.setPosition(CX+Math.cos(icAngle)*ic.radius, WY+Math.sin(icAngle)*ic.radius).setRotation(icAngle+Math.PI/2);
+                ic.img.setPosition(CX+Math.cos(icAngle)*_ICO_R,WY+Math.sin(icAngle)*_ICO_R).setRotation(icAngle+Math.PI/2);
             }
         }
     }
@@ -3268,7 +3259,7 @@ function _qSeedRand(seed){
 }
 
 // ── Daily quest generation ─────────────────────────────────────
-// 3 standard (easy+medium+hard) + special every 3 days
+// 5 standard game quests (social quests are in "Follow Us" tab separately)
 function _qGenDaily(){
     const today = _qDateStr();
     const rnd = _qSeedRand("nt_quest_"+today);
@@ -3276,17 +3267,19 @@ function _qGenDaily(){
     const poolM = QUEST_POOL.filter(q=>q.diff==="medium");
     const poolH = QUEST_POOL.filter(q=>q.diff==="hard");
     const poolS = QUEST_POOL.filter(q=>q.diff==="special" && q.type!=="social");
-    const socialQ = QUEST_POOL.find(q=>q.type==="social"); // always include X/notcoin social quest
     const pick = (arr)=>arr[Math.floor(rnd()*arr.length)];
-    const out = [pick(poolE), pick(poolM), pick(poolH)];
-    // 4th quest: always the social (X/notcoin follow) quest
-    if(socialQ) out.push(socialQ);
-    // 5th quest: special every 3 days, otherwise a second easy quest
+    const e1 = pick(poolE);
+    const m1 = pick(poolM);
+    const out = [e1, m1, pick(poolH)];
+    // 4th: second easy (different)
+    const poolE2 = poolE.filter(q=>q.id !== e1.id);
+    out.push(pick(poolE2.length ? poolE2 : poolE));
+    // 5th: special every 3 days, otherwise second medium
     if(_qDayNum()%3===0 && poolS.length){
         out.push(pick(poolS));
     } else {
-        const poolE2 = poolE.filter(q=>out.findIndex(x=>x.id===q.id)===-1);
-        if(poolE2.length) out.push(pick(poolE2));
+        const poolM2 = poolM.filter(q=>q.id !== m1.id);
+        out.push(pick(poolM2.length ? poolM2 : poolM));
     }
     return out.map(q=>({ id:q.id, prog:0, claimed:false }));
 }
@@ -3297,13 +3290,6 @@ function _qEnsureToday(){
     if(s.qd !== today || !Array.isArray(s.ql) || s.ql.length===0){
         s.qd = today;
         s.ql = _qGenDaily();
-        // Social quests: if already claimed once ever, mark as done+claimed
-        s.ql.forEach(q=>{
-            const d = _qDef(q.id);
-            if(d && d.type==="social" && s._socialDone && s._socialDone[q.id]){
-                q.prog = d.target; q.claimed = true;
-            }
-        });
         _sv(s);
     }
     return s;
@@ -3317,6 +3303,13 @@ function _qIsDone(q){ const d=_qDef(q.id); return d && q.prog>=d.target; }
 function _qHasUnclaimed(){
     const s = _qEnsureToday();
     return s.ql.some(q=> _qIsDone(q) && !q.claimed);
+}
+
+// ── Check if any quest is still in progress (not completed) ──
+// Used for the yellow "!" notification dot on the MISSIONS button
+function _qHasPending(){
+    const s = _qEnsureToday();
+    return s.ql.some(q=> !_qIsDone(q));
 }
 
 // ── Progress tracking — called at game over ──────────────────
@@ -3383,352 +3376,450 @@ function showMissions(scene){
     const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
         =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"GUNLUK GOREVLER":"DAILY MISSIONS",312,20,()=>_cleanupMQ());
 
-    const s = _qEnsureToday();
-    const quests = s.ql.slice();
+    // ── TAB BAR ──────────────────────────────────────────────────────
+    let _activeTab="missions"; // "missions" | "follow"
+    const tabY=contentTop+18;
+    const tabW=(PW-28)/2;
+    const tab1X=cx-tabW-2, tab2X=cx+2;
+    const tabH=28;
 
-    // ── HEADER: progress + countdown ─────────────────────────
-    const bY = contentTop + 8;
-    const hdrH = 44;
-    const hdrG = A(scene.add.graphics().setDepth(D+3));
-    hdrG.fillStyle(0x080e1e,0.98); hdrG.fillRoundedRect(cx-PW/2+10, bY, PW-20, hdrH, 8);
-    hdrG.lineStyle(1.5, 0x44aaff, 0.35); hdrG.strokeRoundedRect(cx-PW/2+10, bY, PW-20, hdrH, 8);
+    const tabBg1=A(scene.add.graphics().setDepth(D+3));
+    const tabBg2=A(scene.add.graphics().setDepth(D+3));
+    const tabTxt1=A(scene.add.text(tab1X+tabW/2,tabY,
+        CURRENT_LANG==="tr"?"📋 GÖREVLER":"📋 MISSIONS",
+        {fontFamily:_F,fontSize:"10px",color:"#ffe066",stroke:"#000",strokeThickness:2}
+    ).setOrigin(0.5).setDepth(D+5));
+    const tabTxt2=A(scene.add.text(tab2X+tabW/2,tabY,
+        CURRENT_LANG==="tr"?"✦ BİZİ TAKİP ET":"✦ FOLLOW US",
+        {fontFamily:_F,fontSize:"10px",color:"#aaaaaa",stroke:"#000",strokeThickness:2}
+    ).setOrigin(0.5).setDepth(D+5));
 
-    const doneCount = quests.filter(q=>_qIsDone(q)).length;
-    const totalCount = quests.length;
-    A(scene.add.text(cx-PW/2+18, bY+14,
-        (CURRENT_LANG==="tr"?"TAMAMLANAN: ":"COMPLETED: ")+doneCount+" / "+totalCount,
-        {fontFamily:_F, fontSize:"12px", color:"#66ddff", stroke:"#000", strokeThickness:2}
-    ).setOrigin(0,0.5).setDepth(D+4));
+    function _drawTabs(){
+        tabBg1.clear(); tabBg2.clear();
+        const on1=(_activeTab==="missions");
+        tabBg1.fillStyle(on1?0xcc7700:0x0c1c2e,1);
+        tabBg1.fillRoundedRect(tab1X,tabY-tabH/2,tabW,tabH,{tl:8,tr:0,bl:0,br:0});
+        if(on1){tabBg1.fillStyle(0xffffff,0.10);tabBg1.fillRoundedRect(tab1X+2,tabY-tabH/2+3,tabW-4,tabH/2-4,4);}
+        tabBg1.lineStyle(on1?2:1,on1?0xffe066:0x1e4060,on1?0.95:0.50);
+        tabBg1.strokeRoundedRect(tab1X,tabY-tabH/2,tabW,tabH,{tl:8,tr:0,bl:0,br:0});
+        tabTxt1.setColor(on1?"#ffe066":"#4a7aaa");
+        tabBg2.fillStyle(!on1?0x1a0050:0x0c1c2e,1);
+        tabBg2.fillRoundedRect(tab2X,tabY-tabH/2,tabW,tabH,{tl:0,tr:8,bl:0,br:0});
+        if(!on1){tabBg2.fillStyle(0xffffff,0.10);tabBg2.fillRoundedRect(tab2X+2,tabY-tabH/2+3,tabW-4,tabH/2-4,4);}
+        tabBg2.lineStyle(!on1?2:1,!on1?0xcc88ff:0x1e4060,!on1?0.95:0.50);
+        tabBg2.strokeRoundedRect(tab2X,tabY-tabH/2,tabW,tabH,{tl:0,tr:8,bl:0,br:0});
+        tabTxt2.setColor(!on1?"#cc88ff":"#4a7aaa");
+    }
+    _drawTabs();
+    A(scene.add.rectangle(tab1X+tabW/2,tabY,tabW,tabH,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
+        .on("pointerdown",()=>{if(_activeTab==="missions")return;NT_SFX.play("menu_click");_activeTab="missions";_drawTabs();_showContent();});
+    A(scene.add.rectangle(tab2X+tabW/2,tabY,tabW,tabH,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
+        .on("pointerdown",()=>{if(_activeTab==="follow")return;NT_SFX.play("menu_click");_activeTab="follow";_drawTabs();_showContent();});
 
-    const clockTxt = A(scene.add.text(cx+PW/2-18, bY+14, "",
-        {fontFamily:_F, fontSize:"11px", color:"#88aacc", stroke:"#000", strokeThickness:1}
-    ).setOrigin(1,0.5).setDepth(D+4));
-    const _updClock = ()=>{
-        const ms = _qMsToMidnight();
-        const h = Math.floor(ms/3600000);
-        const m = Math.floor((ms%3600000)/60000);
-        clockTxt.setText((CURRENT_LANG==="tr"?"YENILENME: ":"RESETS IN: ")+h+"h "+m+"m");
-    };
-    _updClock();
-    const _clockEvt = scene.time.addEvent({delay:30000, loop:true, callback:_updClock});
+    // ── SHARED SCROLL/MASK SETUP ──────────────────────────────────────
+    const contentAreaY=tabY+tabH/2+2;
+    const VIEW_H=contentBot-contentAreaY-4;
+    const VPORT_X=cx-PW/2+10, VPORT_W=PW-20;
 
-    // Small legend note — clarifies LvXP is for the account level bar
-    A(scene.add.text(cx, bY+hdrH+18,
-        CURRENT_LANG==="tr"?"LvXP = hesap seviyeni yukseltir":"LvXP = raises your account level",
-        {fontFamily:_F, fontSize:"9px", color:"#6688aa", stroke:"#000", strokeThickness:1}
-    ).setOrigin(0.5).setDepth(D+4).setAlpha(0.8));
-
-    // Progress mini-bar
-    const pbX = cx-PW/2+18, pbW = PW-36, pbY = bY+28, pbH = 5;
-    const pbBg = A(scene.add.graphics().setDepth(D+3));
-    pbBg.fillStyle(0x111e30,1); pbBg.fillRoundedRect(pbX, pbY, pbW, pbH, 2);
-    pbBg.lineStyle(1, 0x2a4060, 0.5); pbBg.strokeRoundedRect(pbX, pbY, pbW, pbH, 2);
-    const pbFill = A(scene.add.graphics().setDepth(D+4));
-    const progRatio = totalCount > 0 ? doneCount/totalCount : 0;
-    const _pb = {v:0};
-    scene.tweens.add({targets:_pb, v:progRatio, duration:650, delay:180, ease:"Quad.easeOut",
-        onUpdate:()=>{
-            pbFill.clear();
-            if(_pb.v<=0) return;
-            const col = _pb.v>=1 ? 0x44dd66 : 0x44aaff;
-            pbFill.fillStyle(col, 0.95);
-            pbFill.fillRoundedRect(pbX, pbY, Math.max(pbH, pbW*_pb.v), pbH, 2);
-        }
-    });
-
-    // ── SCROLL AREA ──────────────────────────────────────────
-    const SY0 = bY + hdrH + 30;   // +30 to include legend note
-    const VIEW_H = contentBot - SY0 - 4;
-    const VPORT_X = cx-PW/2+10, VPORT_W = PW-20;
-
-    const maskGfx = scene.add.graphics().setDepth(D+1);
+    const maskGfx=scene.add.graphics().setDepth(D+1);
     maskGfx.fillStyle(0xffffff,1);
-    maskGfx.fillRect(VPORT_X, SY0, VPORT_W, VIEW_H);
-    const geomMask = maskGfx.createGeometryMask();
+    maskGfx.fillRect(VPORT_X,contentAreaY,VPORT_W,VIEW_H);
+    const geomMask=maskGfx.createGeometryMask();
 
     let _scrollCont=null, _scrollY=0, _scrollMax=0;
     let _dragStartY=0, _dragStartSY=0, _isDragging=false;
+    let _scrollHit=null, _clockEvt=null;
+    // Extra scene-level objects that aren't in the container
+    let _extraObjs=[];
     const _zones=[];
 
     function _scrollTo(y){
-        _scrollY = Math.max(0, Math.min(_scrollMax, y));
-        if(_scrollCont) _scrollCont.y = -_scrollY;
+        _scrollY=Math.max(0,Math.min(_scrollMax,y));
+        if(_scrollCont) _scrollCont.y=-_scrollY;
     }
-    const _wheelHandler = (pointer, gameObjects, dx, dy) => { _scrollTo(_scrollY + dy*0.5); };
-    scene.input.on("wheel", _wheelHandler);
+    const _wheelHandler=(pointer,gameObjects,dx,dy)=>{_scrollTo(_scrollY+dy*0.5);};
+    scene.input.on("wheel",_wheelHandler);
 
-    function _buildRows(){
-        if(_scrollCont){ try{_scrollCont.destroy();}catch(_){} }
-        _zones.length = 0;
-        _scrollCont = A(scene.add.container(0,0).setDepth(D+4));
+    function _destroyContent(){
+        // Destroy container and all children
+        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}_scrollCont=null;}
+        // Destroy scroll hit zone
+        if(_scrollHit){try{_scrollHit.destroy();}catch(_){}_scrollHit=null;}
+        // Destroy orphaned scene-level objects (headers etc.)
+        _extraObjs.forEach(o=>{try{o.destroy();}catch(_){}});
+        _extraObjs=[];
+        // Destroy clock
+        if(_clockEvt){try{_clockEvt.remove(false);}catch(_){}_clockEvt=null;}
+        _zones.length=0; _scrollY=0; _scrollMax=0;
+    }
+
+    function _showContent(){
+        _destroyContent();
+        if(_activeTab==="missions") _buildMissionsTab();
+        else _buildFollowTab();
+    }
+
+    // ── TAB 1: MISSIONS ──────────────────────────────────────────────
+    function _buildMissionsTab(){
+        const SY0=contentAreaY;
+        const s=_qEnsureToday();
+        const quests=s.ql.slice();
+
+        // Header bar — stored in _extraObjs for cleanup
+        const hdrH=38;
+        const hdrG=scene.add.graphics().setDepth(D+3);
+        hdrG.fillStyle(0x080e1e,0.98);hdrG.fillRoundedRect(cx-PW/2+10,SY0+2,PW-20,hdrH,6);
+        hdrG.lineStyle(1.5,0x44aaff,0.35);hdrG.strokeRoundedRect(cx-PW/2+10,SY0+2,PW-20,hdrH,6);
+        _extraObjs.push(hdrG);
+
+        const doneCount=quests.filter(q=>_qIsDone(q)).length;
+        const totalCount=quests.length;
+        const cmpTxt=scene.add.text(cx-PW/2+18,SY0+2+12,
+            (CURRENT_LANG==="tr"?"TAMAMLANAN: ":"COMPLETED: ")+doneCount+" / "+totalCount,
+            {fontFamily:_F,fontSize:"11px",color:"#66ddff",stroke:"#000",strokeThickness:2}
+        ).setOrigin(0,0.5).setDepth(D+4);
+        _extraObjs.push(cmpTxt);
+
+        const clockTxt=scene.add.text(cx+PW/2-18,SY0+2+12,"",
+            {fontFamily:_F,fontSize:"10px",color:"#88aacc",stroke:"#000",strokeThickness:1}
+        ).setOrigin(1,0.5).setDepth(D+4);
+        _extraObjs.push(clockTxt);
+        const _updClock=()=>{
+            const ms=_qMsToMidnight();
+            const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);
+            if(clockTxt.scene) clockTxt.setText((CURRENT_LANG==="tr"?"YEN: ":"RST: ")+h+"h "+m+"m");
+        };
+        _updClock();
+        _clockEvt=scene.time.addEvent({delay:30000,loop:true,callback:_updClock});
+
+        // Progress bar
+        const pbX=cx-PW/2+18,pbW=PW-36,pbY=SY0+2+26,pbH=5;
+        const pbBg=scene.add.graphics().setDepth(D+3);
+        pbBg.fillStyle(0x111e30,1);pbBg.fillRoundedRect(pbX,pbY,pbW,pbH,2);
+        pbBg.lineStyle(1,0x2a4060,0.5);pbBg.strokeRoundedRect(pbX,pbY,pbW,pbH,2);
+        _extraObjs.push(pbBg);
+        const pbFill=scene.add.graphics().setDepth(D+4);
+        _extraObjs.push(pbFill);
+        const progRatio=totalCount>0?doneCount/totalCount:0;
+        const _pb={v:0};
+        scene.tweens.add({targets:_pb,v:progRatio,duration:600,delay:150,ease:"Quad.easeOut",
+            onUpdate:()=>{
+                if(!pbFill.scene)return;
+                pbFill.clear();if(_pb.v<=0)return;
+                pbFill.fillStyle(_pb.v>=1?0x44dd66:0x44aaff,0.95);
+                pbFill.fillRoundedRect(pbX,pbY,Math.max(pbH,pbW*_pb.v),pbH,2);
+            }
+        });
+
+        const listSY0=SY0+hdrH+6;
+        _scrollCont=A(scene.add.container(0,0).setDepth(D+4));
         _scrollCont.setMask(geomMask);
 
-        const ROW_H = 96, ROW_GAP = 8;
-        const rowStart = SY0 + 4;
+        const ROW_H=96,ROW_GAP=8,rowStart=listSY0+4;
 
-        quests.forEach((q, i)=>{
-            const d = _qDef(q.id); if(!d) return;
-            const diffInfo = QUEST_DIFF[d.diff] || QUEST_DIFF.easy;
-            const ry = rowStart + i*(ROW_H + ROW_GAP);
-            const done = _qIsDone(q);
-            const claimed = q.claimed;
-            const avail = done && !claimed;
+        quests.forEach((q,i)=>{
+            const d=_qDef(q.id);if(!d)return;
+            const diffInfo=QUEST_DIFF[d.diff]||QUEST_DIFF.easy;
+            const ry=rowStart+i*(ROW_H+ROW_GAP);
+            const done=_qIsDone(q),claimed=q.claimed,avail=done&&!claimed;
+            const pFrac=Math.min(1,(q.prog||0)/d.target);
 
             // Row background
-            const rg = scene.add.graphics();
-            const bgCol = claimed ? 0x0a1d10 : avail ? 0x0d1f28 : 0x090e1c;
-            const borderCol = claimed ? 0x44aa66 : avail ? diffInfo.col : 0x1a2a3a;
-            const borderAlpha = claimed ? 0.55 : avail ? 0.75 : 0.25;
-            rg.fillStyle(bgCol, 0.96);
-            rg.fillRoundedRect(cx-PW/2+12, ry, PW-24, ROW_H, 8);
-            rg.lineStyle(avail?2:1.5, borderCol, borderAlpha);
-            rg.strokeRoundedRect(cx-PW/2+12, ry, PW-24, ROW_H, 8);
+            const rg=scene.add.graphics();
+            rg.fillStyle(claimed?0x0a1d10:avail?0x0d1f28:0x090e1c,0.96);
+            rg.fillRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,8);
+            rg.lineStyle(avail?2:1.5,claimed?0x44aa66:avail?diffInfo.col:0x1a2a3a,claimed?0.55:avail?0.75:0.25);
+            rg.strokeRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,8);
             _scrollCont.add(rg);
 
             // Difficulty ribbon
-            const ribbonW = 52, ribbonH = 14;
-            const rib = scene.add.graphics();
-            rib.fillStyle(diffInfo.col, 0.92);
-            rib.fillRoundedRect(cx-PW/2+12, ry, ribbonW, ribbonH, 4);
+            const rib=scene.add.graphics();
+            rib.fillStyle(diffInfo.col,0.92);rib.fillRoundedRect(cx-PW/2+12,ry,52,14,4);
             _scrollCont.add(rib);
-            const diffLbl = CURRENT_LANG==="tr" ? diffInfo.labelTR : diffInfo.label;
-            _scrollCont.add(scene.add.text(cx-PW/2+12+ribbonW/2, ry+ribbonH/2, diffLbl,
-                {fontFamily:_F, fontSize:"8px", color:"#ffffff", stroke:"#000", strokeThickness:1.5}
-            ).setOrigin(0.5));
+            _scrollCont.add(scene.add.text(cx-PW/2+38,ry+7,CURRENT_LANG==="tr"?diffInfo.labelTR:diffInfo.label,
+                {fontFamily:_F,fontSize:"8px",color:"#ffffff",stroke:"#000",strokeThickness:1.5}).setOrigin(0.5));
 
-            // Icon
-            const iconX = cx-PW/2+32;
-            const iconY = ry + ROW_H/2 + 6;
-            _scrollCont.add(scene.add.text(iconX, iconY, d.icon,
-                {fontFamily:_F, fontSize:"24px"}
-            ).setOrigin(0.5));
-
-            // Name
-            const txtX = cx-PW/2+60;
-            const name = CURRENT_LANG==="tr" ? d.nameTR : d.name;
-            _scrollCont.add(scene.add.text(txtX, ry+18, name,
-                {fontFamily:_F, fontSize:"13px", color: claimed?"#66aa88":"#ffffff", stroke:"#000", strokeThickness:2}
-            ).setOrigin(0,0));
-
-            // Description (what the mission is about) — wraps if long
-            const descStr = CURRENT_LANG==="tr" ? (d.descTR||"") : (d.desc||"");
-            if(descStr){
-                _scrollCont.add(scene.add.text(txtX, ry+34, descStr,
-                    {fontFamily:_F, fontSize:"9px",
-                     color: claimed?"#557766":"#8aa7bf",
-                     stroke:"#000", strokeThickness:1,
-                     wordWrap:{width: 168}}
-                ).setOrigin(0,0));
+            // Left badge (! or ✓)
+            const exX=cx-PW/2+18,exY=ry+ROW_H/2+6;
+            if(!claimed){
+                const exG=scene.add.graphics();
+                exG.fillStyle(avail?0x22cc66:diffInfo.col,0.85);
+                exG.fillCircle(exX,exY,9);
+                exG.lineStyle(1.5,0xffffff,0.5);exG.strokeCircle(exX,exY,9);
+                _scrollCont.add(exG);
+                const exT=scene.add.text(exX,exY,avail?"✓":"!",
+                    {fontFamily:_F,fontSize:"13px",color:"#ffffff",stroke:"#000",strokeThickness:2,fontStyle:"bold"}).setOrigin(0.5);
+                _scrollCont.add(exT);
+                if(!avail) scene.tweens.add({targets:[exG,exT],alpha:{from:1,to:0.5},yoyo:true,repeat:-1,duration:750,ease:"Sine.easeInOut"});
             }
 
-            // Progress text
-            const progStr = Math.min(q.prog,d.target).toLocaleString()+" / "+d.target.toLocaleString();
-            _scrollCont.add(scene.add.text(txtX, ry+52, progStr,
-                {fontFamily:_F, fontSize:"10px", color: claimed?"#5a8a6a":avail?diffInfo.colStr:"#7a8a9a", stroke:"#000", strokeThickness:1}
-            ).setOrigin(0,0));
+            // Quest icon
+            _scrollCont.add(scene.add.text(cx-PW/2+42,ry+ROW_H/2+6,d.icon,{fontFamily:_F,fontSize:"22px"}).setOrigin(0.5));
+
+            // Name, desc, progress
+            const txtX=cx-PW/2+62;
+            _scrollCont.add(scene.add.text(txtX,ry+18,CURRENT_LANG==="tr"?d.nameTR:d.name,
+                {fontFamily:_F,fontSize:"12px",color:claimed?"#66aa88":"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0));
+            const descStr=CURRENT_LANG==="tr"?(d.descTR||""):(d.desc||"");
+            if(descStr) _scrollCont.add(scene.add.text(txtX,ry+33,descStr,
+                {fontFamily:_F,fontSize:"9px",color:claimed?"#557766":"#8aa7bf",stroke:"#000",strokeThickness:1,wordWrap:{width:156}}).setOrigin(0,0));
+            _scrollCont.add(scene.add.text(txtX,ry+52,Math.min(q.prog,d.target).toLocaleString()+" / "+d.target.toLocaleString(),
+                {fontFamily:_F,fontSize:"10px",color:claimed?"#5a8a6a":avail?diffInfo.colStr:"#7a8a9a",stroke:"#000",strokeThickness:1}).setOrigin(0,0));
 
             // Progress bar
-            const barX = txtX, barY = ry+68, barW = 150, barH = 6;
-            const bbG = scene.add.graphics();
-            bbG.fillStyle(0x111e30, 1); bbG.fillRoundedRect(barX, barY, barW, barH, 2);
-            bbG.lineStyle(1, 0x2a4060, 0.5); bbG.strokeRoundedRect(barX, barY, barW, barH, 2);
+            const barX=txtX,barY=ry+66,barW=148,barH=6;
+            const bbG=scene.add.graphics();
+            bbG.fillStyle(0x111e30,1);bbG.fillRoundedRect(barX,barY,barW,barH,2);
+            bbG.lineStyle(1,0x2a4060,0.5);bbG.strokeRoundedRect(barX,barY,barW,barH,2);
             _scrollCont.add(bbG);
-            const bfG = scene.add.graphics();
-            const pFrac = Math.min(1, (q.prog||0)/d.target);
-            if(pFrac > 0){
-                const barCol = claimed ? 0x44aa66 : diffInfo.col;
-                bfG.fillStyle(barCol, 0.92);
-                bfG.fillRoundedRect(barX, barY, Math.max(barH, barW*pFrac), barH, 2);
+            if(pFrac>0){
+                const bfG=scene.add.graphics();
+                bfG.fillStyle(claimed?0x44aa66:diffInfo.col,0.92);
+                bfG.fillRoundedRect(barX,barY,Math.max(barH,barW*pFrac),barH,2);
+                _scrollCont.add(bfG);
             }
-            _scrollCont.add(bfG);
 
-            // Reward pills
-            const rewX = cx + PW/2 - 22;
-            let rewY = ry + 14;
-            const r = d.reward;
-            const _addPill = (txt, col, colStr, width)=>{
-                const pg = scene.add.graphics();
-                pg.fillStyle(0x0a1420, 0.92);
-                pg.fillRoundedRect(rewX - width, rewY, width, 16, 4);
-                pg.lineStyle(1, col, 0.45);
-                pg.strokeRoundedRect(rewX - width, rewY, width, 16, 4);
+            // Reward pills (right side)
+            const rewX=cx+PW/2-14;
+            let rewY=ry+14;
+            const r=d.reward;
+            if(r.gold&&r.gold>0){
+                const pg=scene.add.graphics();
+                pg.fillStyle(0x0a1420,0.92);pg.fillRoundedRect(rewX-54,rewY,54,16,4);
+                pg.lineStyle(1,0xffcc00,0.45);pg.strokeRoundedRect(rewX-54,rewY,54,16,4);
                 _scrollCont.add(pg);
-                _scrollCont.add(scene.add.text(rewX - width/2, rewY+8, txt,
-                    {fontFamily:_F, fontSize:"9px", color:colStr, stroke:"#000", strokeThickness:1}
-                ).setOrigin(0.5));
-                rewY += 18;
-            };
-            if(r.gold){
-                const pg2 = scene.add.graphics();
-                pg2.fillStyle(0x0a1420, 0.92);
-                pg2.fillRoundedRect(rewX - 52, rewY, 52, 16, 4);
-                pg2.lineStyle(1, 0xffcc00, 0.45);
-                pg2.strokeRoundedRect(rewX - 52, rewY, 52, 16, 4);
-                _scrollCont.add(pg2);
-                _scrollCont.add(scene.add.text(rewX - 52 + 8, rewY+8, "+"+r.gold,
-                    {fontFamily:_F, fontSize:"9px", color:"#ffdd44", stroke:"#000", strokeThickness:1}
-                ).setOrigin(0,0.5));
-                if(scene.textures.exists("icon_gold")){
-                    _scrollCont.add(scene.add.image(rewX - 8, rewY+8, "icon_gold").setDisplaySize(14,14).setOrigin(0.5));
-                }
-                rewY += 18;
+                _scrollCont.add(scene.add.text(rewX-54+7,rewY+8,"+"+r.gold,
+                    {fontFamily:_F,fontSize:"9px",color:"#ffdd44",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                if(scene.textures.exists("icon_gold"))
+                    _scrollCont.add(scene.add.image(rewX-9,rewY+8,"icon_gold").setDisplaySize(13,13).setOrigin(0.5));
+                rewY+=18;
             }
-            if(r.xp)   _addPill("+"+r.xp+" LvXP", 0x44aaff, "#66ccff", 54);
-            if(r.gem){
-                const pg3 = scene.add.graphics();
-                pg3.fillStyle(0x0a1420, 0.92);
-                pg3.fillRoundedRect(rewX - 52, rewY, 52, 16, 4);
-                pg3.lineStyle(1, 0xcc44ff, 0.45);
-                pg3.strokeRoundedRect(rewX - 52, rewY, 52, 16, 4);
-                _scrollCont.add(pg3);
-                _scrollCont.add(scene.add.text(rewX - 52 + 8, rewY+8, "+"+r.gem,
-                    {fontFamily:_F, fontSize:"9px", color:"#dd88ff", stroke:"#000", strokeThickness:1}
-                ).setOrigin(0,0.5));
-                if(scene.textures.exists("icon_gem")){
-                    _scrollCont.add(scene.add.image(rewX - 8, rewY+8, "icon_gem").setDisplaySize(14,14).setOrigin(0.5));
-                }
-                rewY += 18;
+            if(r.xp){
+                const pg=scene.add.graphics();
+                pg.fillStyle(0x0a1420,0.92);pg.fillRoundedRect(rewX-54,rewY,54,16,4);
+                pg.lineStyle(1,0x44aaff,0.45);pg.strokeRoundedRect(rewX-54,rewY,54,16,4);
+                _scrollCont.add(pg);
+                _scrollCont.add(scene.add.text(rewX-27,rewY+8,"+"+r.xp+" XP",
+                    {fontFamily:_F,fontSize:"9px",color:"#66ccff",stroke:"#000",strokeThickness:1}).setOrigin(0.5,0.5));
+                rewY+=18;
+            }
+            if(r.gem&&r.gem>0){
+                const pg=scene.add.graphics();
+                pg.fillStyle(0x0a1420,0.92);pg.fillRoundedRect(rewX-54,rewY,54,16,4);
+                pg.lineStyle(1,0xcc44ff,0.45);pg.strokeRoundedRect(rewX-54,rewY,54,16,4);
+                _scrollCont.add(pg);
+                _scrollCont.add(scene.add.text(rewX-54+7,rewY+8,"+"+r.gem,
+                    {fontFamily:_F,fontSize:"9px",color:"#dd88ff",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                if(scene.textures.exists("icon_gem"))
+                    _scrollCont.add(scene.add.image(rewX-9,rewY+8,"icon_gem").setDisplaySize(13,13).setOrigin(0.5));
+                rewY+=18;
             }
 
-            // Claim button / badge / social
-            const isSocial = d.type==="social";
-            if(isSocial && !done && !claimed){
-                // Social quest — "TAKIP ET" / "FOLLOW" button that opens URL
-                const btnW = 72, btnH = 22;
-                const btnX = cx+PW/2-14 - btnW, btnY = ry+ROW_H-btnH-6;
-                const sbg = scene.add.graphics();
-                sbg.fillStyle(0x1da1f2, 0.92);
-                sbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
-                sbg.lineStyle(1.5, 0xffffff, 0.4);
-                sbg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
-                _scrollCont.add(sbg);
-                const sTxt = scene.add.text(btnX+btnW/2, btnY+btnH/2,
-                    CURRENT_LANG==="tr"?"TAKIP ET":"FOLLOW",
-                    {fontFamily:_F, fontSize:"10px", color:"#ffffff", stroke:"#000", strokeThickness:2}
-                ).setOrigin(0.5);
-                _scrollCont.add(sTxt);
-                scene.tweens.add({targets:[sbg,sTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:700, ease:"Sine.easeInOut"});
-                _zones.push({
-                    x1: btnX, x2: btnX+btnW,
-                    y1: btnY - SY0, y2: btnY - SY0 + btnH,
-                    fn: ()=>{
-                        // Open Twitter link
-                        try{ window.open(d.socialURL||"https://x.com", "_blank"); }catch(_){}
-                        // Mark as completed
-                        const s2 = _s();
-                        const qr = s2.ql.find(x=>x.id===q.id);
-                        if(qr){ qr.prog = d.target; _sv(s2); }
-                        // Mark permanently so it doesn't repeat
-                        if(!s2._socialDone) s2._socialDone = {};
-                        s2._socialDone[q.id] = true; _sv(s2);
-                        NT_SFX.play("menu_click");
-                        scene.time.delayedCall(800, ()=>{ close(); showMissions(scene); });
-                    }
-                });
-            } else if(avail){
-                const btnW = 72, btnH = 22;
-                const btnX = cx+PW/2-14 - btnW, btnY = ry+ROW_H-btnH-6;
-                const cbg = scene.add.graphics();
-                cbg.fillStyle(diffInfo.col, 0.92);
-                cbg.fillRoundedRect(btnX, btnY, btnW, btnH, 6);
-                cbg.lineStyle(1.5, 0xffffff, 0.35);
-                cbg.strokeRoundedRect(btnX, btnY, btnW, btnH, 6);
+            // Right side action
+            const btnW=70,btnH=22;
+            const btnX=cx+PW/2-14-btnW,btnY=ry+ROW_H-btnH-5;
+            if(avail){
+                const cbg=scene.add.graphics();
+                cbg.fillStyle(diffInfo.col,0.92);cbg.fillRoundedRect(btnX,btnY,btnW,btnH,6);
+                cbg.lineStyle(1.5,0xffffff,0.35);cbg.strokeRoundedRect(btnX,btnY,btnW,btnH,6);
                 _scrollCont.add(cbg);
-                const cTxt = scene.add.text(btnX+btnW/2, btnY+btnH/2,
-                    CURRENT_LANG==="tr"?"ODUL AL":"CLAIM",
-                    {fontFamily:_F, fontSize:"11px", color:"#ffffff", stroke:"#000", strokeThickness:2}
-                ).setOrigin(0.5);
+                const cTxt=scene.add.text(btnX+btnW/2,btnY+btnH/2,CURRENT_LANG==="tr"?"ODUL AL":"CLAIM",
+                    {fontFamily:_F,fontSize:"11px",color:"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0.5);
                 _scrollCont.add(cTxt);
-                scene.tweens.add({targets:[cbg,cTxt], alpha:{from:1,to:0.72}, yoyo:true, repeat:-1, duration:650, ease:"Sine.easeInOut"});
+                scene.tweens.add({targets:[cbg,cTxt],alpha:{from:1,to:0.72},yoyo:true,repeat:-1,duration:650,ease:"Sine.easeInOut"});
                 _zones.push({
-                    x1: btnX, x2: btnX+btnW,
-                    y1: btnY - SY0, y2: btnY - SY0 + btnH,
-                    fn: ()=>{
-                        const xw = btnX+btnW/2, yw = btnY+btnH/2;
-                        _qClaim(scene, q, xw, SY0+yw - _scrollY + 10, D);
-                        scene.time.delayedCall(1200, ()=>{ close(); showMissions(scene); });
+                    x1:btnX,x2:btnX+btnW,y1:btnY-SY0,y2:btnY-SY0+btnH,
+                    fn:()=>{
+                        _qClaim(scene,q,btnX+btnW/2,SY0+btnY+btnH/2-_scrollY+10,D);
+                        scene.time.delayedCall(300,()=>{close();showMissions(scene);});
                     }
                 });
             } else if(claimed){
-                const badgeW = 72;
-                const bgG = scene.add.graphics();
-                bgG.fillStyle(0x0a2214, 0.92);
-                bgG.fillRoundedRect(cx+PW/2-14-badgeW, ry+ROW_H-28, badgeW, 22, 6);
-                bgG.lineStyle(1.5, 0x44dd66, 0.55);
-                bgG.strokeRoundedRect(cx+PW/2-14-badgeW, ry+ROW_H-28, badgeW, 22, 6);
+                const bgG=scene.add.graphics();
+                bgG.fillStyle(0x0a2214,0.92);bgG.fillRoundedRect(btnX,btnY,btnW,btnH,6);
+                bgG.lineStyle(1.5,0x44dd66,0.55);bgG.strokeRoundedRect(btnX,btnY,btnW,btnH,6);
                 _scrollCont.add(bgG);
-                _scrollCont.add(scene.add.text(cx+PW/2-14-badgeW/2, ry+ROW_H-17,
-                    "✓ "+(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"),
-                    {fontFamily:_F, fontSize:"10px", color:"#44dd66", stroke:"#000", strokeThickness:1}
-                ).setOrigin(0.5));
+                _scrollCont.add(scene.add.text(btnX+btnW/2,btnY+btnH/2,"✓ "+(CURRENT_LANG==="tr"?"ALINDI":"CLAIMED"),
+                    {fontFamily:_F,fontSize:"10px",color:"#44dd66",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
             } else {
-                // In-progress — percentage + animated pulsing "!" exclamation
-                const pct = Math.floor(pFrac*100);
-                const pctTxt = scene.add.text(cx+PW/2-22-36, ry+ROW_H-17, pct+"%",
-                    {fontFamily:_F, fontSize:"10px", color:"#6a7a8a", stroke:"#000", strokeThickness:1}
-                ).setOrigin(0.5);
-                _scrollCont.add(pctTxt);
-
-                // Animated exclamation mark on the left side — shows quest is active
-                const exX = cx-PW/2+18, exY = ry+ROW_H/2+6;
-                const exG = scene.add.graphics();
-                exG.fillStyle(diffInfo.col, 0.85);
-                exG.fillCircle(exX, exY, 8);
-                exG.lineStyle(1, 0xffffff, 0.4);
-                exG.strokeCircle(exX, exY, 8);
-                _scrollCont.add(exG);
-                const exTxt = scene.add.text(exX, exY, "!",
-                    {fontFamily:_F, fontSize:"12px", color:"#ffffff", stroke:"#000", strokeThickness:2, fontStyle:"bold"}
-                ).setOrigin(0.5);
-                _scrollCont.add(exTxt);
-                scene.tweens.add({targets:[exG,exTxt], scaleX:{from:1,to:1.2}, scaleY:{from:1,to:1.2}, yoyo:true, repeat:-1, duration:800, ease:"Sine.easeInOut"});
+                _scrollCont.add(scene.add.text(cx+PW/2-22-36,ry+ROW_H-16,Math.floor(pFrac*100)+"%",
+                    {fontFamily:_F,fontSize:"10px",color:"#6a7a8a",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
             }
 
-            // Stagger fade-in
             rg.setAlpha(0);
-            scene.tweens.add({targets:rg, alpha:1, duration:200, delay:60+i*70, ease:"Quad.easeOut"});
+            scene.tweens.add({targets:rg,alpha:1,duration:200,delay:60+i*70,ease:"Quad.easeOut"});
         });
 
-        // Footer note if no special
-        const hasSpecial = quests.some(q=>{ const d=_qDef(q.id); return d && d.diff==="special"; });
+        // Footer note
+        const hasSpecial=quests.some(q=>{const d=_qDef(q.id);return d&&d.diff==="special";});
         if(!hasSpecial){
-            const fY = rowStart + quests.length*(ROW_H+ROW_GAP) + 4;
-            _scrollCont.add(scene.add.text(cx, fY+10,
-                CURRENT_LANG==="tr" ? "💎 OZEL GOREV HER 3 GUNDE BIR GELIR" : "💎 SPECIAL MISSION ARRIVES EVERY 3 DAYS",
-                {fontFamily:_F, fontSize:"10px", color:"#6688aa", stroke:"#000", strokeThickness:1}
-            ).setOrigin(0.5).setAlpha(0.75));
+            const fY=rowStart+quests.length*(ROW_H+ROW_GAP)+4;
+            _scrollCont.add(scene.add.text(cx,fY+10,
+                CURRENT_LANG==="tr"?"💎 OZEL GOREV HER 3 GUNDE BIR GELIR":"💎 SPECIAL MISSION EVERY 3 DAYS",
+                {fontFamily:_F,fontSize:"10px",color:"#6688aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setAlpha(0.75));
         }
 
-        const totalH = 8 + quests.length*(ROW_H+ROW_GAP) + 30;
-        _scrollMax = Math.max(0, totalH - VIEW_H);
+        const totalH=8+quests.length*(ROW_H+ROW_GAP)+30;
+        _scrollMax=Math.max(0,totalH-(VIEW_H-(hdrH+6)));
         _scrollTo(0);
+
+        _scrollHit=A(scene.add.rectangle(cx,contentAreaY+VIEW_H/2,VPORT_W,VIEW_H,0xffffff,0.001).setDepth(D+7).setInteractive({draggable:false}));
+        _scrollHit.on("pointerdown",(p)=>{_isDragging=false;_dragStartY=p.y;_dragStartSY=_scrollY;});
+        _scrollHit.on("pointermove",(p)=>{
+            if(!p.isDown)return;
+            if(Math.abs(p.y-_dragStartY)>6)_isDragging=true;
+            if(_isDragging)_scrollTo(_dragStartSY-(p.y-_dragStartY));
+        });
+        _scrollHit.on("pointerup",(p)=>{
+            if(!_isDragging){
+                const lx=p.x,ly=p.y-SY0+_scrollY;
+                for(const z of _zones){if(lx>=z.x1&&lx<=z.x2&&ly>=z.y1&&ly<=z.y2){z.fn();break;}}
+            }
+            _isDragging=false;
+        });
     }
 
-    _buildRows();
+    // ── TAB 2: FOLLOW US ─────────────────────────────────────────────
+    function _buildFollowTab(){
+        const SY0=contentAreaY;
+        const socialQuests=QUEST_POOL.filter(q=>q.type==="social");
+        const s2=_s();
 
-    // Drag + tap scroll handler
-    const scrollHit = A(scene.add.rectangle(cx, SY0+VIEW_H/2, VPORT_W, VIEW_H, 0xffffff, 0.001).setDepth(D+7).setInteractive({draggable:false}));
-    scrollHit.on("pointerdown", (p)=>{ _isDragging=false; _dragStartY=p.y; _dragStartSY=_scrollY; });
-    scrollHit.on("pointermove", (p)=>{
-        if(!p.isDown) return;
-        if(Math.abs(p.y-_dragStartY)>6) _isDragging=true;
-        if(_isDragging) _scrollTo(_dragStartSY-(p.y-_dragStartY));
-    });
-    scrollHit.on("pointerup", (p)=>{
-        if(!_isDragging){
-            const lx = p.x, ly = p.y - SY0 + _scrollY;
-            for(const z of _zones){
-                if(lx>=z.x1 && lx<=z.x2 && ly>=z.y1 && ly<=z.y2){ z.fn(); break; }
+        _scrollCont=A(scene.add.container(0,0).setDepth(D+4));
+        _scrollCont.setMask(geomMask);
+
+        // Header
+        const hdrG=scene.add.graphics();
+        hdrG.fillStyle(0x080818,0.98);hdrG.fillRoundedRect(cx-PW/2+10,SY0+4,PW-20,44,6);
+        hdrG.lineStyle(1.5,0xaa44ff,0.5);hdrG.strokeRoundedRect(cx-PW/2+10,SY0+4,PW-20,44,6);
+        _scrollCont.add(hdrG);
+        _scrollCont.add(scene.add.text(cx,SY0+18,
+            CURRENT_LANG==="tr"?"𝕏  X'TEN TAKİP ET — ELMAS KAZAN!":"𝕏  FOLLOW ON X — EARN GEMS!",
+            {fontFamily:_F,fontSize:"11px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+        _scrollCont.add(scene.add.text(cx,SY0+34,
+            CURRENT_LANG==="tr"?"Her hesap kalıcı olarak 1 kez tamamlanır":"Each account completes permanently once",
+            {fontFamily:_F,fontSize:"9px",color:"#7766aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+
+        const ROW_H=92,ROW_GAP=10,rowStart=SY0+58;
+
+        socialQuests.forEach((d,i)=>{
+            const isDone=s2._socialDone&&s2._socialDone[d.id];
+            const ry=rowStart+i*(ROW_H+ROW_GAP);
+
+            // Row bg
+            const rg=scene.add.graphics();
+            rg.fillStyle(isDone?0x0a1d10:0x0d0820,0.97);
+            rg.fillRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,8);
+            rg.lineStyle(2,isDone?0x44dd66:0xaa44ff,isDone?0.55:0.7);
+            rg.strokeRoundedRect(cx-PW/2+12,ry,PW-24,ROW_H,8);
+            _scrollCont.add(rg);
+
+            // 𝕏 glow circle on left
+            const gX=cx-PW/2+36,gY=ry+ROW_H/2;
+            const gCirc=scene.add.graphics();
+            gCirc.fillStyle(isDone?0x224422:0x330055,0.92);
+            gCirc.fillCircle(gX,gY,23);
+            gCirc.lineStyle(2.5,isDone?0x44dd66:0xcc66ff,0.8);
+            gCirc.strokeCircle(gX,gY,23);
+            _scrollCont.add(gCirc);
+            _scrollCont.add(scene.add.text(gX,gY,isDone?"✓":"𝕏",
+                {fontFamily:_F,fontSize:"18px",color:isDone?"#44dd66":"#ffffff",stroke:"#000",strokeThickness:3}).setOrigin(0.5));
+            if(!isDone) scene.tweens.add({targets:gCirc,alpha:{from:0.75,to:1},yoyo:true,repeat:-1,duration:900,ease:"Sine.easeInOut"});
+
+            // Text info
+            const txX=cx-PW/2+66;
+            _scrollCont.add(scene.add.text(txX,ry+14,CURRENT_LANG==="tr"?d.nameTR:d.name,
+                {fontFamily:_F,fontSize:"13px",color:isDone?"#66dd88":"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0));
+            _scrollCont.add(scene.add.text(txX,ry+30,CURRENT_LANG==="tr"?(d.descTR||""):(d.desc||""),
+                {fontFamily:_F,fontSize:"9px",color:isDone?"#447755":"#9977cc",stroke:"#000",strokeThickness:1,wordWrap:{width:152}}).setOrigin(0,0));
+
+            // Gem reward pill
+            const rewX=cx+PW/2-14;
+            if(d.reward&&d.reward.gem){
+                const pg=scene.add.graphics();
+                pg.fillStyle(0x0a1420,0.92);pg.fillRoundedRect(rewX-58,ry+12,58,20,5);
+                pg.lineStyle(1.5,isDone?0x44dd66:0xcc44ff,0.7);pg.strokeRoundedRect(rewX-58,ry+12,58,20,5);
+                _scrollCont.add(pg);
+                _scrollCont.add(scene.add.text(rewX-58+9,ry+22,"+"+d.reward.gem,
+                    {fontFamily:_F,fontSize:"12px",color:isDone?"#66dd88":"#dd88ff",stroke:"#000",strokeThickness:1.5}).setOrigin(0,0.5));
+                if(scene.textures.exists("icon_gem"))
+                    _scrollCont.add(scene.add.image(rewX-10,ry+22,"icon_gem").setDisplaySize(16,16).setOrigin(0.5));
             }
-        }
-        _isDragging = false;
-    });
 
-    _cleanupMQ = ()=>{
-        try{ scene.input.off("wheel", _wheelHandler); }catch(_){}
-        try{ if(_clockEvt) _clockEvt.remove(false); }catch(_){}
-        try{ maskGfx.destroy(); }catch(_){}
-        if(_scrollCont){ try{_scrollCont.destroy();}catch(_){} }
+            // Follow button OR done badge
+            const btnW=86,btnH=26;
+            const btnX=cx+PW/2-14-btnW,btnY=ry+ROW_H-btnH-6;
+            if(!isDone){
+                // Follow button
+                const fbX=btnX,fbW=btnW;
+                const sbg=scene.add.graphics();
+                sbg.fillStyle(0x1a0050,0.95);sbg.fillRoundedRect(fbX,btnY,fbW,btnH,7);
+                sbg.lineStyle(2,0xcc66ff,0.9);sbg.strokeRoundedRect(fbX,btnY,fbW,btnH,7);
+                sbg.fillStyle(0xffffff,0.10);sbg.fillRoundedRect(fbX+2,btnY+2,fbW-4,btnH*0.4,4);
+                _scrollCont.add(sbg);
+                const sTxt=scene.add.text(fbX+fbW/2,btnY+btnH/2,
+                    CURRENT_LANG==="tr"?"TAKİP ET":"FOLLOW",
+                    {fontFamily:_F,fontSize:"11px",color:"#dd88ff",stroke:"#000",strokeThickness:2,fontStyle:"bold"}).setOrigin(0.5);
+                _scrollCont.add(sTxt);
+                scene.tweens.add({targets:[sbg,sTxt],alpha:{from:1,to:0.65},yoyo:true,repeat:-1,duration:700,ease:"Sine.easeInOut"});
+
+                _zones.push({
+                    x1:btnX,x2:btnX+btnW,y1:btnY-SY0,y2:btnY-SY0+btnH,
+                    fn:()=>{
+                        try{window.open(d.socialURL||"https://x.com","_blank");}catch(_){}
+                        const sv=_s();
+                        if(!sv._socialDone)sv._socialDone={};
+                        sv._socialDone[d.id]=true;
+                        if(d.reward&&d.reward.gem)addGems(d.reward.gem);
+                        _sv(sv);
+                        NT_SFX.play("menu_click");
+                        showBigReward(scene,cx,contentAreaY+120,"gem",d.reward?d.reward.gem:5,D+10);
+                        scene.time.delayedCall(300,()=>{close();showMissions(scene);});
+                    }
+                });
+            } else {
+                const bgG=scene.add.graphics();
+                bgG.fillStyle(0x0a2214,0.95);bgG.fillRoundedRect(btnX,btnY,btnW,btnH,7);
+                bgG.lineStyle(1.5,0x44dd66,0.7);bgG.strokeRoundedRect(btnX,btnY,btnW,btnH,7);
+                _scrollCont.add(bgG);
+                _scrollCont.add(scene.add.text(btnX+btnW/2,btnY+btnH/2,"✓ "+(CURRENT_LANG==="tr"?"TAMAM":"DONE"),
+                    {fontFamily:_F,fontSize:"11px",color:"#44dd88",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+            }
+
+            rg.setAlpha(0);
+            scene.tweens.add({targets:rg,alpha:1,duration:220,delay:80+i*100,ease:"Quad.easeOut"});
+        });
+
+        const totalH=8+socialQuests.length*(ROW_H+ROW_GAP)+20;
+        _scrollMax=Math.max(0,totalH-VIEW_H);
+        _scrollTo(0);
+
+        _scrollHit=A(scene.add.rectangle(cx,contentAreaY+VIEW_H/2,VPORT_W,VIEW_H,0xffffff,0.001).setDepth(D+7).setInteractive({draggable:false}));
+        _scrollHit.on("pointerdown",(p)=>{_isDragging=false;_dragStartY=p.y;_dragStartSY=_scrollY;});
+        _scrollHit.on("pointermove",(p)=>{
+            if(!p.isDown)return;
+            if(Math.abs(p.y-_dragStartY)>6)_isDragging=true;
+            if(_isDragging)_scrollTo(_dragStartSY-(p.y-_dragStartY));
+        });
+        _scrollHit.on("pointerup",(p)=>{
+            if(!_isDragging){
+                const lx=p.x,ly=p.y-SY0+_scrollY;
+                for(const z of _zones){if(lx>=z.x1&&lx<=z.x2&&ly>=z.y1&&ly<=z.y2){z.fn();break;}}
+            }
+            _isDragging=false;
+        });
+    }
+
+    _showContent();
+
+    _cleanupMQ=()=>{
+        try{scene.input.off("wheel",_wheelHandler);}catch(_){}
+        try{if(_clockEvt)_clockEvt.remove(false);}catch(_){}
+        try{maskGfx.destroy();}catch(_){}
+        _extraObjs.forEach(o=>{try{o.destroy();}catch(_){}});
+        _extraObjs=[];
+        if(_scrollCont){try{_scrollCont.destroy();}catch(_){}}
+        if(_scrollHit){try{_scrollHit.destroy();}catch(_){}}
     };
 }
 
@@ -3751,6 +3842,7 @@ return {
     // Quest API — called from game code
     trackQuests: _qTrackGame,
     hasUnclaimedQuests: _qHasUnclaimed,
+    hasPendingQuests: _qHasPending,
     hasWheelReady: _canFree,
     // Legacy aliases (safe no-ops / redirects) so older call-sites keep working
     showBattlePass: showMissions,
@@ -4426,7 +4518,6 @@ function _showMobileBtns(S){
 (function _loadSettings(){
     const _b=(k,def)=>{ const v=localStorage.getItem(k); return v===null?def:v==="1"; };
     const _f=(k,def)=>{ const v=localStorage.getItem(k); return v===null?def:parseFloat(v); };
-    window._nt_screen_shake = _b("nt_screen_shake", true);
     window._nt_dmg_nums     = _b("nt_show_dmg",     true);
     window._nt_sfx_on       = _b("nt_sfx_on",       true);
     window._nt_music_on     = _b("nt_music_on",      true);
@@ -10459,11 +10550,17 @@ class SceneMainMenu extends Phaser.Scene {
                 const hitBox=this.add.rectangle(mx,miniY,96,26,0xffffff,0.001).setDepth(10).setInteractive({useHandCursor:true});
                 this.tweens.add({targets:[mg,mt],alpha:1,duration:380,delay:650,ease:'Quad.easeOut'});
 
-                // ── Notification badge — pulsing red "!" when missions are completed ──
+                // ── Notification badge: sarı=pending / kırmızı=claimable / yok=tümü alındı ──
                 let badgeG=null, badgeTxt=null, badgeTween=null;
                 const _refreshBadge=()=>{
-                    const show = (md.badge === 'quests' && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests())
-                                || (md.badge === 'wheel' && NT_Monetization.hasWheelReady && NT_Monetization.hasWheelReady());
+                    const isWheel  = md.badge === 'wheel';
+                    const isQuest  = md.badge === 'quests';
+                    const unclaimed= isQuest && NT_Monetization.hasUnclaimedQuests && NT_Monetization.hasUnclaimedQuests();
+                    const pending  = isQuest && !unclaimed && NT_Monetization.hasPendingQuests && NT_Monetization.hasPendingQuests();
+                    const wheelRdy = isWheel && NT_Monetization.hasWheelReady && NT_Monetization.hasWheelReady();
+                    const show = unclaimed || pending || wheelRdy;
+                    const badgeCol = (unclaimed || wheelRdy) ? 0xff2244 : 0xffcc00;
+                    const glowCol  = (unclaimed || wheelRdy) ? 0xff3344 : 0xffdd44;
                     if(show && !badgeG){
                         // Dot at top-right of button
                         const bx = mx+40, by = miniY-11;
@@ -10471,10 +10568,10 @@ class SceneMainMenu extends Phaser.Scene {
                         const _drawBadge=(scale)=>{
                             badgeG.clear();
                             // Outer glow
-                            badgeG.fillStyle(0xff3344, 0.35);
+                            badgeG.fillStyle(glowCol, 0.35);
                             badgeG.fillCircle(bx, by, 10*scale);
                             // Main dot
-                            badgeG.fillStyle(0xff2244, 1);
+                            badgeG.fillStyle(badgeCol, 1);
                             badgeG.fillCircle(bx, by, 7*scale);
                             badgeG.lineStyle(1.2, 0xffffff, 0.9);
                             badgeG.strokeCircle(bx, by, 7*scale);
@@ -10601,10 +10698,6 @@ class SceneMainMenu extends Phaser.Scene {
             window._nt_music_enabled=window._nt_music_enabled===false;
             if(window._nt_music_enabled!==false){ NT_SFX.startMusic(); } else { NT_SFX.stopMusic(true); }
         });
-        _row(CURRENT_LANG==="tr"?"EKRAN TiTREME":"SCREEN SHAKE", ()=>window._nt_screen_shake!==false,  ()=>{
-            window._nt_screen_shake = window._nt_screen_shake===false;
-            localStorage.setItem("nt_screen_shake", window._nt_screen_shake ? "1" : "0");
-        });
 
         // ── DIL / LANGUAGE TOGGLE ───────────────────────────
         {
@@ -10646,8 +10739,8 @@ class SceneMainMenu extends Phaser.Scene {
                 });
                 return { bg, txt, _draw };
             };
-            const enBtn = _langBtn("en", VX - 50);
-            const trBtn = _langBtn("tr", VX - 2);
+            const enBtn = _langBtn("en", VX - 80);
+            const trBtn = _langBtn("tr", VX - 30);
             ly += 46;
         }
         ly+=12;
@@ -11019,12 +11112,9 @@ class SceneGame extends Phaser.Scene {
         this.time.delayedCall(400,  _applyIconLinear);
         this.time.delayedCall(1000, _applyIconLinear);
 
-        // [SETTINGS] Ekran sarsintisi ayari — shake cagrilarini override et
-        // Global intensity cap: max 0.008 — gozu yormayan kontrollu shake
         // [MOBILE PERF] mobilede shake yariya indirildi — GPU/CPU yuk azaltma
         const _origShake=this.cameras.main.shake.bind(this.cameras.main);
         this.cameras.main.shake=function(duration,intensity,...args){
-            if(window._nt_screen_shake===false) return;
             const _mobMult = _IS_MOBILE_EARLY ? 0.4 : 1.0;
             const safeIntensity=Math.min((intensity||0)*_mobMult, 0.008); // hard cap
             const safeDuration=Math.min((duration||0)*_mobMult, _IS_MOBILE_EARLY?60:120);
