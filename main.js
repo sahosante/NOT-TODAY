@@ -15998,25 +15998,56 @@ function showRunEventUI(S, ev){
         lineSpacing:6
     }).setOrigin(0.5, 0).setDepth(D+2).setAlpha(0));
 
-    // ── YAN YANA BUTONLAR (Accept sag, Decline sol) ───────────────
-    const BTN_H  = 52;
-    const GAP    = 8;
-    const BTN_W2 = (pm.W - 36 - GAP) / 2;   // her buton yarı genişlik
-    const btnRowY= pBot - 38;
-    const btnLX  = CX - GAP/2 - BTN_W2/2;   // Decline merkezi (sol)
-    const btnRX  = CX + GAP/2 + BTN_W2/2;   // Accept merkezi (sag)
+    // ── BUTONLAR — dikey sıra (Accept üstte büyük, Decline altta ince) ──
+    const BTN_W  = pm.W - 28;
+    const BTN_HI = 56;   // Accept yüksekliği
+    const BTN_HL = 40;   // Decline yüksekliği
+    const BTN_GAP = 8;
+    const btnDecY = pBot - 20 - BTN_HL / 2;
+    const btnAccY = btnDecY - BTN_HL / 2 - BTN_GAP - BTN_HI / 2;
 
-    // ── ACCEPT (sag, altin sari) ──────────────────────────────────
+    // ── ACCEPT (üstte, event rengiyle boyalı, büyük) ──────────────
     const ch0  = ev.choices[0];
     const lbl0 = LLang(ch0,"label","labelEN","labelRU");
-    NT_YellowBtn(S, btnRX, btnRowY, BTN_W2, BTN_H, lbl0, D+2, ()=>{
+
+    const aG = ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
+    const _drawAcc = (h) => {
+        aG.clear();
+        // Gölge
+        aG.fillStyle(0x000000, 0.35);
+        aG.fillRoundedRect(CX - BTN_W/2 + 2, btnAccY - BTN_HI/2 + 5, BTN_W, BTN_HI, 12);
+        // Alt kenar (koyu bant — derinlik hissi)
+        aG.fillStyle(0x000000, 0.40);
+        aG.fillRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2 + BTN_HI - 5, BTN_W, 5, {bl:12,br:12,tl:0,tr:0});
+        // Ana dolgu
+        aG.fillStyle(ev.color, h ? 1.0 : 0.88);
+        aG.fillRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2, BTN_W, BTN_HI - 5, 12);
+        // Üst parlaklık
+        aG.fillStyle(0xffffff, h ? 0.25 : 0.14);
+        aG.fillRoundedRect(CX - BTN_W/2 + 10, btnAccY - BTN_HI/2 + 5, BTN_W - 20, BTN_HI / 2 - 8, 8);
+        // Dış çerçeve
+        aG.lineStyle(2, 0xffffff, h ? 0.60 : 0.35);
+        aG.strokeRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2, BTN_W, BTN_HI, 12);
+    };
+    _drawAcc(false);
+
+    const aTxt = ui.add(S.add.text(CX, btnAccY - 1, "✓   " + lbl0.toUpperCase(), {
+        fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"19px",
+        color:"#ffffff", stroke:"#00000099", strokeThickness:4
+    }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
+
+    const aHit = ui.add(S.add.rectangle(CX, btnAccY, BTN_W, BTN_HI, 0xffffff, 0.001)
+        .setDepth(D+4).setInteractive({useHandCursor:true}));
+    aHit.on("pointerover", () => { _drawAcc(true); });
+    aHit.on("pointerout",  () => { _drawAcc(false); });
+    aHit.on("pointerdown", () => {
         _stopTick();
         S.cameras.main.shake(35, 0.006);
         for(let ei=0;ei<14;ei++){
             S.time.delayedCall(ei*18,()=>{
                 const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
                 const ep=S.add.graphics().setDepth(812);
-                ep.x=btnRX; ep.y=btnRowY;
+                ep.x=CX; ep.y=btnAccY;
                 ep.fillStyle(ev.color,0.9); ep.fillRect(-2,-2,4,4);
                 S.tweens.add({targets:ep,
                     x:ep.x+Math.cos(ang)*Phaser.Math.Between(30,90),
@@ -16030,35 +16061,43 @@ function showRunEventUI(S, ev){
         ch0.fn(S);
         ui.fadeAndDestroy(180);
         S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
-    }).forEach(o=>ui.add(o));
+    });
 
-    // ── DECLINE (sol, koyu gri) ───────────────────────────────────
-    for(let i=1; i<ev.choices.length; i++){
-        const chi = ev.choices[i];
-        const lbI = LLang(chi,"label","labelEN","labelRU");
+    // ── DECLINE (altta, ince, mat koyu — gold bonus yazısı ayrı) ──
+    if(ev.choices.length > 1){
+        const chi  = ev.choices[1];
+        const isTR = CURRENT_LANG === "tr";
+        const isRU = CURRENT_LANG === "ru";
+        const dLabel = isTR ? "REDDET" : isRU ? "ОТКАЗАТЬ" : "DECLINE";
+        const dBonus = isTR ? "+60 🪙 bonus alırsın" : isRU ? "+60 🪙 бонус" : "+60 🪙 bonus gold";
 
-        const dBtnG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
-        const _drawDec=(h)=>{
-            dBtnG.clear();
-            dBtnG.fillStyle(h?0x2c2c42:0x1a1a24,1);
-            dBtnG.fillRoundedRect(btnLX-BTN_W2/2, btnRowY-BTN_H/2, BTN_W2, BTN_H, 10);
-            dBtnG.lineStyle(1.5, h?0x9999cc:0x44444e, h?0.90:0.55);
-            dBtnG.strokeRoundedRect(btnLX-BTN_W2/2, btnRowY-BTN_H/2, BTN_W2, BTN_H, 10);
+        const dG = ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
+        const _drawDec = (h) => {
+            dG.clear();
+            dG.fillStyle(h ? 0x26263a : 0x14141e, 1);
+            dG.fillRoundedRect(CX - BTN_W/2, btnDecY - BTN_HL/2, BTN_W, BTN_HL, 10);
+            dG.lineStyle(1.5, h ? 0x8888bb : 0x303042, h ? 0.85 : 0.50);
+            dG.strokeRoundedRect(CX - BTN_W/2, btnDecY - BTN_HL/2, BTN_W, BTN_HL, 10);
         };
         _drawDec(false);
 
-        const dTxt=ui.add(S.add.text(btnLX, btnRowY, lbI,{
-            font:"bold 13px LilitaOne, Arial, sans-serif",
-            color:"#aaaacc",
-            align:"center",
-            wordWrap:{width:BTN_W2-10}
-        }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
+        // "✕  REDDET" — sol ortalı, orta büyüklük
+        const dMainTxt = ui.add(S.add.text(CX, btnDecY - 7, "✕   " + dLabel, {
+            fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"14px",
+            color:"#9999bb", stroke:"#000", strokeThickness:2
+        }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
 
-        const dHit=ui.add(S.add.rectangle(btnLX, btnRowY, BTN_W2, BTN_H, 0xffffff, 0.001)
-            .setInteractive({useHandCursor:true}).setDepth(D+4));
-        dHit.on("pointerover",()=>{ _drawDec(true); dTxt.setColor("#ffffff"); });
-        dHit.on("pointerout", ()=>{ _drawDec(false); dTxt.setColor("#aaaacc"); });
-        dHit.on("pointerdown",()=>{
+        // "+60 🪙 bonus alırsın" — küçük, yeşilimsi
+        const dSubTxt = ui.add(S.add.text(CX, btnDecY + 9, dBonus, {
+            fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"10px",
+            color:"#66bb55", stroke:"#000", strokeThickness:1
+        }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
+
+        const dHit = ui.add(S.add.rectangle(CX, btnDecY, BTN_W, BTN_HL, 0xffffff, 0.001)
+            .setDepth(D+4).setInteractive({useHandCursor:true}));
+        dHit.on("pointerover",  () => { _drawDec(true);  dMainTxt.setColor("#ccccee"); });
+        dHit.on("pointerout",   () => { _drawDec(false); dMainTxt.setColor("#9999bb"); });
+        dHit.on("pointerdown",  () => {
             _stopTick();
             NT_SFX.play("menu_click");
             chi.fn(S);
@@ -16066,15 +16105,18 @@ function showRunEventUI(S, ev){
             S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
         });
 
-        S.time.delayedCall(220+i*60,()=>{
-            S.tweens.add({targets:[dBtnG,dTxt],alpha:1,duration:160,ease:"Quad.easeOut"});
+        S.time.delayedCall(200,()=>{
+            S.tweens.add({targets:[dG,dMainTxt,dSubTxt],alpha:1,duration:180,ease:"Quad.easeOut"});
         });
     }
 
-    // Icerik elementleri fade-in
+    // Icerik elementleri + accept buton fade-in
     S.time.delayedCall(80,()=>{
         S.tweens.add({targets:[icBg,iconTxt,titleTxt,descTxt,divG],
             alpha:1,duration:220,ease:"Quad.easeOut"});
+    });
+    S.time.delayedCall(160,()=>{
+        S.tweens.add({targets:[aG,aTxt],alpha:1,duration:200,ease:"Back.easeOut"});
     });
 
     // Otomatik kapanma (8 saniye)
