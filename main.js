@@ -1,8 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// NOT FAIR  v9.0
-// Şahin Beyazgül tarafından geliştirilmiştir.
-// © 2024 Şahin Beyazgül — Tüm hakları saklıdır.
-// PART A: Dil Sistemi, Sabitler, Oyun Sistemi
+// NOT FAIR  v9.0  |  by Sahin Beyazgul
+// PART A: Dil Sistemi, Sabitler, Epilepsi Sahnesi, Intro Sahnesi
 // ═══════════════════════════════════════════════════════════════
 
 
@@ -186,20 +184,10 @@ const NT_SFX = (function(){
     let _paused  = false;
 
     // ── Voice pool — prevents simultaneous voice overload ─────────
-    const _MAX_VOICES = 32;  // 40→32 azaltıldı: GC baskısını düşürür
+    const _MAX_VOICES = 40;
     let   _activeVoices = 0;
-    let   _voiceLeakGuardT = 0;
     function _acquireVoice(){ if(_activeVoices>=_MAX_VOICES)return false; _activeVoices++; return true; }
     function _releaseVoice(){ _activeVoices=Math.max(0,_activeVoices-1); }
-    // Voice sızıntı koruyucusu: onended bazı tarayıcılarda/Telegram'da
-    // tetiklenmez → sayaç MAX'ta takılır → ses tamamen kesilir.
-    // Her 2sn kontrol eder; 4sn boyunca MAX'taysa %40'a sıfırlar.
-    setInterval(()=>{
-        if(_activeVoices>=_MAX_VOICES){
-            const now=Date.now();
-            if(now-_voiceLeakGuardT>4000){_voiceLeakGuardT=now;_activeVoices=Math.floor(_MAX_VOICES*0.4);}
-        } else { _voiceLeakGuardT=Date.now(); }
-    },2000);
 
     // ── AudioContext bootstrap ────────────────────────────────────
     function _getCtx(){
@@ -259,15 +247,6 @@ const NT_SFX = (function(){
     function _vary(base,range=0.05){ return base*(1+(Math.random()*2-1)*range); }
     function _varyC(cents=12){ return (Math.random()*2-1)*cents; }
 
-    // AudioContext suspend guard: Telegram/Chrome bazen context'i suspend eder.
-    // Ses kesiliveriyor gibi görünür ama aslında context uyku moduna girmiştir.
-    // Her 5 saniyede bir kontrol edip resume() çağırır.
-    setInterval(()=>{
-        if(_ctx && _ctx.state === "suspended"){
-            _ctx.resume().catch(()=>{});
-        }
-    }, 5000);
-
     // ── Stereo panner ─────────────────────────────────────────────
     function _mkPan(ctx,val){
         try{
@@ -276,16 +255,10 @@ const NT_SFX = (function(){
         return null;
     }
 
-    // ── Waveshaper curve — CACHED (Float32Array yeniden kullanımı) ──
-    // Her çağrıda yeni array oluşturmak yerine amount→curve haritası tutar.
-    // Kick + bass her adımda çağırıyordu → dakikalarca oyunda binlerce allocation.
-    const _distCurveCache = new Map();
+    // ── Waveshaper curve ─────────────────────────────────────────
     function _distCurve(amount=3){
-        const key = Math.round(amount*4)/4; // 0.25 hassasiyetine yuvarla
-        if(_distCurveCache.has(key)) return _distCurveCache.get(key);
         const n=256,c=new Float32Array(n);
-        for(let i=0;i<n;i++){ const x=i*2/n-1; c[i]=Math.tanh(x*key); }
-        _distCurveCache.set(key,c);
+        for(let i=0;i<n;i++){ const x=i*2/n-1; c[i]=Math.tanh(x*amount); }
         return c;
     }
 
@@ -308,45 +281,26 @@ const NT_SFX = (function(){
         return o;
     }
 
-    // ── Pre-allocated shared noise buffer ────────────────────────
-    // TEMEL SORUN: _noise() her çağrıda yeni AudioBuffer yaratıyor ve
-    // binlerce Math.random() ile dolduruyor. 9 adım/sn × 3-5 noise/adım
-    // = saniyede ~30-40 yeni buffer. 10+ dakikada GC thread'i donduruyor.
-    // ÇÖZÜM: Tek uzun buffer önceden oluştur, her çağrıda farklı offset'ten
-    // okuyarak çeşitlilik sağla. Sıfır allocation, ses kalitesi aynı.
-    let _sharedNoiseBuf = null;
-    const _NOISE_BUF_SEC = 3.0; // 3 saniyelik noise buffer
-    function _getSharedNoise(ctx){
-        if(_sharedNoiseBuf && _sharedNoiseBuf.sampleRate===ctx.sampleRate) return _sharedNoiseBuf;
-        const sr=ctx.sampleRate;
-        const len=Math.ceil(sr*_NOISE_BUF_SEC);
-        _sharedNoiseBuf=ctx.createBuffer(1,len,sr);
-        const d=_sharedNoiseBuf.getChannelData(0);
-        for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
-        return _sharedNoiseBuf;
-    }
-
-    // ── Core NOISE primitive — SIFIR ALLOCATION ───────────────────
+    // ── Core NOISE primitive ──────────────────────────────────────
     function _noise(t0,dur,gain,lo=300,hi=6000,bus=null,panVal=0){
         const ctx=_getCtx(); if(!ctx) return;
         if(!_acquireVoice()) return;
         const dest=bus||_sfxBus;
-        const nBuf=_getSharedNoise(ctx);
-        // Rastgele offset: her çağrıda farklı bölgeyi okur → çeşitlilik
-        const maxOff=Math.max(0,_NOISE_BUF_SEC-dur-0.15);
-        const offset=Math.random()*maxOff;
-        const src=ctx.createBufferSource();
-        src.buffer=nBuf;
+        const sr=ctx.sampleRate, len=Math.ceil(sr*(dur+0.05));
+        const buf=ctx.createBuffer(1,len,sr);
+        const d=buf.getChannelData(0);
+        for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+        const src=ctx.createBufferSource(); src.buffer=buf;
         const bpf=ctx.createBiquadFilter(); bpf.type="bandpass";
         bpf.frequency.value=(lo+hi)/2; bpf.Q.value=0.8;
         const g=ctx.createGain();
         g.gain.setValueAtTime(gain,t0);
         g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
         src.connect(bpf); bpf.connect(g);
-        if(panVal!==0){ const p=_mkPan(ctx,panVal); if(p){ g.connect(p); p.connect(dest); src.start(t0,offset,dur+0.05); try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.15)*1000);} return; } }
+        if(panVal!==0){ const p=_mkPan(ctx,panVal); if(p){ g.connect(p); p.connect(dest); src.start(t0); src.stop(t0+dur+0.05); try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);} return; } }
         g.connect(dest);
-        src.start(t0,offset,dur+0.05);
-        try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.15)*1000);}
+        src.start(t0); src.stop(t0+dur+0.05);
+        try{src.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);}
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -355,9 +309,8 @@ const NT_SFX = (function(){
     const _BPM      = 138;
     const _STEP     = 60/_BPM/4;       // 16th note duration (seconds)
     const _BAR      = 16;              // steps per bar
-    const _LOOKAHEAD= 0.08;            // 100ms→80ms: daha az önceden hesapla
+    const _LOOKAHEAD= 0.10;
     const _SCHED_INT= 0.040;           // 40ms scheduler interval
-    const _MAX_STEPS_PER_RUN = 4;      // tek scheduler çalışmasında max adım
 
     let _musPlaying  = false;
     let _musTimer    = null;
@@ -749,19 +702,26 @@ const NT_SFX = (function(){
 
     function _musScheduler(){
         if(!_musPlaying||!_ctx) return;
-        // Context suspend kontrolü
-        if(_ctx.state==="suspended"){ _ctx.resume().catch(()=>{}); return; }
-        // musNextNote çok geride kaldıysa (tab gizlendi vs) ileri al
-        // Aksi halde focus dönünce burst scheduling yapar → donma
-        const now=_ctx.currentTime;
-        if(_musNextNote < now - 0.5) _musNextNote = now + 0.02;
-        const lookAhead=now+_LOOKAHEAD;
-        let steps=0;
-        while(_musNextNote<lookAhead && steps<_MAX_STEPS_PER_RUN){
+        // [FIX-SES] Context suspend kontrolü — sekme arka plana alınınca veya
+        // mobil ekran kapanınca context suspended olur. Resume etmeden devam edersek
+        // _musNextNote geride kalır; dönerken while döngüsü yüzlerce step'i
+        // aynı anda schedule eder → ses distort/kesilir. Önce resume et, bu tick'i atla.
+        if(_ctx.state === "suspended"){
+            _ctx.resume().catch(()=>{});
+            return;
+        }
+        const now = _ctx.currentTime;
+        // [FIX-SES] Flood koruması — _musNextNote çok geride kalmışsa (context
+        // suspend sonrası > 500ms) sıfırla. Aksi hâlde while döngüsü onlarca
+        // oscillator aynı anda yaratır → ses bozulur/kesilir.
+        if(_musNextNote < now - 0.5){
+            _musNextNote = now + 0.05;
+        }
+        const lookAhead = now + _LOOKAHEAD;
+        while(_musNextNote < lookAhead){
             _scheduleStep(_musNextNote,_musStep);
             _musStep=(_musStep+1)%_BAR;
             _musNextNote+=_STEP;
-            steps++;
         }
     }
 
@@ -777,12 +737,19 @@ const NT_SFX = (function(){
         _musBus.gain.setValueAtTime(0,ctx.currentTime);
         _musBus.gain.linearRampToValueAtTime(_mVol(0.88),ctx.currentTime+0.6);
         _musTimer=setInterval(_musScheduler,_SCHED_INT*1000);
+        // [FIX-SES] Periyodik context sağlık kontrolü — mobil arka plandan
+        // dönüldüğünde context suspended kalabilir. Her 8 saniyede bir kontrol et.
+        if(_ctxHealthTimer) clearInterval(_ctxHealthTimer);
+        _ctxHealthTimer=setInterval(()=>{
+            if(_ctx && _ctx.state==="suspended") _ctx.resume().catch(()=>{});
+        },8000);
     }
 
     function _stopMusic(fadeTime=2.0){
         if(!_musPlaying||!_ctx) return;
         _musPlaying=false;
         clearInterval(_musTimer); _musTimer=null;
+        if(_ctxHealthTimer){ clearInterval(_ctxHealthTimer); _ctxHealthTimer=null; } // [FIX-SES]
         _musBus.gain.cancelScheduledValues(_ctx.currentTime);
         _musBus.gain.setValueAtTime(_musBus.gain.value,_ctx.currentTime);
         _musBus.gain.linearRampToValueAtTime(0,_ctx.currentTime+fadeTime);
@@ -816,6 +783,7 @@ const NT_SFX = (function(){
 
     // ── Low HP heartbeat ambience ─────────────────────────────────
     let _heartbeatTimer=null;
+    let _ctxHealthTimer=null; // [FIX-SES] Periyodik AudioContext sağlık kontrolü
     function _startHeartbeat(){
         if(_heartbeatTimer) return;
         _heartbeatTimer=setInterval(()=>{
@@ -1236,12 +1204,14 @@ const NT_SFX = (function(){
             oS.connect(gS); gS.connect(_sfxBus); oS.start(t); oS.stop(t+0.08);
 
             // ── 4. SPARKLE BURST — parildama (yuksek frekans noise) ─
-            // Shared noise buffer kullanır — sıfır allocation
+            // Cok kisa, stereo'da rastgele — her pickup biraz farkli hissettir.
             const panSpark=_mkPan(ctx, (Math.random()-0.5)*0.9);
             const sparkG=ctx.createGain();
-            const sparkNBuf=_getSharedNoise(ctx);
-            const sparkOffset=Math.random()*(_NOISE_BUF_SEC-0.06);
-            const sparkSrc=ctx.createBufferSource(); sparkSrc.buffer=sparkNBuf;
+            const sr=ctx.sampleRate, sparkLen=Math.ceil(sr*0.04);
+            const sparkBuf=ctx.createBuffer(1,sparkLen,sr);
+            const sparkD=sparkBuf.getChannelData(0);
+            for(let i=0;i<sparkLen;i++) sparkD[i]=Math.random()*2-1;
+            const sparkSrc=ctx.createBufferSource(); sparkSrc.buffer=sparkBuf;
             const sparkHPF=ctx.createBiquadFilter();
             sparkHPF.type="highpass"; sparkHPF.frequency.value=9000+step*300;
             sparkG.gain.setValueAtTime(_vol(vol*0.55), t+0.001);
@@ -1249,7 +1219,7 @@ const NT_SFX = (function(){
             sparkSrc.connect(sparkHPF); sparkHPF.connect(sparkG);
             if(panSpark){sparkG.connect(panSpark);panSpark.connect(_sfxBus);}
             else{sparkG.connect(_sfxBus);}
-            sparkSrc.start(t+0.001,sparkOffset,0.044);
+            sparkSrc.start(t+0.001); sparkSrc.stop(t+0.045);
 
             // ── 5. INHARMONIK PARLAKLAMA (2.76x) — metalik kristal ─
             const oC=ctx.createOscillator(), gC=ctx.createGain();
@@ -1706,23 +1676,26 @@ const NT_SFX = (function(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
             const pan=_vary(0,0.65);
-            // Shared noise buffer kullan — sıfır allocation
-            const nBuf=_getSharedNoise(ctx);
-            const offset=Math.random()*(_NOISE_BUF_SEC-0.28);
-            const src=ctx.createBufferSource(); src.buffer=nBuf;
+            // Main swoop: bandpass noise with falling filter sweep
+            const sr=ctx.sampleRate, len=Math.ceil(sr*0.22);
+            const buf=ctx.createBuffer(1,len,sr);
+            const d=buf.getChannelData(0);
+            for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+            const src=ctx.createBufferSource(); src.buffer=buf;
             const bpf=ctx.createBiquadFilter();
             bpf.type="bandpass";
+            // Filter sweeps: 1800Hz → 480Hz — the "falling through air" sensation
             bpf.frequency.setValueAtTime(1800,t);
             bpf.frequency.exponentialRampToValueAtTime(480,t+0.18);
             bpf.Q.value=2.2;
             const g=ctx.createGain();
             g.gain.setValueAtTime(0,t);
-            g.gain.linearRampToValueAtTime(_vol(0.055),t+0.022);
+            g.gain.linearRampToValueAtTime(_vol(0.055),t+0.022); // very quiet
             g.gain.exponentialRampToValueAtTime(0.0001,t+0.20);
             const p=_mkPan(ctx,pan);
             src.connect(bpf); bpf.connect(g);
             if(p){g.connect(p);p.connect(_sfxBus);}else{g.connect(_sfxBus);}
-            src.start(t,offset,0.23);
+            src.start(t); src.stop(t+0.23);
         },
     };
 
@@ -1870,8 +1843,11 @@ const NT_SFX = (function(){
     // ── Init on first user gesture ────────────────────────────────
     let _initDone=false;
     function _initOnGesture(){
-        if(_initDone) return; _initDone=true;
-        _getCtx(); _resume();
+        // [FIX-SES] Her gesture'da _resume() çağır — context suspended kalırsa
+        // ilk gesture'dan sonra bir daha resume edilmiyordu. Şimdi her dokunuşta
+        // context zaten running ise resume() hızla döner (no-op), suspended ise kurtarır.
+        if(!_initDone){ _initDone=true; _getCtx(); }
+        _resume();
     }
     ["pointerdown","keydown","touchstart"].forEach(ev=>{
         document.addEventListener(ev,_initOnGesture,{once:false,capture:true,passive:true});
@@ -2702,12 +2678,11 @@ function showWheel(scene){
     // ── FREE SPIN button ──
     const fY=WY+R+52;
     const fBg=A(scene.add.graphics().setDepth(D+3));
-    let _freeAvail=cf; // mutable: tracks if free spin is currently available
-    const _dF=h=>{fBg.clear();const c=_freeAvail?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,_freeAvail?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(_freeAvail&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
+    const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
-    const _freeTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
+    A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
-    .on("pointerover",()=>{if(_freeAvail)_dF(true);}).on("pointerout",()=>_dF(false))
+    .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
     .on("pointerdown",()=>{if(!_canFree()||spinning)return;_spin(true);});
 
     // ── GEM SPIN button ──
@@ -2735,13 +2710,6 @@ function showWheel(scene){
         _lastTickIdx=-1;
         // Reset arrow position in case previous bounce left it offset
         ar.y = _arOrigY;
-        // ── FREE SPIN: hemen timestamp kaydet ve butonu anında güncelle ──
-        if(isFree){
-            const st=_s(); st.wl=Date.now(); _sv(st);
-            _freeAvail=false;
-            if(_freeTxt.scene) _freeTxt.setText(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING...").setColor("#777777");
-            _dF(false);
-        }
         // Weighted random
         const tw=WHEEL.reduce((s,x)=>s+x.w,0); let rn=Math.random()*tw, wi=0;
         for(let i=0;i<SC;i++){rn-=WHEEL[i].w;if(rn<=0){wi=i;break;}}
@@ -2779,7 +2747,7 @@ function showWheel(scene){
                 wAngle=sp.a%(Math.PI*2); spinning=false;
                 ar.y = _arOrigY; // ensure arrow is reset
                 const prize=WHEEL[wi];
-                // wl already saved at spin start for free spins
+                if(isFree){const st=_s();st.wl=Date.now();_sv(st);}
                 // Big flash on win
                 const winFlash=scene.add.graphics().setDepth(D+20);
                 winFlash.fillStyle(prize.color||0xffcc00, 0.35);
@@ -4873,12 +4841,10 @@ let _fpsSamples = [];
 function updatePerfMode(fps){
     _fpsSamples.push(fps);
     if(_fpsSamples.length > 60) _fpsSamples.shift();
-    if(_fpsSamples.length < 20) return;
+    if(_fpsSamples.length < 30) return;
     const avg = _fpsSamples.reduce((a,b)=>a+b,0)/_fpsSamples.length;
-    // 100k+ skordan sonra threshold yükselt: daha erken low moda gir
-    const score = (typeof GS !== "undefined" && GS) ? (GS.score||0) : 0;
-    const latGame = score >= 80000;
-    const threshold = _IS_MOBILE_EARLY ? (latGame?54:50) : (latGame?42:35);
+    // Mobile: higher threshold (50fps), desktop: 35fps
+    const threshold = _IS_MOBILE_EARLY ? 50 : 35;
     _perfMode = avg < threshold ? "low" : "high";
 }
 
@@ -4886,7 +4852,7 @@ function updatePerfMode(fps){
 function canSpawnParticle(priority="normal"){
     if(_perfMode === "high") return true;
     if(priority === "critical") return true;   // boss death vs
-    if(priority === "normal")   return Math.random() < 0.25; // 0.4→0.25 low modda daha az
+    if(priority === "normal")   return Math.random() < 0.4;
     return false; // "cheap" particle → low mode'da atla
 }
 
@@ -5477,12 +5443,10 @@ const RUN_EVENTS = [
                          return;
                      }
                      const bx=S.player.x,by=S.player.y;
-                     if(_POOL){
-                         const ring=_POOL.get(22); if(ring){
-                             ring.lineStyle(3,0xff4400,0.9); ring.strokeCircle(bx,by,8);
-                             _pt(S,ring,{scaleX:5,scaleY:5,alpha:0,duration:400,ease:"Quad.easeOut"});
-                         }
-                     }
+                     const ring=S.add.graphics().setDepth(22);
+                     ring.lineStyle(3,0xff4400,0.9); ring.strokeCircle(bx,by,8);
+                     S.tweens.add({targets:ring,scaleX:5,scaleY:5,alpha:0,duration:400,
+                         ease:"Quad.easeOut",onComplete:()=>{try{ring.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
                      const ae=S._activeEnemies||S.pyramids.getMatching("active",true);
                      ae.forEach(e=>{
                          if(!e||!e.active) return;
@@ -7855,24 +7819,22 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
             if(now2-lastCritVfx>80){
                 enemy._lastCritVfx=now2;
                 const gr=isMiniBossHit?Math.max(22,enemy.displayWidth*0.25):Math.max(6,Math.min(12,enemy.displayWidth*0.35));
-                if(_POOL){
-                    const ring=_POOL.get(22); if(ring){
-                        ring.x=enemy.x; ring.y=enemy.y;
-                        ring.lineStyle(isMiniBossHit?3:1.5,isMiniBossHit?0xffffff:0xffee00,0.85);
-                        ring.strokeCircle(0,0,gr);
-                        _pt(S,ring,{scaleX:2.0,scaleY:2.0,alpha:0,duration:160,ease:"Quad.easeOut"});
-                    }
-                    for(let _ci=0;_ci<4;_ci++){
-                        const _ca=Phaser.Math.DegToRad(_ci*90+45);
-                        const _sp2=_POOL.get(23); if(!_sp2) break;
-                        _sp2.x=enemy.x+Math.cos(_ca)*gr*0.25;
-                        _sp2.y=enemy.y+Math.sin(_ca)*gr*0.25;
-                        _sp2.fillStyle(0xffee44,0.85); _sp2.fillRect(-0.6,-2.5,1.2,5);
-                        _sp2.angle=_ci*90+45;
-                        _pt(S,_sp2,{
-                            x:_sp2.x+Math.cos(_ca)*14,y:_sp2.y+Math.sin(_ca)*14,
-                            alpha:0,scaleY:0.1,duration:120,ease:"Quad.easeOut"});
-                    }
+                const ring=S.add.graphics().setDepth(22);
+                ring.x=enemy.x; ring.y=enemy.y;
+                ring.lineStyle(isMiniBossHit?3:1.5, isMiniBossHit?0xffffff:0xffee00, 0.85);
+                ring.strokeCircle(0,0,gr);
+                S.tweens.add({targets:ring,scaleX:2.0,scaleY:2.0,alpha:0,duration:160,ease:"Quad.easeOut",onComplete:()=>ring.destroy()});
+                for(let _ci=0;_ci<4;_ci++){
+                    const _ca=Phaser.Math.DegToRad(_ci*90+45);
+                    const _sp2=S.add.graphics().setDepth(23);
+                    _sp2.x=enemy.x+Math.cos(_ca)*gr*0.25;
+                    _sp2.y=enemy.y+Math.sin(_ca)*gr*0.25;
+                    _sp2.fillStyle(0xffee44,0.85); _sp2.fillRect(-0.6,-2.5,1.2,5);
+                    _sp2.angle=_ci*90+45;
+                    S.tweens.add({targets:_sp2,
+                        x:_sp2.x+Math.cos(_ca)*14,y:_sp2.y+Math.sin(_ca)*14,
+                        alpha:0,scaleY:0.1,duration:120,ease:"Quad.easeOut",
+                        onComplete:()=>_sp2.destroy()});
                 }
             }
         }
@@ -8057,8 +8019,8 @@ function spawnChest(S,x,y){
     const glow=S.add.graphics().setDepth(6);
     const arrowBob={t:0};
 
-    const tick=S.time.addEvent({delay:50,loop:true,callback:()=>{  // 16→50ms: görsel fark yok, CPU tasarrufu büyük
-        if(!chest.scene){tick.remove();try{arrow.destroy();}catch(e){}try{glow.destroy();}catch(e){}return;}
+    const tick=S.time.addEvent({delay:16,loop:true,callback:()=>{
+        if(!chest.scene){tick.remove();try{arrow.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}try{glow.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}return;}
         arrowBob.t+=0.08;
         if(!landed){
             vy+=2.5;chest.x+=vx*0.016;chest.y+=vy*0.016;
@@ -8069,25 +8031,20 @@ function spawnChest(S,x,y){
             }
         } else {
             chest.angle=Math.sin(arrowBob.t*0.7)*1.5;
-            // Rarity renginde parilti parcaciklari — pool ile yönetiliyor
+            // Rarity renginde parilti parcaciklari
             if(Math.random()<(rarity===CHEST_RARITY.LEGENDARY?0.06:rarity===CHEST_RARITY.RARE?0.035:0.015)){
-                if(_POOL){
-                    const sp=_POOL.get(9); if(sp){
-                        const sc=rarity.color;
-                        sp.fillStyle(sc,0.85);
-                        const ox=Phaser.Math.Between(-14,14),oy=Phaser.Math.Between(-10,10);
-                        const sw=Phaser.Math.Between(2,4);
-                        sp.fillRect(chest.x+ox,chest.y+oy,sw,sw);
-                        _pt(S,sp,{y:sp.y-Phaser.Math.Between(12,28),alpha:0,duration:Phaser.Math.Between(300,550)});
-                    }
-                }
+                const sp=S.add.graphics().setDepth(9);
+                const sc=rarity.color;
+                sp.fillStyle(sc,0.85);
+                sp.fillRect(chest.x+Phaser.Math.Between(-14,14),chest.y+Phaser.Math.Between(-10,10),Phaser.Math.Between(2,4),Phaser.Math.Between(2,4));
+                S.tweens.add({targets:sp,y:sp.y-Phaser.Math.Between(12,28),alpha:0,duration:Phaser.Math.Between(300,550),onComplete:()=>sp.destroy()});
             }
             // Glow efekti
             glow.clear();
             const ga=0.05+Math.sin(arrowBob.t*2)*0.03;
             if(rarity===CHEST_RARITY.LEGENDARY){
                 glow.fillStyle(rarity.glowColor,ga*2.2);glow.fillCircle(chest.x,chest.y,30+Math.sin(arrowBob.t)*5);
-                if(Math.random()<0.035&&_POOL){const sp=_POOL.get(8);if(sp){sp.fillStyle(0xffcc00,0.8);sp.fillRect(chest.x+Phaser.Math.Between(-12,12),chest.y,2,2);_pt(S,sp,{y:sp.y-22,alpha:0,duration:400});}}
+                if(Math.random()<0.035){const sp=S.add.rectangle(chest.x+Phaser.Math.Between(-12,12),chest.y,2,2,0xffcc00,0.8).setDepth(8);S.tweens.add({targets:sp,y:sp.y-22,alpha:0,duration:400,onComplete:()=>sp.destroy()});}
             } else if(rarity===CHEST_RARITY.RARE){
                 glow.fillStyle(rarity.glowColor,ga*1.6);glow.fillCircle(chest.x,chest.y,22+Math.sin(arrowBob.t)*3);
             } else {
@@ -8555,8 +8512,7 @@ function buildUI(S){
     pH.on("pointerdown",  ()=>{
         NT_SFX.play("menu_click");
         pH.setAlpha(0.5);
-        showPause(S);
-        scene.time.delayedCall(120,()=>{ if(pH.scene) pH.setAlpha(0.80); });
+        window.setTimeout(()=>{ pH.setAlpha(0.80); showPause(S); }, 60);
     });
 
     // ── COMBO — invisible placeholder (combo gosterimi spawnComboText ile yapilir)
@@ -9061,11 +9017,6 @@ function spawnDamageText(S, x, y, value, isCrit){
                 });
             }
         });
-        // Hard TTL: crit animasyonu 90+55+680 = ~825ms — 1400ms'de garantili temizlik
-        S.time.delayedCall(1400, ()=>{
-            _dmgNumCount=Math.max(0,_dmgNumCount-1);
-            _jtDestroy([t, glow]);
-        });
 
         // Crit ring
         const cr = S.add.graphics().setDepth(42);
@@ -9115,8 +9066,6 @@ function spawnDamageText(S, x, y, value, isCrit){
                     });
                 }
             });
-            // Hard TTL safeguard
-            S.time.delayedCall(80+dur+300, ()=>{ _dmgNumCount=Math.max(0,_dmgNumCount-1); try{t.destroy();}catch(e){} });
         } else {
             S.tweens.add({targets:t, y:ty-rise, alpha:0,
                 duration:dur, ease:"Quad.easeOut",
@@ -9125,8 +9074,6 @@ function spawnDamageText(S, x, y, value, isCrit){
                     try{t.destroy();}catch(e){}
                 }
             });
-            // Hard TTL safeguard
-            S.time.delayedCall(dur+300, ()=>{ _dmgNumCount=Math.max(0,_dmgNumCount-1); try{t.destroy();}catch(e){} });
         }
     }
 }
@@ -9176,16 +9123,7 @@ function spawnComboText(S, x, y, combo){
 
     const allC = [t, glow].filter(Boolean);
 
-    // [FIX] Hard TTL — repeat:-1 tween'ler için garantili temizlik
-    // Toplam süre: 80+180+100+520+380 = ~1260ms → 1800ms'de temizle
-    let _comboBreath = null, _comboSwing = null;
-    const _comboTTL = S.time.delayedCall(1800, ()=>{
-        try{ if(_comboBreath) _comboBreath.stop(); }catch(e){}
-        try{ if(_comboSwing)  _comboSwing.stop();  }catch(e){}
-        _jtDestroy([t, glow]);
-    });
-
-    // Giris: squash → elastic pop → settle (düzleştirilmiş)
+    // Giris: squash → elastic pop → settle
     S.tweens.add({
         targets: allC,
         scaleX: baseScale * 0.6,
@@ -9209,8 +9147,8 @@ function spawnComboText(S, x, y, combo){
                         ease: "Quad.easeOut",
                         onComplete: ()=>{
 
-                            // Nefes alma — ref sakla
-                            _comboBreath = S.tweens.add({
+                            // Nefes alma
+                            const breath = S.tweens.add({
                                 targets: allC,
                                 scaleX: { from: baseScale, to: baseScale * 1.09 },
                                 scaleY: { from: baseScale, to: baseScale * 1.09 },
@@ -9220,8 +9158,8 @@ function spawnComboText(S, x, y, combo){
                                 repeat: -1
                             });
 
-                            // Sag-sol sallama — ref sakla
-                            _comboSwing = S.tweens.add({
+                            // Sag-sol sallama
+                            const swing = S.tweens.add({
                                 targets: allC,
                                 angle: { from: -4, to: 4 },
                                 duration: 220,
@@ -9242,13 +9180,10 @@ function spawnComboText(S, x, y, combo){
                                 delay: 520,
                                 ease: "Quad.easeIn",
                                 onStart: ()=>{
-                                    if(_comboBreath) _comboBreath.stop();
-                                    if(_comboSwing)  _comboSwing.stop();
+                                    breath.stop();
+                                    swing.stop();
                                 },
-                                onComplete: ()=>{
-                                    try{ _comboTTL.remove(); }catch(e){}
-                                    _jtDestroy([t, glow]);
-                                }
+                                onComplete: ()=>{ _jtDestroy([t, glow]); }
                             });
                         }
                     });
@@ -9302,8 +9237,6 @@ function spawnGoldText(S, x, y, amount){
             });
         }
     });
-    // Hard TTL safeguard: 90+160+580 = ~830ms → 1300ms'de garantili temizlik
-    S.time.delayedCall(1300, ()=>{ _jtDestroy([t, glow]); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -9361,8 +9294,6 @@ function spawnKillText(S, x, y){
             });
         }
     });
-    // Hard TTL safeguard: 80+60+200+500 = ~840ms → 1400ms'de garantili temizlik
-    S.time.delayedCall(1400, ()=>{ _jtDestroy([t, glow]); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -9638,37 +9569,34 @@ function spawnHitDebris(S,x,y,type,isCrit){
 }
 
 function spawnImpact(S,x,y){
-    if(!_POOL) return;
-    // Kum / toprak parcaciklari — pool ile yönetiliyor
+    // Kum / toprak parcaciklari — yari daire yukari
     const sandC=[0xddbb77,0xccaa55,0xeecc88,0xbbaa44,0xffffff];
-    const cnt=_IS_MOBILE_EARLY?4:8; // mobilede azalt
-    for(let i=0;i<cnt;i++){
-        const p=_POOL.get(7); if(!p) break;
+    for(let i=0;i<10;i++){
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(170,370));
         const sp=Phaser.Math.Between(12,45);
         const sz=Phaser.Math.Between(2,5);
+        const p=S.add.graphics().setDepth(7);
         p.x=x+Phaser.Math.Between(-4,4); p.y=y;
         const impAng=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         p.lineStyle(Math.max(1,sz*0.5),sandC[i%5],0.8);
         p.lineBetween(0,0,Math.cos(impAng)*sz,Math.sin(impAng)*sz);
-        _pt(S,p,{x:p.x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp*0.35,
+        S.tweens.add({targets:p,
+            x:p.x+Math.cos(ang)*sp,y:y+Math.sin(ang)*sp*0.35,
             alpha:0,scaleX:0.15,scaleY:0.15,
             angle:Phaser.Math.Between(-120,120),
-            duration:Phaser.Math.Between(160,300),ease:"Quad.easeOut"});
+            duration:Phaser.Math.Between(160,300),ease:"Quad.easeOut",
+            onComplete:()=>p.destroy()});
     }
-    if(_IS_MOBILE_EARLY) return;
-    // Sok halkasi — pool
-    const sw=_POOL.get(6); if(sw){
-        sw.x=x; sw.y=y;
-        sw.lineStyle(1.5,0xddcc99,0.7); sw.strokeEllipse(0,0,6,2);
-        _pt(S,sw,{scaleX:5,scaleY:5,alpha:0,duration:200,ease:"Quad.easeOut"});
-    }
-    // Toz bulutu — pool
-    const dc=_POOL.get(5); if(dc){
-        dc.x=x; dc.y=y;
-        dc.fillStyle(0xccbb88,0.22); dc.fillEllipse(0,0,20,8);
-        _pt(S,dc,{scaleX:2.8,scaleY:2.0,alpha:0,y:y-4,duration:280,ease:"Quad.easeOut"});
-    }
+    // Sok halkasi — yatik elips (zemine yansiyan)
+    const sw=S.add.graphics().setDepth(6);
+    sw.x=x; sw.y=y;
+    sw.lineStyle(1.5,0xddcc99,0.7); sw.strokeEllipse(0,0,6,2);
+    S.tweens.add({targets:sw,scaleX:5,scaleY:5,alpha:0,duration:200,ease:"Quad.easeOut",onComplete:()=>sw.destroy()});
+    // Toz bulutu — hafif gri/bej dikdortgen
+    const dc=S.add.graphics().setDepth(5);
+    dc.x=x; dc.y=y;
+    dc.fillStyle(0xccbb88,0.22); dc.fillEllipse(0,0,20,8);
+    S.tweens.add({targets:dc,scaleX:2.8,scaleY:2.0,alpha:0,y:y-4,duration:280,ease:"Quad.easeOut",onComplete:()=>dc.destroy()});
 }
 // [VISUAL] Global hit text count limiter — prevents screen spam
 // ═══════════════════════════════════════════════════════════════
@@ -9688,29 +9616,20 @@ const _ftPerfectCooldown = 400; // ms
 // Merge buffer: ayni prefix'li LOW textleri birlestir
 const _ftMergeBuf = {}; // { key: {S, x, y, total, timer} }
 
-// ── _ftForceDestroy — tüm tween'leri durdur ve objeleri yok et ──────────
-// _ftEvict, update loop temizleme ve TTL callback bu fonksiyonu kullanır.
-// Eski yapıda breathTween/swingTween entry'de saklanmıyordu → evict edilince
-// repeat:-1 tween'ler sonsuza çalışıyordu (ekranda donma bug'ı). Düzeltildi.
-function _ftForceDestroy(e){
-    if(!e || e._destroyed) return;
-    e._destroyed = true;
-    try{ if(e.entryTween)  e.entryTween.stop();  }catch(x){}
-    try{ if(e.tween)       e.tween.stop();        }catch(x){}
-    try{ if(e.breathTween) e.breathTween.stop();  }catch(x){}
-    try{ if(e.swingTween)  e.swingTween.stop();   }catch(x){}
-    try{ if(e._ttlTimer)   e._ttlTimer.remove();  }catch(x){}
-    const idx = _ftActive.indexOf(e);
-    if(idx !== -1) _ftActive.splice(idx, 1);
-    _jtDestroy(e.allObjs || (e.obj ? [e.obj] : []));
-}
-
 function _ftEvict(){
     // Slot doluysa: once LOW, sonra NORMAL sil
     for(const pri of [FT_LOW, FT_NORMAL]){
         const idx = _ftActive.findIndex(e => e.priority === pri);
         if(idx !== -1){
-            _ftForceDestroy(_ftActive[idx]); // tüm tween'leri durdurur + destroy eder
+            const e = _ftActive.splice(idx, 1)[0];
+            try{ if(e.tween) e.tween.stop(); }catch(ex){}
+            // [BUG FIX] allObjs icindeki tum objeleri (glow dahil) destroy et
+            // Sadece e.obj destroy edilirse glow ekranda sonsuza kalir
+            if(e.allObjs && e.allObjs.length > 0){
+                _jtDestroy(e.allObjs);
+            } else {
+                try{ e.obj.destroy(); }catch(ex){}
+            }
             return true;
         }
     }
@@ -9805,82 +9724,98 @@ function showFloatingText(S, priority, text, x, y){
     }
 
     // ── Entry animation ─────────────────────────────────────────
-    // [FIX] Eski yapı: 3 iç içe onComplete zinciri — mobile throttling altında
-    // zincir kırılıyor, breathTween/swingTween (repeat:-1) entry'de saklanmıyordu
-    // → _ftEvict() bunları durduramıyor → ekranda sonsuza kalıyordu.
-    // Yeni yapı: düzleştirilmiş zincir + tüm tween'ler entry'de + hard TTL.
+    // Giris acisi: hafif egik basla, dik gel
     const entryAngle = Phaser.Math.Between(-8, 8);
     allObjs.forEach(o=>{ if(o) o.setAngle(entryAngle); });
 
-    // ── Hard TTL — zincir kırılsa bile her şeyi garanti siler ──
-    const _entryDur   = priority === FT_CRITICAL ? 140 : 85;
-    const _maxTTL     = _entryDur + 130 + stayDur + fadeDur + 500;
-    entry._ttlTimer   = S.time.delayedCall(_maxTTL, () => _ftForceDestroy(entry));
-
-    // Giriş tweeni — entry'de sakla ki evict ederken durdurabilelim
-    entry.entryTween = S.tweens.add({
+    S.tweens.add({
         targets: allObjs,
         alpha: 1,
         scaleX: scaleIn * 1.18,
         scaleY: scaleIn * 1.18,
         angle: 0,
         y: ty - riseY * 0.3,
-        duration: _entryDur,
+        duration: priority === FT_CRITICAL ? 140 : 85,
         ease: "Back.easeOut",
         onComplete: () => {
-            if(entry._destroyed) return;
-            // Settle: tek tween'e indirgendi (70+55 → 120ms)
+            // Settle: hafif squash
             S.tweens.add({
                 targets: allObjs,
-                scaleX: scaleIn,
-                scaleY: scaleIn,
-                duration: 120,
-                ease: "Back.easeOut",
+                scaleX: scaleIn * 0.92,
+                scaleY: scaleIn * 1.06,
+                duration: 70,
+                ease: "Quad.easeOut",
                 onComplete: () => {
-                    if(entry._destroyed) return;
-
-                    // ── NEFES ALMA (breathing) — entry'de sakla ──────
-                    if((priority===FT_CRITICAL||priority===FT_IMPORTANT||isPerfect) && _perfMode!=="low"){
-                        entry.breathTween = S.tweens.add({
-                            targets: allObjs,
-                            scaleX: { from: scaleIn, to: scaleIn * 1.08 },
-                            scaleY: { from: scaleIn, to: scaleIn * 1.08 },
-                            duration: 260, ease: "Sine.easeInOut", yoyo: true, repeat: -1
-                        });
-                    }
-
-                    // ── SAG-SOL SALLAMA (swing) — entry'de sakla ────
-                    if((priority===FT_CRITICAL||isPerfect) && _perfMode!=="low"){
-                        const swingAmp = priority===FT_CRITICAL ? 5 : 3;
-                        entry.swingTween = S.tweens.add({
-                            targets: allObjs,
-                            angle: { from: -swingAmp, to: swingAmp },
-                            duration: 180, ease: "Sine.easeInOut", yoyo: true, repeat: -1
-                        });
-                    } else if(priority===FT_IMPORTANT && _perfMode!=="low"){
-                        entry.swingTween = S.tweens.add({
-                            targets: allObjs,
-                            x: { from: tx-2, to: tx+2 },
-                            duration: 200, ease: "Sine.easeInOut", yoyo: true, repeat: -1
-                        });
-                    }
-
-                    // ── FADE OUT — entry.tween'e ata ────────────────
-                    entry.tween = S.tweens.add({
+                    S.tweens.add({
                         targets: allObjs,
-                        alpha: 0,
-                        y: ty - riseY,
-                        scaleX: 0.6,
-                        scaleY: 0.6,
-                        angle: 0,
-                        duration: fadeDur,
-                        ease: "Quad.easeIn",
-                        delay: stayDur,
-                        onStart: () => {
-                            if(entry.breathTween) entry.breathTween.stop();
-                            if(entry.swingTween)  entry.swingTween.stop();
-                        },
-                        onComplete: () => _ftForceDestroy(entry)
+                        scaleX: scaleIn,
+                        scaleY: scaleIn,
+                        duration: 55,
+                        ease: "Quad.easeOut",
+                        onComplete: () => {
+
+                            // ── NEFES ALMA (breathing) ─────────────────
+                            // Sadece CRITICAL ve IMPORTANT metinlerde + isPerfect
+                            let breathTween = null;
+                            if((priority === FT_CRITICAL || priority === FT_IMPORTANT || isPerfect) && _perfMode !== "low"){
+                                breathTween = S.tweens.add({
+                                    targets: allObjs,
+                                    scaleX: { from: scaleIn, to: scaleIn * 1.08 },
+                                    scaleY: { from: scaleIn, to: scaleIn * 1.08 },
+                                    duration: 260,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            }
+
+                            // ── SAG-SOL SALLAMA (swing) ────────────────
+                            // CRITICAL ve IMPORTANT + perfect icin sag-sol titre
+                            let swingTween = null;
+                            if((priority === FT_CRITICAL || isPerfect) && _perfMode !== "low"){
+                                const swingAmp = priority === FT_CRITICAL ? 5 : 3;
+                                swingTween = S.tweens.add({
+                                    targets: allObjs,
+                                    angle: { from: -swingAmp, to: swingAmp },
+                                    duration: 180,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            } else if(priority === FT_IMPORTANT && _perfMode !== "low"){
+                                swingTween = S.tweens.add({
+                                    targets: allObjs,
+                                    x: { from: tx - 2, to: tx + 2 },
+                                    duration: 200,
+                                    ease: "Sine.easeInOut",
+                                    yoyo: true,
+                                    repeat: -1
+                                });
+                            }
+
+                            // ── FADE OUT ───────────────────────────────
+                            const tw = S.tweens.add({
+                                targets: allObjs,
+                                alpha: 0,
+                                y: ty - riseY,
+                                scaleX: 0.6,
+                                scaleY: 0.6,
+                                angle: 0,
+                                duration: fadeDur,
+                                ease: "Quad.easeIn",
+                                delay: stayDur,
+                                onStart: () => {
+                                    if(breathTween) breathTween.stop();
+                                    if(swingTween)  swingTween.stop();
+                                },
+                                onComplete: () => {
+                                    const idx = _ftActive.indexOf(entry);
+                                    if(idx !== -1) _ftActive.splice(idx, 1);
+                                    _jtDestroy(allObjs);
+                                }
+                            });
+                            entry.tween = tw;
+                        }
                     });
                 }
             });
@@ -10053,7 +9988,7 @@ function NT_YellowBtn(scene, cx, cy, bw, bh, label, depth, fn){
     const t=scene.add.text(cx,cy,label,NT_STYLE.label(17)).setOrigin(0.5).setDepth(depth+1);
     const h=scene.add.rectangle(cx,cy,bw,bh,0xffffff,0.001).setDepth(depth+2).setInteractive({useHandCursor:true});
     h.on("pointerover",()=>draw(true)).on("pointerout",()=>draw(false));
-    h.on("pointerdown",()=>{ NT_SFX.play("menu_click"); scene.tweens.add({targets:[g,t],alpha:0.6,duration:40,yoyo:true}); fn(); });
+    h.on("pointerdown",()=>{ NT_SFX.play("menu_click"); scene.tweens.add({targets:[g,t],alpha:0.6,duration:50,yoyo:true,onComplete:fn}); });
     return [g,t,h];
 }
 
@@ -10243,6 +10178,7 @@ class SceneMainMenu extends Phaser.Scene {
 
     create(){
         // [FIX] Pause → Main Menu → Play arasi _goGameFired sifirla
+        // scene.start() ayni instance'i yeniden kullandigi icin onceki true degeri kaliyordu
         this._goGameFired = false;
 
         // [SOUND FIX] Main menu'ye donunce muzik ve ambiyans her zaman aktif olsun
@@ -10253,54 +10189,6 @@ class SceneMainMenu extends Phaser.Scene {
         }catch(e){ console.warn("[NT] Menu muzik init hatasi:", e); }
 
         const W=360,H=640,CX=180;
-
-        // ── ŞAHİN BEYAZGÜL SPLASH — ilk açılışta kısa marka ekranı ──────────
-        // Sadece bir kez gösterilir (session flag ile), sonraki menu dönüşlerinde çıkmaz.
-        if(!window._ntSplashShown){
-            window._ntSplashShown = true;
-            const splashObjs = [];
-            const _sA = o => { splashObjs.push(o); return o; };
-
-            // Siyah arka plan
-            const splashBg = _sA(this.add.rectangle(CX,H/2,W,H,0x000000,1).setDepth(2000));
-
-            // Üst dekorasyon çizgisi
-            const splashLine = _sA(this.add.graphics().setDepth(2001).setAlpha(0));
-            splashLine.lineStyle(1.5, 0xff6600, 0.6);
-            splashLine.lineBetween(CX-80, H/2-52, CX+80, H/2-52);
-            splashLine.lineBetween(CX-80, H/2+52, CX+80, H/2+52);
-
-            // NOT FAIR — büyük başlık
-            const splashTitle = _sA(this.add.text(CX, H/2-22, "NOT FAIR", {
-                fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"36px",
-                color:"#ff6600", stroke:"#000000", strokeThickness:5
-            }).setOrigin(0.5).setDepth(2002).setAlpha(0));
-
-            // Yapımcı adı
-            const splashDev = _sA(this.add.text(CX, H/2+18, "Şahin Beyazgül", {
-                fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"15px",
-                color:"#ffffff", stroke:"#000000", strokeThickness:2
-            }).setOrigin(0.5).setDepth(2002).setAlpha(0));
-
-            // Alt yazı
-            const splashSub = _sA(this.add.text(CX, H/2+40, "tarafından geliştirilmiştir", {
-                fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"10px",
-                color:"#888888"
-            }).setOrigin(0.5).setDepth(2002).setAlpha(0));
-
-            // Fade in
-            this.tweens.add({ targets:[splashTitle, splashDev, splashSub, splashLine],
-                alpha:1, duration:500, ease:"Quad.easeOut" });
-
-            // 1.8sn sonra fade out ve kaldır
-            this.time.delayedCall(1800, () => {
-                this.tweens.add({ targets: splashObjs, alpha:0, duration:400,
-                    ease:"Quad.easeIn", onComplete:()=>{
-                        splashObjs.forEach(o=>{ try{o.destroy();}catch(_){} });
-                    }
-                });
-            });
-        }
 
         // ── LAYER 0: Deep background gradient (animated, very slow) ────────
         const bgGrad=this.add.graphics().setDepth(-2);
@@ -10463,10 +10351,10 @@ class SceneMainMenu extends Phaser.Scene {
         // ── TOP BAR: gem + gold — yanyana tek satir, sicak tema, panelin ustunde ──
         {
             const _self = this;
-            const ICON_SZ = 34, GAP = 4;
-            const PILL_W  = 110, PILL_H = 34;
+            const ICON_SZ = 28, GAP = 4;
+            const PILL_W  = 90, PILL_H = 28;
             const PILL_R  = PILL_H / 2;
-            const TOP_Y   = 6;
+            const TOP_Y   = 8;
             const GEM_X   = W - 8 - PILL_W;
             const GOLD_X  = GEM_X - PILL_W - 6;
             const CY      = TOP_Y + PILL_H/2;
@@ -10510,7 +10398,7 @@ class SceneMainMenu extends Phaser.Scene {
             const goldIc = this.add.image(GOLD_X + ICON_SZ/2 + 3, CY, "icon_gold")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const goldTxt = this.add.text(GOLD_X + PILL_W - 5, CY, PLAYER_GOLD.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '15px',
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
                 color: '#ffdd44', stroke: '#1a0800', strokeThickness: 3
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
@@ -10520,7 +10408,7 @@ class SceneMainMenu extends Phaser.Scene {
             const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 3, CY, "icon_gem")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const gemTxt = this.add.text(GEM_X + PILL_W - 6, CY, PLAYER_GEMS.toLocaleString(), {
-                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '15px',
+                fontFamily: 'LilitaOne, Arial, sans-serif', fontSize: '13px',
                 color: '#dd99ff', stroke: '#0a0018', strokeThickness: 3
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
@@ -10533,7 +10421,7 @@ class SceneMainMenu extends Phaser.Scene {
             _self._mmGoldIc  = goldIc;
             _self._mmGemBg   = gemBg;
             _self._mmGemIc   = gemIc;
-            _self._hudRefreshTimer = this.time.addEvent({delay:100, loop:true, callback:()=>{
+            _self._hudRefreshTimer = this.time.addEvent({delay:300, loop:true, callback:()=>{
                 if(!goldTxt.scene) return;
                 const gStr   = PLAYER_GOLD.toLocaleString();
                 const gemStr = PLAYER_GEMS.toLocaleString();
@@ -12626,20 +12514,13 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
     };
     const wvt=WEAPON_TRAIL[weaponType]||{col:weaponTint||(totalLv2>=8?0xff4400:totalLv2>=5?0xff8800:totalLv2>=3?0xffcc44:0xffffff),glow:weaponTint||0xfff5aa,w:1.5,repeat:4,dur:55};
     const trailW=wvt.w;
-    // Low perf modda trail tamamen atla — bullet sayısı yüksek olunca büyük kazanç
-    if(_perfMode==="low"){
-        // Sadece tek kısa trail — minimum görünüm
-        const tr=S.add.rectangle(x,y,trailW,Phaser.Math.Between(6,12),wvt.col,0.55).setDepth(15);
-        tr.setRotation(b.rotation||0);
-        S.tweens.add({targets:tr,alpha:0,scaleY:0.08,duration:40,onComplete:()=>tr.destroy()});
-    } else {
     const trailRepeat=wvt.repeat;
     S.time.addEvent({delay:18,repeat:trailRepeat,callback:()=>{
         if(!b.active) return;
         const tr=S.add.rectangle(b.x,b.y,trailW,Phaser.Math.Between(9,18),wvt.col,0.65).setDepth(15);
         tr.setRotation(b.rotation);
         S.tweens.add({targets:tr,alpha:0,scaleX:0.12,scaleY:0.08,duration:wvt.dur,ease:"Quad.easeIn",onComplete:()=>tr.destroy()});
-        // White core spine
+        // White core spine — makes every bullet feel crisp
         if(Math.random()<0.55){
             const tr2=S.add.rectangle(b.x,b.y,0.8,Phaser.Math.Between(6,12),0xffffff,0.45).setDepth(16);
             tr2.setRotation(b.rotation);
@@ -12651,26 +12532,24 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
             trG.setRotation(b.rotation);
             S.tweens.add({targets:trG,alpha:0,scaleX:0.1,scaleY:0.07,duration:80,ease:"Sine.easeIn",onComplete:()=>trG.destroy()});
         }
-        // Reflect: extra teal sparkle
+        // Reflect: extra teal sparkle on ricochet path
         if(weaponType==="reflect"&&Math.random()<0.20){
             const sp=S.add.rectangle(b.x,b.y,1.5,3,0x44ffdd,0.70).setDepth(14);
             const sa=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
             S.tweens.add({targets:sp,x:b.x+Math.cos(sa)*Phaser.Math.Between(3,7),y:b.y+Math.sin(sa)*Phaser.Math.Between(3,7),alpha:0,duration:50,onComplete:()=>sp.destroy()});
         }
     }});
-    } // end perfMode check
 
-    // Mermi kovani — pool (reflect weapon'da yok)
-    if(weaponType!=="reflect" && _POOL && _perfMode!=="low"){
+    // Mermi kovani — siyah, sari cizgili (reflect weapon'da kovan cikmaz — tufek tarzi)
+    if(weaponType!=="reflect"){
         const kx=x+Phaser.Math.Between(-4,4);
-        const shell=_POOL.get(14); if(shell){
-            shell.setPosition(kx,y+4);
-            shell.fillStyle(0x222222,1); shell.fillRect(-1,-3,3,7);
-            shell.fillStyle(0xffcc00,1); shell.fillRect(0,-2,1,5);
-            const svx=(Math.random()-0.5)*55;
-            _pt(S,shell,{x:kx+svx,y:y+Phaser.Math.Between(18,32),
-                angle:Phaser.Math.Between(-180,180),alpha:0,duration:380,ease:"Quad.easeIn"});
-        }
+        const shell=S.add.graphics().setDepth(14).setPosition(kx,y+4);
+        shell.fillStyle(0x222222,1); shell.fillRect(-1,-3,3,7);
+        shell.fillStyle(0xffcc00,1); shell.fillRect(0,-2,1,5);
+        const svx=(Math.random()-0.5)*55;
+        S.tweens.add({targets:shell,x:kx+svx,y:y+Phaser.Math.Between(18,32),
+            angle:Phaser.Math.Between(-180,180),alpha:0,duration:380,
+            ease:"Quad.easeIn",onComplete:()=>shell.destroy()});
     }
     return b; // [v10.0] Return bullet ref so callers (reflection_rifle) can set flags
 }
@@ -12750,14 +12629,13 @@ function tickBullets(S){
                     S.tweens.add({targets:bfx,scaleX:2.2,scaleY:2.2,alpha:0,
                         duration:100,ease:"Quad.easeOut",
                         onComplete:()=>{try{bfx.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-                    // Tiny teal ring — pool
-                    if(_POOL){
-                        const ring=_POOL.get(21); if(ring){
-                            ring.x=b.x; ring.y=b.y;
-                            ring.lineStyle(1.5,0x44ffdd,0.85); ring.strokeCircle(0,0,5);
-                            _pt(S,ring,{scaleX:3,scaleY:3,alpha:0,duration:120,ease:"Quad.easeOut"});
-                        }
-                    }
+                    // Tiny teal ring
+                    const ring=S.add.graphics().setDepth(21);
+                    ring.x=b.x; ring.y=b.y;
+                    ring.lineStyle(1.5,0x44ffdd,0.85); ring.strokeCircle(0,0,5);
+                    S.tweens.add({targets:ring,scaleX:3,scaleY:3,alpha:0,
+                        duration:120,ease:"Quad.easeOut",
+                        onComplete:()=>{try{ring.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
                 }
             }
         }
@@ -15139,38 +15017,38 @@ function killEnemy(S,p,giveXP){
         // Glow + healing aura parcaciklari
         const hGlow=S.add.graphics().setDepth(17);
         let hAuraT=0;
-        const hTick=S.time.addEvent({delay:33,loop:true,callback:()=>{  // 16→33ms
-            hLife-=33; hFloatT+=0.2; hAuraT+=0.14;
+        const hTick=S.time.addEvent({delay:16,loop:true,callback:()=>{
+            hLife-=16; hFloatT+=0.1; hAuraT+=0.07;
             if(!hDrop.scene||hLife<=0||!GS||GS.gameOver){
                 hTick.remove();
-                try{hDrop.destroy();}catch(e){}
-                try{hGlow.destroy();}catch(e){}
+                try{hDrop.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+                try{hGlow.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 return;
             }
             if(!S.player||!S.player.active) return;
             // Gravity + floating
-            hVY+=14;
-            hDrop.y+=hVY*0.033;
+            hVY+=7;
+            hDrop.y+=hVY*0.016;
             if(hDrop.y>=GROUND_Y-12){
                 hDrop.y=GROUND_Y-12;
-                hVY=Math.sin(hFloatT)*8;
+                hVY=Math.sin(hFloatT)*8; // yerde hafif ziplama
             }
-            // Glow
+            // Glow — kalin kirmizi + ince yesil halka
             hGlow.clear();
             const glA=0.35+Math.sin(hAuraT*2.5)*0.18;
             hGlow.fillStyle(0xff2244,glA*0.08); hGlow.fillCircle(hDrop.x,hDrop.y,18);
             hGlow.lineStyle(2.5,0xff4466,glA); hGlow.strokeCircle(hDrop.x,hDrop.y,14+Math.sin(hAuraT*2)*2);
             hGlow.lineStyle(1.5,0xff8899,glA*0.5); hGlow.strokeCircle(hDrop.x,hDrop.y,20+Math.sin(hAuraT*1.4)*3);
-            // Healing aura parcacigi — pool ile
-            if(Math.random()<0.10&&_POOL){
-                const _ap=_POOL.get(17); if(_ap){
-                    const _ang=Math.random()*Math.PI*2;
-                    const _r=12+Math.random()*8;
-                    _ap.x=hDrop.x+Math.cos(_ang)*_r; _ap.y=hDrop.y+Math.sin(_ang)*_r;
-                    _ap.lineStyle(1.5,Math.random()<0.5?0xff4466:0xff8899,0.85);
-                    _ap.lineBetween(0,0,1,2);
-                    _pt(S,_ap,{y:_ap.y-Phaser.Math.Between(8,20),alpha:0,duration:Phaser.Math.Between(300,550),ease:"Quad.easeOut"});
-                }
+            // Healing aura parcacigi — her ~40 frame'de bir
+            if(Math.random()<0.08){
+                const _ang=Math.random()*Math.PI*2;
+                const _r=12+Math.random()*8;
+                const _ap=S.add.graphics().setDepth(17);
+                _ap.x=hDrop.x+Math.cos(_ang)*_r; _ap.y=hDrop.y+Math.sin(_ang)*_r;
+                _ap.lineStyle(1.5,Math.random()<0.5?0xff4466:0xff8899,0.85);
+                _ap.lineBetween(0,0,1,2);
+                S.tweens.add({targets:_ap,y:_ap.y-Phaser.Math.Between(8,20),alpha:0,
+                    duration:Phaser.Math.Between(300,550),ease:"Quad.easeOut",onComplete:()=>_ap.destroy()});
             }
             // Oyuncuya yakinsa topla
             const hdx=S.player.x-hDrop.x,hdy=(S.player.y-20)-hDrop.y;
@@ -15596,10 +15474,17 @@ function showCrystalRevivePrompt(S){
         gs.health=Math.ceil(gs.maxHealth*0.5);
         gs._healFlash=1000;
         gs.invincible=true; gs._invT=0;
+        gs.pickingUpgrade=false;
         cleanup();
         S.physics.resume();
         if(S.spawnEvent) S.spawnEvent.paused=false;
+        // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
+        S.cameras.main.fadeIn(350,0,0,0);
         S.cameras.main.shake(150,0.018);
+        // [FIX-REVIVE] Müziği yeniden başlat
+        NT_SFX.startMusic();
+        NT_SFX.setMusicState("gameplay", 0.5);
+        NT_SFX.startWindAmbience();
         showHitTxt(S,180,240,L("crystalRevived"),"#cc44ff",true);
         if(S._crystalHudText) S._crystalHudText.setText("GEM "+PLAYER_CRYSTAL);
         S.time.delayedCall(1000,()=>{ if(GS){ GS.invincible=false; GS._invT=0; }});
@@ -15893,9 +15778,9 @@ function spawnMiniBoss(S){
     // ── HP Bar (mini boss ozel) ───────────────────────────────────
     const hpBar=S.add.graphics().setDepth(35);
     const hpFill=S.add.graphics().setDepth(36);
-    const hpTick=S.time.addEvent({delay:50,loop:true,callback:()=>{  // 16→50ms yeterli
+    const hpTick=S.time.addEvent({delay:16,loop:true,callback:()=>{
         if(!p||!p.active||!GS||GS.gameOver){
-            try{hpBar.destroy();}catch(_){} try{hpFill.destroy();}catch(_){} hpTick.remove(); return;
+            hpBar.destroy(); hpFill.destroy(); hpTick.remove(); return;
         }
         const ratio=Math.max(0,p.hp/p.maxHP);
         const bx=p.x-55, by=p.y-(p.displayHeight||70)*0.5-14;
@@ -15929,15 +15814,15 @@ function showMiniBossBanner(S, def){
     S.time.timeScale = 0.15;
     S.time.delayedCall(800, ()=>{ S.time.timeScale = 1.0; });
 
-    // 4. Halka patlamasi — pool ile
+    // 4. Halka patlamasi — ekran ortasindan
     for(let i=0;i<4;i++){
         S.time.delayedCall(i*60, ()=>{
-            if(!_POOL) return;
-            const ring=_POOL.get(596); if(!ring) return;
-            ring.x=W/2; ring.y=H/2;
-            ring.lineStyle(4-i,def.color,1.0);
-            ring.strokeCircle(0,0,10+i*12);
-            _pt(S,ring,{scaleX:15,scaleY:15,alpha:0,duration:600,ease:"Quad.easeOut"});
+            const ring = S.add.graphics().setDepth(596);
+            ring.x = W/2; ring.y = H/2;
+            ring.lineStyle(4-i, def.color, 1.0);
+            ring.strokeCircle(0, 0, 10+i*12);
+            S.tweens.add({ targets:ring, scaleX:15, scaleY:15, alpha:0,
+                duration:600, ease:"Quad.easeOut", onComplete:()=>ring.destroy() });
         });
     }
 
@@ -15973,14 +15858,15 @@ function showMiniBossBanner(S, def){
     S.tweens.add({ targets:warnTxt, alpha:0.35, duration:320,
         yoyo:true, repeat:4, delay:300 });
 
-    // 6. Zemin titresim efekti — pool ile
-    for(let i=0;i<8;i++){  // 12→8 adet
-        S.time.delayedCall(i*50, ()=>{
-            if(!_POOL) return;
-            const sp=_POOL.get(597); if(!sp) return;
-            sp.fillStyle(def.color,0.8);
-            sp.fillRect(Phaser.Math.Between(0,W),GROUND_Y-3,Phaser.Math.Between(3,8),4);
-            _pt(S,sp,{y:sp.y-Phaser.Math.Between(20,50),alpha:0,duration:400,ease:"Quad.easeOut"});
+    // 6. Zemin titresim efekti — kucuk parcaciklar
+    for(let i=0;i<12;i++){
+        S.time.delayedCall(i*40, ()=>{
+            const sp = S.add.graphics().setDepth(597);
+            sp.fillStyle(def.color, 0.8);
+            sp.fillRect(Phaser.Math.Between(0,W), GROUND_Y-3,
+                Phaser.Math.Between(3,8), 4);
+            S.tweens.add({ targets:sp, y:sp.y-Phaser.Math.Between(20,50),
+                alpha:0, duration:400, ease:"Quad.easeOut", onComplete:()=>sp.destroy() });
         });
     }
 
@@ -16761,13 +16647,14 @@ function gameOver(S){
 
         // Tick sound her saniye
         _playTickTock(false);
-        const _timerEv=S.time.addEvent({delay:100,loop:true,callback:()=>{ // 33→100ms: countdown için yeterli
+        const _timerEv=S.time.addEvent({delay:33,loop:true,callback:()=>{
             if(_done) return;
-            _elapsed+=100;
+            _elapsed+=33;
             const ratio=Math.max(0,1-_elapsed/TOTAL_TIME);
             const secs=Math.max(0,Math.ceil((TOTAL_TIME-_elapsed)/1000));
             _drawTimer(ratio);
             if(timerTxt.scene) timerTxt.setText(String(secs));
+            // Tick sound her saniye degisiminde
             if(secs < _lastSec){ _lastSec=secs; _playTickTock(secs<=1); }
             if(_elapsed>=TOTAL_TIME){ _done=true; _timerEv.remove(); _cleanup(); onDecline(); }
         }});
@@ -16802,14 +16689,32 @@ function gameOver(S){
                 NT_SFX.play("revive");
                 spendGems(GEM_REVIVE_COST);
                 _cleanup();
+                // [FIX-REVIVE] Karanlık overlay'i kaldır — gameOver() tarafından
+                // oluşturulan 'ov' (depth:900, setInteractive) tüm ekranı kaplıyor
+                // ve her türlü girişi engelliyordu. Revive sonrası mutlaka yok edilmeli.
+                try{ ov.destroy(); }catch(_){}
+                // [FIX-REVIVE] Depth 900-959 arası kalmış başka overlay'leri de temizle
+                try{
+                    S.children.list
+                        .filter(o=>o&&o.active&&typeof o.depth==="number"&&o.depth>=900&&o.depth<960)
+                        .forEach(o=>{try{o.destroy();}catch(_){}});
+                }catch(_){}
                 gs.gameOver=false;
                 gs.health=Math.min(gs.maxHealth,4);
                 gs.invincible=true; gs._invT=0;
+                gs.pickingUpgrade=false;
                 S.physics.resume();
+                if(S.spawnEvent) S.spawnEvent.paused=false;
                 try{ if(S.player) S.player.setVisible(true); }catch(_){}
                 S.time.delayedCall(4000,()=>{ if(gs) gs.invincible=false; });
+                // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
+                S.cameras.main.fadeIn(350,0,0,0);
                 S.cameras.main.flash(400,255,180,50,false);
                 S.cameras.main.shake(180,0.018);
+                // [FIX-REVIVE] Müziği yeniden başlat — gameOver() stopMusic() çağırmıştı
+                NT_SFX.startMusic();
+                NT_SFX.setMusicState("gameplay", 0.5);
+                NT_SFX.startWindAmbience();
                 showHitTxt(S,180,220,L("revived"),"#ffcc44",true);
             });
         }
@@ -16987,8 +16892,9 @@ function showDiamondReviveScreen(S, bgOv){
         cdTween.stop();
         cdEvt.remove();
         try{panel.destroy();dimOv.destroy();titleTxt.destroy();deco.destroy();cdCircle.destroy();cdTxt.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
-        // Panel'deki tum objeleri temizle
-        S.children.list.filter(o=>o&&o.active&&typeof o.depth==="number"&&o.depth>=950&&o.depth<970)
+        // [FIX-REVIVE] bgOv (dışarıdan geçirilen overlay) ve depth 900-969 arası kalan objeleri temizle
+        try{ if(bgOv && bgOv.destroy) bgOv.destroy(); }catch(_){}
+        S.children.list.filter(o=>o&&o.active&&typeof o.depth==="number"&&o.depth>=900&&o.depth<970)
             .forEach(o=>{try{o.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}});
     };
 
@@ -17048,17 +16954,32 @@ function doRevive(S, panel){
     gs.usedExtraLife=true;
     gs.health=Math.min(gs.maxHealth, 3);
     gs.invincible=true; gs._invT=0;
-    S.time.delayedCall(5000,()=>{ gs.invincible=false; });
     gs.pickingUpgrade=false;
+    S.time.delayedCall(5000,()=>{ gs.invincible=false; });
     S.physics.resume();
     if(S.spawnEvent) S.spawnEvent.paused=false;
     try{if(panel)panel.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
+    // [FIX-REVIVE] Karanlık overlay'i ve depth 900-959 arası tüm objeleri temizle.
+    // gameOver() tarafından oluşturulan 'ov' (depth:900, setInteractive) ekranda
+    // kalmaya devam ediyordu — tüm girişleri engelliyor ve ekranı karartıyordu.
+    try{
+        S.children.list
+            .filter(o=>o&&o.active&&typeof o.depth==="number"&&o.depth>=900&&o.depth<960)
+            .forEach(o=>{try{o.destroy();}catch(_){}});
+    }catch(_){}
+    // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
+    try{ S.cameras.main.fadeIn(350,0,0,0); }catch(_){}
+    // [FIX-REVIVE] Müziği yeniden başlat — gameOver() stopMusic() yapmıştı
+    NT_SFX.startMusic();
+    NT_SFX.setMusicState("gameplay", 0.5);
+    NT_SFX.startWindAmbience();
     // Dirilis efekti
     NT_SFX.play("revive");
     S.cameras.main.shake(180,0.020);
     S.cameras.main.zoomTo(1.08,160,"Quad.easeOut");
     S.time.delayedCall(160,()=>S.cameras.main.zoomTo(1.0,400,"Quad.easeIn"));
     const plx=S.player?.x||180, ply=S.player?.y||420;
+    try{ if(S.player) S.player.setVisible(true); }catch(_){}
     for(let rv=0;rv<4;rv++){
         S.time.delayedCall(rv*60,()=>{
             const rr=S.add.graphics().setDepth(30);
@@ -17734,46 +17655,7 @@ const MAX_DEBRIS = 6;  // [PERF] Daha agresif limit — FPS korumasi
 // [PERF] Periyodik sahne temizleyici - devre disi, donma sorunu yarattigi icin
 let _lastCleanupTime = 0;
 function periodicSceneCleanup(S){
-    if(!S._cleanupTimer) S._cleanupTimer=0;
-    S._cleanupTimer+= 16;
-    if(S._cleanupTimer < 5000) return;
-    S._cleanupTimer=0;
-
-    // 1) Tween manager temizle — Phaser 3 uyumlu yöntem
-    try{
-        if(S.tweens && S.tweens.tweens){
-            const tw=S.tweens.tweens;
-            for(let i=tw.length-1;i>=0;i--){
-                const t=tw[i];
-                if(t && t.state!=null && t.state>=3){ // COMPLETE/DESTROYED/PENDING_REMOVE
-                    try{ S.tweens.remove(t); }catch(_){}
-                }
-            }
-        }
-    }catch(_){}
-
-    // 2) Pool boyutunu kontrol et — max 80'de tut
-    try{
-        if(_POOL && _POOL._pool.length > 80){
-            const excess=_POOL._pool.splice(80);
-            excess.forEach(g=>{ try{g.destroy();}catch(_){} });
-        }
-    }catch(_){}
-
-    // 3) Floating text birikimi temizle — _ftForceDestroy kullan (tween'leri de durdurur)
-    try{
-        for(let i=_ftActive.length-1;i>=0;i--){
-            const e=_ftActive[i];
-            if(!e || !e.obj || !e.obj.scene){ _ftForceDestroy(e); }
-        }
-    }catch(_){}
-
-    // 4) XP orb leak kontrolü — aktif olmayan orb referansları temizle
-    try{
-        if(S.xpOrbs && S.xpOrbs.length > 60){
-            S.xpOrbs = S.xpOrbs.filter(o=>o&&o.active);
-        }
-    }catch(_){}
+    // DEVRE DISI: aktif oyun objelerini yanlis siliyordu, donmaya neden oluyordu
 }
 
 function spawnFallingDebris(S, x, y, type, isBig){
@@ -17792,18 +17674,18 @@ function spawnFallingDebris(S, x, y, type, isBig){
 
     for(let i=0;i<cnt;i++){
         if(_debrisCount >= MAX_DEBRIS) break;
-        if(!_POOL) break;
-        const db=_POOL.get(14); if(!db) break;
         _debrisCount++;
         const sz=isBig?Phaser.Math.Between(2,4):Phaser.Math.Between(1,3);
         const ang=Phaser.Math.DegToRad(Phaser.Math.Between(200,340));
         const spd=Phaser.Math.Between(40,isBig?120:80);
+        const db=S.add.graphics().setDepth(14);
         db.x=x+Phaser.Math.Between(-10,10);
         db.y=y+Phaser.Math.Between(-5,5);
         const dbAng=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         db.lineStyle(Math.max(1,sz*0.6),col,0.9);
         db.lineBetween(0,0,Math.cos(dbAng)*sz,Math.sin(dbAng)*sz);
 
+        // [PERF] addEvent(delay:16,repeat:-1) yerine tek bir tween — cok daha ucuz
         const dur=Phaser.Math.Between(500,900);
         S.tweens.add({
             targets:db,
@@ -17814,7 +17696,7 @@ function spawnFallingDebris(S, x, y, type, isBig){
             duration: dur,
             ease:"Quad.easeOut",
             onComplete:()=>{
-                if(_POOL) _POOL.release(db); else { try{db.destroy();}catch(_){} }
+                try{db.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 _debrisCount=Math.max(0,_debrisCount-1);
             }
         });
@@ -17907,28 +17789,26 @@ function playerCollisionExplosion(S, x, y, type){
         inferno:0xFF9977,glacier:0x66DDFF,phantom_tri:0xFF55FF,volt:0xFFFF66,obsidian:0xCC77FF,zigzag:0x88FF88};
     const col=typeC[type]||0xffaa44;
 
-    // 1. Genisleyen halka — pool
-    if(_POOL){
-        const ring=_POOL.get(21); if(ring){
-            ring.x=x; ring.y=y;
-            ring.lineStyle(2,col,0.75); ring.strokeCircle(0,0,7);
-            _pt(S,ring,{scaleX:3.0,scaleY:3.0,alpha:0,duration:200,ease:"Quad.easeOut"});
-        }
-    }
+    // 1. Genisleyen halka — ince, temiz
+    const ring=S.add.graphics().setDepth(21);
+    ring.x=x; ring.y=y;
+    ring.lineStyle(2,col,0.75); ring.strokeCircle(0,0,7);
+    S.tweens.add({targets:ring,scaleX:3.0,scaleY:3.0,alpha:0,
+        duration:200,ease:"Quad.easeOut",onComplete:()=>{try{ring.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
 
-    // 2. Parcacik sacilmasi — pool
+    // 2. Parcacik sacilmasi — ince cizgiler, dikdortgen YOK
     for(let i=0;i<4;i++){
-        if(!_POOL) break;
         const ang=Phaser.Math.DegToRad(i*90+Phaser.Math.Between(-18,18));
         const spd=Phaser.Math.Between(30,70);
-        const pc=_POOL.get(20); if(!pc) break;
+        const pc=S.add.graphics().setDepth(20);
         pc.x=x; pc.y=y;
         pc.lineStyle(1.5,i%2===0?col:0xffffff,0.85);
         pc.lineBetween(0,0,Math.cos(ang)*3,Math.sin(ang)*3);
-        _pt(S,pc,{
+        S.tweens.add({targets:pc,
             x:x+Math.cos(ang)*spd, y:y+Math.sin(ang)*spd*0.6,
             alpha:0,scaleX:0.1,scaleY:0.1,
-            duration:Phaser.Math.Between(110,190),ease:"Quad.easeOut"});
+            duration:Phaser.Math.Between(110,190),ease:"Quad.easeOut",
+            onComplete:()=>{try{pc.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
     }
     // shake wrapper zaten cap'liyor — oldugu gibi birak
     S.cameras.main.shake(30,0.004);
@@ -18399,46 +18279,43 @@ function vfxEnemyDeath(S,x,y,type,scale){
     const col=typeColors[type]||0xff88cc;
     const sz=Math.min(scale||1, 1.8); // cap scale etkisini sinirla
 
-    // Shockwave halkasi — pool
-    if(_POOL){
-        const ring=_POOL.get(21); if(ring){
-            ring.x=x; ring.y=y;
-            ring.lineStyle(2.5,col,0.85); ring.strokeCircle(0,0,8*sz);
-            ring.lineStyle(1,0xffffff,0.5); ring.strokeCircle(0,0,5*sz);
-            _pt(S,ring,{scaleX:4+sz,scaleY:4+sz,alpha:0,duration:280,ease:"Quad.easeOut"});
-        }
-    }
+    // Shockwave halkasi — sadece ince cizgi, dolu daire YOK
+    const ring=S.add.graphics().setDepth(21);
+    ring.x=x; ring.y=y;
+    ring.lineStyle(2.5,col,0.85); ring.strokeCircle(0,0,8*sz);
+    ring.lineStyle(1,0xffffff,0.5); ring.strokeCircle(0,0,5*sz);
+    S.tweens.add({targets:ring,scaleX:4+sz,scaleY:4+sz,alpha:0,
+        duration:280,ease:"Quad.easeOut",
+        onComplete:()=>{try{ring.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
 
-    // Parcacik patlamasi — pool, low modda azalt
-    const pCount=_perfMode==="low"?4:Math.min(10,Math.round(7+sz*2));
+    // Parcacik patlamasi — sinirli sayi
+    const pCount=Math.min(12, Math.round(7+sz*2));
     for(let i=0;i<pCount;i++){
-        if(!_POOL) break;
         const ang=Phaser.Math.DegToRad(i*(360/pCount)+Phaser.Math.Between(-15,15));
         const spd=Phaser.Math.Between(30,70)*Math.min(sz,1.4);
-        const pc=_POOL.get(20); if(!pc) break;
+        const pc=S.add.graphics().setDepth(20);
         pc.x=x; pc.y=y;
         const pcAng2=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
         pc.lineStyle(1.5,i%3===0?0xffffff:col,0.85);
         pc.lineBetween(0,0,Math.cos(pcAng2)*3,Math.sin(pcAng2)*3);
-        _pt(S,pc,{
+        S.tweens.add({targets:pc,
             x:x+Math.cos(ang)*spd,y:y+Math.sin(ang)*spd*0.6,
             alpha:0,scaleX:0.1,scaleY:0.1,
-            duration:Phaser.Math.Between(180,340),ease:"Quad.easeOut"});
+            duration:Phaser.Math.Between(180,340),ease:"Quad.easeOut",
+            onComplete:()=>{try{pc.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
     }
 
-    // Duman — pool, low modda atla
-    if(_perfMode!=="low"){
-        const smokeCount=Math.min(2,Math.round(2+sz*0.5));
-        for(let i=0;i<smokeCount;i++){
-            if(!_POOL) break;
-            const sm=_POOL.get(15); if(!sm) break;
-            sm.fillStyle(0x332211,0.22+Math.random()*0.12);
-            sm.fillCircle(0,0,Phaser.Math.Between(4,9));
-            sm.x=x+Phaser.Math.Between(-10,10); sm.y=y;
-            _pt(S,sm,{y:y-Phaser.Math.Between(18,40),
-                scaleX:1.8,scaleY:1.8,alpha:0,
-                duration:Phaser.Math.Between(380,600),delay:i*35,ease:"Quad.easeOut"});
-        }
+    // Duman — sadece 2-3 adet, hafif
+    const smokeCount=Math.min(3,Math.round(2+sz*0.5));
+    for(let i=0;i<smokeCount;i++){
+        const sm=S.add.graphics().setDepth(15);
+        sm.fillStyle(0x332211,0.22+Math.random()*0.12);
+        sm.fillCircle(0,0,Phaser.Math.Between(4,9));
+        sm.x=x+Phaser.Math.Between(-10,10); sm.y=y;
+        S.tweens.add({targets:sm,y:y-Phaser.Math.Between(18,40),
+            scaleX:1.8,scaleY:1.8,alpha:0,
+            duration:Phaser.Math.Between(380,600),delay:i*35,ease:"Quad.easeOut",
+            onComplete:()=>{try{sm.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
     }
     // Shake wrapper zaten cap'liyor
     S.cameras.main.shake(35+sz*10,0.005);
