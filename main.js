@@ -11576,7 +11576,7 @@ class SceneGame extends Phaser.Scene {
                 if(!gl) return;
                 this.textures.getTextureKeys().forEach(k=>{
                     if(k==='__DEFAULT'||k==='__MISSING') return;
-                    const isCharacter    = (k==='idle' || k==='run' || k==='death');
+                    const isCharacter    = (k==='idle' || k==='run' || k==='death' || k==='get_damage');
                     const isUpicon       = k.startsWith('upicon_');
                     try{
                         const t = this.textures.get(k);
@@ -11802,6 +11802,21 @@ class SceneGame extends Phaser.Scene {
         // ── PARALLAX — tek tileSprite, GPU UV-repeat ile seamless (cizgi yok) ──
         this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg")
             .setDepth(-10).setScrollFactor(0);
+        // [QUALITY] bg texture'a LINEAR dogrudan uygula — tileSprite postBoot callback'ini atlar
+        try{
+            const _gl2 = this.renderer && this.renderer.gl;
+            if(_gl2){
+                const _bt = this.textures.get("bg");
+                if(_bt && _bt.source && _bt.source[0] && _bt.source[0].glTexture){
+                    _gl2.bindTexture(_gl2.TEXTURE_2D, _bt.source[0].glTexture);
+                    _gl2.texParameteri(_gl2.TEXTURE_2D, _gl2.TEXTURE_MIN_FILTER, _gl2.LINEAR);
+                    _gl2.texParameteri(_gl2.TEXTURE_2D, _gl2.TEXTURE_MAG_FILTER, _gl2.LINEAR);
+                    _gl2.texParameteri(_gl2.TEXTURE_2D, _gl2.TEXTURE_WRAP_S, _gl2.CLAMP_TO_EDGE);
+                    _gl2.texParameteri(_gl2.TEXTURE_2D, _gl2.TEXTURE_WRAP_T, _gl2.CLAMP_TO_EDGE);
+                    _gl2.bindTexture(_gl2.TEXTURE_2D, null);
+                }
+            }
+        }catch(_){}
         // Kamera fade-in kaldirildi — direkt oyuna gecis
 
         // Zemin seridi kaldirildi
@@ -19169,60 +19184,76 @@ function _startPhaserGame(){
             // [FIX] Mobil zoom bug — devicePixelRatio kullanma, Phaser kendi yonetsin
         },
         render:{
-            antialias:      false,
-            antialiasGL:    false,
-            pixelArt:       true,
-            roundPixels:    true,
-            resolution:     Math.min(window.devicePixelRatio || 1, 2), // [QUALITY] tum cihazlarda DPR kullan (maks 2x)
+            antialias:      true,                                        // [QUALITY] WebGL MSAA ac
+            antialiasGL:    true,                                        // [QUALITY] GL antialiasing ac
+            pixelArt:       false,                                       // [QUALITY] CSS pixelated KAPALI — scale manager eziyor
+            roundPixels:    false,                                       // [QUALITY] sub-pixel smooth scroll
+            resolution:     Math.min(window.devicePixelRatio || 1, 2),  // HiDPI destek
             powerPreference:"high-performance"
         },
         callbacks:{
             postBoot:(game)=>{
-                game.canvas.style.imageRendering = "auto";
-                // ── VFX UPGRADE v2 — Texture Filter System ────────────────────
-                // pixelArt:true sets NEAREST globally. Here we selectively
-                // upgrade smooth PNGs (icons, UI) to LINEAR_MIPMAP_LINEAR.
+                // [QUALITY] image-rendering: auto — pixelArt:false olsa da scale manager
+                // bazi Phaser surumlerinde canvas CSS'ini ezebilir; her resize'da tekrar uygula
+                const _fixCanvas = () => {
+                    game.canvas.style.imageRendering = "auto";
+                    game.canvas.style.imageRendering = "-webkit-optimize-contrast"; // Safari
+                    game.canvas.style.imageRendering = "auto"; // son deger kazanir
+                };
+                _fixCanvas();
+                try{ game.scale.on("resize", _fixCanvas); }catch(_){}
+
                 NT_VFX._game = game;
                 const renderer = game.renderer;
                 const gl = renderer && renderer.gl;
                 if(!gl) return;
 
-                function _applyFilter(glTex, filter){
+                function _applyFilter(glTex, minF, magF){
                     if(!glTex) return;
                     try{
                         gl.bindTexture(gl.TEXTURE_2D, glTex);
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER,
-                            filter === gl.LINEAR_MIPMAP_LINEAR ? gl.LINEAR : filter);
-                        if(filter === gl.LINEAR_MIPMAP_LINEAR)
-                            gl.generateMipmap(gl.TEXTURE_2D);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minF);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magF);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
                         gl.bindTexture(gl.TEXTURE_2D, null);
                     }catch(e){ console.warn("[NT] filter patch:", e); }
                 }
 
-                // Smooth PNGs — icons + UI assets need LINEAR (they scale down)
-                const SMOOTH_KEYS = new Set([
-                    "bg","pause_button","ui_pause_win","ui_btn_wide_g",
-                    "ui_confirm","ui_decline","pyramid","zigzag",
-                    "tex_chest_common","tex_chest_rare","tex_chest_legendary",
-                    "icon_gold","icon_gem",
-                ]);
+                // Pixel-art karakter sprite'lari — NEAREST (piksel keskin kalsin)
+                const PIXELART_KEYS = new Set(["idle","run","death","get_damage"]);
+                // Mipmap ikonlar — 128px POT, kuculebilir
+                const MIPMAP_KEYS   = new Set(["icon_gold","icon_gem"]);
 
                 game.textures.on("addtexture", (key)=>{
-                    const isChar   = (key === "idle" || key === "run" || key === "death");
-                    const isSmooth = SMOOTH_KEYS.has(key) || key.startsWith("upicon_");
                     const t = game.textures.get(key);
                     if(!t || !t.source) return;
                     t.source.forEach(src => {
                         if(!src || !src.glTexture) return;
-                        if(isChar){
+                        if(PIXELART_KEYS.has(key)){
+                            // Pixel art — NEAREST: yumusama olmadan keskin
                             src.smoothed = false;
-                            _applyFilter(src.glTexture, gl.NEAREST);
-                        } else if(isSmooth){
+                            _applyFilter(src.glTexture, gl.NEAREST, gl.NEAREST);
+                        } else if(MIPMAP_KEYS.has(key) || key.startsWith("upicon_")){
+                            // Kucuk ikonlar — mipmap + anisotropic
+                            try{
+                                gl.bindTexture(gl.TEXTURE_2D, src.glTexture);
+                                gl.generateMipmap(gl.TEXTURE_2D);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                                const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+                                if(aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+                                    Math.min(4, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+                                gl.bindTexture(gl.TEXTURE_2D, null);
+                            }catch(_){}
                             src.smoothed = true;
-                            _applyFilter(src.glTexture, gl.LINEAR_MIPMAP_LINEAR);
+                        } else {
+                            // Tum diger texture'lar (bg, UI, dusman vb.) — LINEAR
+                            src.smoothed = true;
+                            _applyFilter(src.glTexture, gl.LINEAR, gl.LINEAR);
                         }
-                        // All other textures already NEAREST from pixelArt:true
                     });
                 });
             }
