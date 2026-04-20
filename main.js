@@ -8955,12 +8955,12 @@ function showPause(S){
 
     // ── NOT mizah alt yazısı — her pause'da farklı komik mesaj ──────────
     const _pauseFunnyTR = [
-        "NOT kaçmana izin vermiyor.",
-        "Oyun seni bekliyor. Acımasızca.",
-        "Dinlen. Sonra yine acı çekeceksin.",
-        "NOT: Mola hakkın yok aslında.",
-        "Kaçmak istiyorsan... dene.",
-        "Üçgenler de mola veriyor 😈",
+        "NOT kacmana izin vermiyor.",
+        "Oyun seni bekliyor. Acimasizca.",
+        "Dinlen. Sonra yine aci cekeceksin.",
+        "NOT: Mola hakkin yok aslinda.",
+        "Kacmak istiyorsan... dene.",
+        "Ucgenler de mola veriyor 😈",
     ];
     const _pauseFunnyEN = [
         "NOT letting you off that easy.",
@@ -8978,13 +8978,15 @@ function showPause(S){
         "Убегаешь? Попробуй. 😈",
     ];
     const _pArr = CURRENT_LANG==="tr"?_pauseFunnyTR:CURRENT_LANG==="ru"?_pauseFunnyRU:_pauseFunnyEN;
-    A(S.add.text(CX, stripCY + pm.stripH*0.52 + 2,
+    // Komik yazı — butonların hemen üstünde
+    A(S.add.text(CX, btnCY - 30,
         _pArr[Math.floor(Math.random()*_pArr.length)], {
         fontFamily:"LilitaOne, Arial, sans-serif",
-        fontSize:"12px", color:"#ffcc88",
-        stroke:"#000", strokeThickness:3,
-        align:"center"
-    }).setOrigin(0.5, 0).setDepth(503).setAlpha(0.90));
+        fontSize:"11px", color:"#88ccff",
+        stroke:"#000000", strokeThickness:3,
+        align:"center",
+        wordWrap:{width: pm.W - 20, useAdvancedWrap:true}
+    }).setOrigin(0.5, 1).setDepth(503).setAlpha(0.92));
 
     // Stats rows
     let cy=contentTop+4;
@@ -10904,6 +10906,118 @@ function NT_MenuBtn(scene,cx,cy,iconKey,label,callback){
 }
 
 // ── SceneMainMenu ─────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+// NT ACHIEVEMENT SİSTEMİ — Komik rozet popup'ları
+// ═══════════════════════════════════════════════════════════════
+const _NT_ACH_DONE = new Set(JSON.parse(secureGet("nt_ach_done","[]","[]")));
+function _NT_SaveAch(){ secureSet("nt_ach_done", JSON.stringify([..._NT_ACH_DONE])); }
+
+function NT_ShowAchievement(scene, id, titleTR, titleEN, descTR, descEN, icon){
+    if(_NT_ACH_DONE.has(id)) return; // Zaten kazanıldı
+    _NT_ACH_DONE.add(id);
+    _NT_SaveAch();
+    const title = CURRENT_LANG==="tr" ? titleTR : titleEN;
+    const desc  = CURRENT_LANG==="tr" ? descTR  : descEN;
+    try{
+        const W=360, D=9500;
+        const PW=280, PH=78, PX=(W-PW)/2, PY=66;
+        const STRIP_H=24;
+        const panG=scene.add.graphics().setDepth(D).setScrollFactor(0).setAlpha(0);
+        // Gölge
+        panG.fillStyle(0x000000,0.55); panG.fillRoundedRect(PX+3,PY+4,PW,PH,14);
+        // Arkaplan — koyu lacivert
+        panG.fillStyle(0x0a0f2a,0.97); panG.fillRoundedRect(PX,PY,PW,PH,13);
+        // İç parlama — hafif gradient etkisi
+        panG.fillStyle(0x1a2250,0.45); panG.fillRoundedRect(PX+2,PY+2,PW-4,PH/2,11);
+        // Dış kenar — altın
+        panG.lineStyle(2.5,0xffcc00,1.0); panG.strokeRoundedRect(PX,PY,PW,PH,13);
+        // İç kenar — ince beyaz
+        panG.lineStyle(1,0xffffff,0.12); panG.strokeRoundedRect(PX+3,PY+3,PW-6,PH-6,10);
+        // Üst şerit — altın/turuncu gradyan
+        panG.fillStyle(0xcc7700,1); panG.fillRoundedRect(PX,PY,PW,STRIP_H,{tl:13,tr:13,bl:0,br:0});
+        panG.fillStyle(0xffaa00,0.7); panG.fillRoundedRect(PX+4,PY+2,PW-8,STRIP_H-6,6);
+        // İkon kutusu — koyu yuvarlak
+        panG.fillStyle(0x000000,0.35); panG.fillRoundedRect(PX+10,PY+STRIP_H+6,44,44,10);
+        panG.lineStyle(1.5,0xffcc00,0.6); panG.strokeRoundedRect(PX+10,PY+STRIP_H+6,44,44,10);
+        // İkon
+        const icoTxt=scene.add.text(PX+32,PY+STRIP_H+28,icon,{fontSize:"28px"})
+            .setOrigin(0.5,0.5).setDepth(D+1).setScrollFactor(0).setAlpha(0);
+        // "BASARI ACILDI" / "ACHIEVEMENT"
+        const hdrStr=CURRENT_LANG==="tr"?"🏅 BASARI ACILDI":"🏅 ACHIEVEMENT UNLOCKED";
+        const hdrTxt=scene.add.text(PX+PW/2,PY+STRIP_H/2,hdrStr,{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#1a0a00",stroke:"#cc6600",strokeThickness:1
+        }).setOrigin(0.5,0.5).setDepth(D+1).setScrollFactor(0).setAlpha(0);
+        // Başlık
+        const titTxt=scene.add.text(PX+62,PY+STRIP_H+18,title,{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"14px",color:"#ffeeaa",stroke:"#000",strokeThickness:3
+        }).setOrigin(0,0.5).setDepth(D+1).setScrollFactor(0).setAlpha(0);
+        // Açıklama
+        const dscTxt=scene.add.text(PX+62,PY+STRIP_H+38,desc,{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9.5px",color:"#aabbdd",stroke:"#000",strokeThickness:2,
+            wordWrap:{width:PW-76,useAdvancedWrap:true}
+        }).setOrigin(0,0.5).setDepth(D+1).setScrollFactor(0).setAlpha(0);
+
+        const _all=[panG,icoTxt,hdrTxt,titTxt,dscTxt];
+        // Gir animasyonu — soldan kayarak
+        _all.forEach(o=>{ o.x-=30; });
+        const _show=()=>{
+            _all.forEach(o=>{
+                scene.tweens.add({targets:o,alpha:1,x:o.x+30,duration:320,ease:"Back.easeOut"});
+            });
+        };
+        _show();
+        NT_SFX.play("level_up");
+        // 3.2s sonra çık
+        scene.time.delayedCall(3200,()=>{
+            _all.forEach(o=>{
+                scene.tweens.add({targets:o,alpha:0,y:o.y-18,duration:280,ease:"Quad.easeIn",
+                    onComplete:()=>{ try{o.destroy();}catch(_){} }});
+            });
+        });
+    }catch(e){ console.warn("[NT] Achievement gösterim hatası:",e); }
+}
+
+// ── Başarı tanımları — oyun içinden çağrılır ──────────────────
+function NT_CheckAchievements(scene, gs){
+    if(!scene||!gs) return;
+    // İlk ölüm
+    if(!_NT_ACH_DONE.has("first_death"))
+        NT_ShowAchievement(scene,"first_death",
+            "Ilk Olum","First Blood",
+            "NOT Corp tescilledi. Hos geldin!","Registered by NOT Corp. Welcome!","💀");
+    // 1000+ skor
+    if(gs.score>=1000&&!_NT_ACH_DONE.has("score_1k"))
+        NT_ShowAchievement(scene,"score_1k",
+            "Bin Puan!","One Thousand!",
+            "Fena degil. Simdi kaybedeceksin.","Not bad. Now you'll lose it.","🎯");
+    // 5000+ skor
+    if(gs.score>=5000&&!_NT_ACH_DONE.has("score_5k"))
+        NT_ShowAchievement(scene,"score_5k",
+            "Bes Bin!","Five Thousand!",
+            "Piramitler seni saygiyla selamliyor.","Pyramids salute you. Respectfully.","🔺");
+    // 10000+ skor
+    if(gs.score>=10000&&!_NT_ACH_DONE.has("score_10k"))
+        NT_ShowAchievement(scene,"score_10k",
+            "On Bin Efsane","Legend of Tens",
+            "Bu kadar skor icin gercekten uzgunuz.","We are truly sorry for this score.","🌟");
+    // İlk kill
+    if(gs.kills>=1&&!_NT_ACH_DONE.has("first_kill"))
+        NT_ShowAchievement(scene,"first_kill",
+            "Ilk Kan","First Kill",
+            "Piramit aciyla kirildi. Harika.","A pyramid broke in pain. Great.","💥");
+    // 50+ kill
+    if(gs.kills>=50&&!_NT_ACH_DONE.has("kill_50"))
+        NT_ShowAchievement(scene,"kill_50",
+            "Piramit Katliami","Pyramid Massacre",
+            "50 piramit. NOT bundan memnun degil.","50 pyramids. NOT is not pleased.","⚔️");
+    // Lv 10+
+    if(gs.level>=10&&!_NT_ACH_DONE.has("level_10"))
+        NT_ShowAchievement(scene,"level_10",
+            "Seviye 10","Level 10",
+            "10 seviye hayatta kaldin. Tesaduf.","Survived 10 levels. Coincidence.","⬆️");
+}
+
 class SceneMainMenu extends Phaser.Scene {
     constructor(){ super({key:"SceneMainMenu"}); }
 
@@ -10928,6 +11042,128 @@ class SceneMainMenu extends Phaser.Scene {
         this._goGameFired = false;
 
         // [SOUND FIX] Main menu'ye donunce muzik ve ambiyans her zaman aktif olsun
+        // ── OFFLİNE ÖDÜL + KARŞILAMA ────────────────────────────────
+        {
+            const _now = Date.now();
+            const _last = parseInt(localStorage.getItem("nt_last_visit")||"0");
+            localStorage.setItem("nt_last_visit", String(_now));
+
+            const _elapsed = _now - _last;
+            const _minMs = 3 * 60 * 60 * 1000; // 3 saat
+
+            if(_last > 0 && _elapsed >= _minMs) {
+                const _hours = Math.floor(_elapsed / (60*60*1000));
+                const _goldReward = Math.min(50 + _hours * 15, 500); // max 500 altın
+
+                // Ödülü ver
+                PLAYER_GOLD += _goldReward;
+                secureSet("nt_gold", PLAYER_GOLD);
+
+                // Popup — kısa gecikme ile göster (sahne yüklendikten sonra)
+                this.time.delayedCall(800, ()=>{
+                    if(!this.scene || !this.scene.isActive("SceneMainMenu")) return;
+                    const _S = this;
+                    const _W=360,_H=640,_CX=180,_D=800;
+
+                    const _greetTR = [
+                        "Nihayet geldin, NOT seni bekliyordu.",
+                        "Geri döndün mü? NOT şaşırdı.",
+                        "Eksikliğini NOT hissetti. (Biraz.)",
+                        "Kaybolmuştun. Piramitler özlemişti.",
+                        "Geri dönmesini beklemiyorduk. — NOT",
+                    ];
+                    const _greetEN = [
+                        "Finally! NOT was waiting for you.",
+                        "You're back? NOT is surprised.",
+                        "NOT kind of missed you. (Slightly.)",
+                        "The pyramids were lonely without you.",
+                        "We didn't expect you back. — NOT",
+                    ];
+                    const _greetArr = CURRENT_LANG==="tr" ? _greetTR : _greetEN;
+                    const _greet = _greetArr[Math.floor(Math.random()*_greetArr.length)];
+
+                    const _timeStr = CURRENT_LANG==="tr"
+                        ? `${_hours} saat sonra geri döndün`
+                        : `You were away for ${_hours} hour${_hours!==1?"s":""}`;
+
+                    // Overlay
+                    const _ov = _S.add.rectangle(_CX,_H/2,_W,_H,0x000000,0.65).setDepth(_D).setInteractive();
+
+                    // Panel
+                    const _PW=270,_PH=200,_PX=_CX-_PW/2,_PY=_H/2-_PH/2-20;
+                    const _pg = _S.add.graphics().setDepth(_D+1);
+                    _pg.fillStyle(0x0a1800,0.97); _pg.fillRoundedRect(_PX,_PY,_PW,_PH,14);
+                    _pg.fillStyle(0x226600,1); _pg.fillRoundedRect(_PX,_PY,_PW,46,{tl:14,tr:14,bl:0,br:0});
+                    _pg.fillStyle(0xffffff,0.10); _pg.fillRoundedRect(_PX+4,_PY+3,_PW-8,12,{tl:11,tr:11,bl:0,br:0});
+                    _pg.lineStyle(2,0x44ff88,0.85); _pg.strokeRoundedRect(_PX,_PY,_PW,_PH,14);
+
+                    _S.add.text(_CX,_PY+23,CURRENT_LANG==="tr"?"🎁  HOŞ GELDİN ÖDÜLÜ":"🎁  WELCOME BACK!",{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"15px",
+                        color:"#ffffff",stroke:"#000",strokeThickness:4
+                    }).setOrigin(0.5).setDepth(_D+2);
+
+                    _S.add.text(_CX,_PY+68,_greet,{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",
+                        color:"#aaffaa",stroke:"#000",strokeThickness:3,
+                        wordWrap:{width:_PW-24,useAdvancedWrap:true},align:"center"
+                    }).setOrigin(0.5,0).setDepth(_D+2);
+
+                    _S.add.text(_CX,_PY+114,_timeStr,{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",
+                        color:"#88aacc",stroke:"#000",strokeThickness:2
+                    }).setOrigin(0.5).setDepth(_D+2);
+
+                    // Altın ödülü
+                    const _goldTxt = _S.add.text(_CX,_PY+138,"+"+_goldReward,{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"28px",
+                        color:"#ffcc00",stroke:"#000",strokeThickness:5
+                    }).setOrigin(0.5).setDepth(_D+2).setAlpha(0);
+
+                    _S.add.text(_CX+52,_PY+140,CURRENT_LANG==="tr"?"ALTIN":"GOLD",{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",
+                        color:"#ffaa44",stroke:"#000",strokeThickness:3
+                    }).setOrigin(0,0.5).setDepth(_D+2);
+
+                    // Kapatma butonu
+                    const _btnG = _S.add.graphics().setDepth(_D+2).setInteractive(
+                        new Phaser.Geom.Rectangle(_CX-65,_PY+_PH-42,130,34),
+                        Phaser.Geom.Rectangle.Contains
+                    );
+                    const _drawBtn=(p)=>{
+                        _btnG.clear();
+                        _btnG.fillStyle(p?0xffcc00:0xffaa00,1);
+                        _btnG.fillRoundedRect(_CX-65,_PY+_PH-42,130,34,8);
+                        _btnG.fillStyle(0xffffff,p?0.25:0.15);
+                        _btnG.fillRoundedRect(_CX-63,_PY+_PH-40,126,12,{tl:7,tr:7,bl:0,br:0});
+                        _btnG.fillStyle(0x000000,0.30);
+                        _btnG.fillRoundedRect(_CX-65,_PY+_PH-14,130,8,{tl:0,tr:0,bl:8,br:8});
+                    };
+                    _drawBtn(false);
+                    const _btnTxt = _S.add.text(_CX,_PY+_PH-25,CURRENT_LANG==="tr"?"TAMAM ✓":"OK ✓",{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"16px",
+                        color:"#000000",stroke:"#00000033",strokeThickness:2
+                    }).setOrigin(0.5).setDepth(_D+3);
+
+                    const _closeAll=()=>{
+                        [_ov,_pg,_goldTxt,_btnG,_btnTxt].forEach(o=>{ try{o.destroy();}catch(_){} });
+                        _S.children.list.filter(c=>c.depth>=_D&&c.depth<=_D+3).forEach(c=>{ try{c.destroy();}catch(_){} });
+                    };
+                    _btnG.on("pointerdown",()=>{ _drawBtn(true); try{NT_SFX.play("menu_click");}catch(_){} });
+                    _btnG.on("pointerup", _closeAll);
+                    _ov.on("pointerdown", _closeAll);
+
+                    // Altın sayacı animasyonu
+                    _S.tweens.add({targets:_goldTxt,alpha:1,scaleX:1.3,scaleY:1.3,duration:200,
+                        onComplete:()=>_S.tweens.add({targets:_goldTxt,scaleX:1,scaleY:1,duration:150})});
+                    try{NT_SFX.play("gold");}catch(_){}
+
+                    // Genel fade-in
+                    [_ov,_pg,_btnG,_btnTxt].forEach(o=>{ try{o.setAlpha(0);}catch(_){} });
+                    _S.tweens.add({targets:[_ov,_pg,_btnG,_btnTxt],alpha:1,duration:300});
+                });
+            }
+        }
+
         try{
             NT_SFX.startMusic();
             NT_SFX.setMusicState("menu", 1.0);
@@ -11866,10 +12102,92 @@ class SceneMainMenu extends Phaser.Scene {
 //          LevelUp, GameOver, Phaser Boot
 // ═══════════════════════════════════════════════════════════════
 
+
+
 class SceneGame extends Phaser.Scene {
     constructor(){ super({key:SCENE_KEY}); }
 
     preload(){
+        // ── NOT KOMİK YÜKLEME EKRANI ────────────────────────────────────
+        const _W=360,_H=640,_CX=180;
+        const _loadOverlay=this.add.graphics().setDepth(9000);
+        _loadOverlay.fillStyle(0x08101e,1); _loadOverlay.fillRect(0,0,_W,_H);
+        // Logo / başlık
+        this.add.text(_CX,_H*0.32,"NOT FAIR",{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"38px",
+            color:"#ff6600",stroke:"#000",strokeThickness:6,
+            shadow:{offsetX:3,offsetY:3,color:"#440000",blur:8,fill:true}
+        }).setOrigin(0.5).setDepth(9001);
+        // Alt yazı
+        this.add.text(_CX,_H*0.32+48,"by Sahin Beyazgul",{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",color:"#887766"
+        }).setOrigin(0.5).setDepth(9001);
+        // Progress bar arka plan
+        const _barBg=this.add.graphics().setDepth(9001);
+        _barBg.fillStyle(0x1a2030,1); _barBg.fillRoundedRect(_CX-110,_H*0.55,220,12,6);
+        // Progress bar dolgu
+        const _barFill=this.add.graphics().setDepth(9002);
+        const _drawBar=(v)=>{
+            _barFill.clear();
+            _barFill.fillStyle(0xff6600,1);
+            _barFill.fillRoundedRect(_CX-110,_H*0.55,Math.max(4,220*v),12,6);
+        };
+        _drawBar(0);
+        // Yüzde yazısı
+        const _pctTxt=this.add.text(_CX,_H*0.55+26,"0%",{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",color:"#ffaa66"
+        }).setOrigin(0.5).setDepth(9002);
+        // Komik dönen yazılar
+        const _funnyLoadTR=[
+            "⏳ Haksızlık kalibre ediliyor...",
+            "💀 Ölüm animasyonları pişiriliyor...",
+            "🔺 Piramitler konumlandırılıyor...",
+            "⚖️ Adaleti NOT ayarlıyoruz...",
+            "🎯 Rastgelelik kasıtlı bozuluyor...",
+            "🧠 Yapay zeka kötülük öğreniyor...",
+            "🔥 NOT Corp™ sizi hazırlıyor...",
+            "📜 Hüküm ve koşullar görmezden geliniyor...",
+            "😈 Piramit patronu uyandırılıyor...",
+            "⚡ Dash düzeltiliyor (tamam tamam)...",
+        ];
+        const _funnyLoadEN=[
+            "⏳ Calibrating injustice...",
+            "💀 Rendering death animations...",
+            "🔺 Positioning pyramids...",
+            "⚖️ Setting fairness to NOT...",
+            "🎯 Intentionally breaking RNG...",
+            "🧠 Teaching AI to be evil...",
+            "🔥 NOT Corp™ is preparing you...",
+            "📜 Ignoring terms & conditions...",
+            "😈 Waking up the pyramid boss...",
+            "⚡ Fixing dash (finally)...",
+        ];
+        const _loadLines=CURRENT_LANG==="tr"?_funnyLoadTR:_funnyLoadEN;
+        let _loadIdx=0;
+        const _loadTxt=this.add.text(_CX,_H*0.64,_loadLines[0],{
+            fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",
+            color:"#aabbcc",wordWrap:{width:300,useAdvancedWrap:true},align:"center"
+        }).setOrigin(0.5).setDepth(9002);
+        // Her ~420ms yazıyı değiştir
+        const _lineCycle=()=>{
+            _loadIdx=(_loadIdx+1)%_loadLines.length;
+            _loadTxt.setAlpha(0);
+            _loadTxt.setText(_loadLines[_loadIdx]);
+            this.tweens.add({targets:_loadTxt,alpha:1,duration:260});
+        };
+        const _lineTimer=this.time.addEvent({delay:420,loop:true,callback:_lineCycle});
+
+        // Progress bar güncelle
+        this.load.on("progress",(v)=>{ _drawBar(v); _pctTxt.setText(Math.round(v*100)+"%"); });
+        // Yükleme bitince — nesneleri this'e kaydet, create() içinde temizlenecek
+        this._loadingObjs = [_loadOverlay, _barBg, _barFill, _pctTxt, _loadTxt];
+        this._loadingTimer = _lineTimer;
+        this.load.once("complete",()=>{
+            // Yükleme bitti — depth 9000/9001 nesnelerini işaretle
+            this._loadingComplete = true;
+        });
+        // ── YÜKLEME EKRANI BİTİŞ ────────────────────────────────────────
+
         this.load.image("bg",           "assets/blue_background.png");
         this.load.image("pause_button",  "assets/pause_button.png");
         this.load.image("icon_gold",     "assets/gold.png");
@@ -11933,6 +12251,17 @@ class SceneGame extends Phaser.Scene {
 
     create(){
         const W=360,H=640;
+        // Yükleme ekranı nesnelerini temizle (tweens.killAll öncesi — tween iptali önle)
+        if(this._loadingTimer) try{ this._loadingTimer.remove(); }catch(_){}
+        if(this._loadingObjs) this._loadingObjs.forEach(o=>{ try{ if(o&&!o.destroyed) o.destroy(); }catch(_){} });
+        this._loadingObjs = null;
+        // Depth 9000/9001 artık kalmış olabilecek başlık yazılarını da sil
+        try{
+            this.children.list.slice().forEach(c=>{
+                if(c && (c.depth===9001||c.depth===9000||c.depth===9002))
+                    try{c.destroy();}catch(_){}
+            });
+        }catch(_){}
         // [CRASH FIX] Kill any lingering tweens/timers from previous run
         try{ if(this.tweens) this.tweens.killAll(); }catch(e){console.warn("[NT] Hata yutuldu:",e)}
         // [UX] Sahne baslangicinda timeScale sifirla — onceki oyundan kalinti onle
@@ -12975,18 +13304,15 @@ class SceneGame extends Phaser.Scene {
                     // ── DASH TUTORIAL — oyun basladiktan 0.5s sonra goster ──
                     const _isTouchHint = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
                     const _dashHintTxt = CURRENT_LANG === "tr"
-                        ? (_isTouchHint ? "⚡ Sola/Sağa 2× dokun → DASH!" : "⚡ ← ← veya → → Çift bas → DASH!")
-                        : (_isTouchHint ? "⚡ Double-tap Left/Right → DASH!" : "⚡ Tap ← ← or → → twice → DASH!");
+                        ? (_isTouchHint ? "Sola/Sağa 2× dokun → DASH!" : "← ← veya → → Çift bas → DASH!")
+                        : (_isTouchHint ? "Double-tap Left/Right → DASH!" : "Tap ← ← or → → twice → DASH!");
 
-                    // Arka plan pill — yazıyı daha okunaklı yapar
-                    const _dhBg = this.add.graphics().setDepth(899).setAlpha(0).setScrollFactor(0);
-                    _dhBg.fillStyle(0x000000, 0.55);
-                    _dhBg.fillRoundedRect(180 - 148, 320 - 22, 296, 44, 14);
+                    // Siyah arka plan kaldırıldı
 
                     const _dh = this.add.text(180, 320, _dashHintTxt, {
                         fontFamily: "LilitaOne,Arial,sans-serif",
                         fontSize: "18px",
-                        color: "#88ddff",
+                        color: "#ffffff",
                         stroke: "#000000", strokeThickness: 4,
                         align: "center"
                     }).setOrigin(0.5, 0.5).setDepth(900).setAlpha(0).setScrollFactor(0);
@@ -12994,8 +13320,8 @@ class SceneGame extends Phaser.Scene {
                     this.time.delayedCall(500, () => {
                         if(!_dh || _dh.destroyed) return;
 
-                        // Fade in — yazı + arka plan birlikte
-                        this.tweens.add({ targets: [_dh, _dhBg], alpha: 1, duration: 380, ease: "Quad.easeOut",
+                        // Fade in — sadece yazı
+                        this.tweens.add({ targets: [_dh], alpha: 1, duration: 380, ease: "Quad.easeOut",
                             onComplete: () => {
                                 // Nefes alma animasyonu — scale yukarı aşağı titreşir
                                 if(!_dh || _dh.destroyed) return;
@@ -13005,23 +13331,16 @@ class SceneGame extends Phaser.Scene {
                                     duration: 600, ease: "Sine.easeInOut",
                                     yoyo: true, repeat: 3,
                                 });
-                                // Arka plan da hafif nefes alır
-                                this.tweens.add({
-                                    targets: _dhBg,
-                                    alpha: 0.7,
-                                    duration: 600, ease: "Sine.easeInOut",
-                                    yoyo: true, repeat: 3,
-                                });
+                                // Arka plan animasyonu kaldırıldı
                             }
                         });
 
                         // 3.5s sonra fade out
                         this.time.delayedCall(3500, () => {
                             if(!_dh || _dh.destroyed) return;
-                            this.tweens.add({ targets: [_dh, _dhBg], alpha: 0, duration: 500,
+                            this.tweens.add({ targets: [_dh], alpha: 0, duration: 500,
                                 onComplete: () => {
                                     try { _dh.destroy(); } catch(_) {}
-                                    try { _dhBg.destroy(); } catch(_) {}
                                 }
                             });
                         });
@@ -13124,6 +13443,7 @@ class SceneGame extends Phaser.Scene {
         // Her 1000 skor animasyonu
         const prevK=Math.floor(prevScore/1000);
         const newK=Math.floor(gs.score/1000);
+        if(newK>prevK){ try{ NT_CheckAchievements(this, GS); }catch(e){} }
         if(newK>prevK&&this.scoreText){
             this.tweens.add({targets:this.scoreText,scaleX:1.4,scaleY:1.4,duration:100,yoyo:true,ease:"Back.easeOut"});
             // Her 1000 skorunda kucuk altin isilti
@@ -13189,7 +13509,7 @@ class SceneGame extends Phaser.Scene {
 const DASH_WINDOW_MS  = 280;  // çift basış algılama süresi (ms)
 const DASH_DURATION   = 175;  // dash süresi (ms)
 const DASH_SPEED_MULT = 1.75; // hız çarpanı (hafif dash)
-const DASH_COOLDOWN   = 0;  // bekleme yok — çift basınca anında dash
+const DASH_COOLDOWN   = 500;  // 500ms cooldown — spam önlenir
 
 function _checkKbDash(S, dir) {
     const ds = S._dashState;
@@ -15977,6 +16297,7 @@ function killEnemy(S,p,giveXP){
     }
     if(!giveXP) return;
     gs.kills++;
+    try{ NT_CheckAchievements(S, gs); }catch(e){}
     // Komik quip balonu — her öldürmede karakterden sohbet balonu çıkar
     spawnTriangleQuip(S, gs.kills);
     // Elite/boss kill sayaci — XP hesaplamasinda kullanilir
@@ -17325,6 +17646,8 @@ function gameOver(S){
     // ── OLUM ANIMASYONU — ayri sprite kullan (player idle texture ile uyum sorunu onle) ──
     let _panelShown = false;
     function _showPanel(){
+        // ── Başarı kontrolü — game over anında ──────────────
+        try{ NT_CheckAchievements(S, gs); }catch(e){ console.warn("[NT] Ach check err:",e); }
         if(_panelShown) return;
         _panelShown = true;
 
@@ -17422,6 +17745,54 @@ function gameOver(S){
                 S.tweens.add({targets:_funnyTxt, alpha:1, duration:400, ease:"Quad.easeOut"});
         });
         cy += 34;
+
+        // ── NOT İPUCU — komik sahte tavsiye ─────────────────────────────
+        {
+            const _tipsTR=[
+                "💡 İpucu: Ölmemek faydalıdır. — NOT",
+                "💡 İpucu: Piramitlere yaklaşma. Yaklaş ama sonuç aynı. — NOT",
+                "💡 İpucu: Dash, seni her şeyden kurtarır. NOT.",
+                "💡 İpucu: Daha iyi ol. Alternatif: oynamayı bırak. — NOT",
+                "💡 İpucu: Oyun adaletlidir. Bu da bir yalan. — NOT",
+                "💡 İpucu: Strateji önemlidir. Senin durumunda değil. — NOT",
+                "💡 İpucu: Bir sonraki oyun farklı olacak. Olmayacak. — NOT",
+                "💡 İpucu: Skor artmaz, sen değişmezsin. — NOT",
+                "💡 İpucu: Piramitler canlıdır. Bu bilgiyi kullanma. — NOT",
+                "💡 İpucu: Upgrade al. Yine de ölürsün. — NOT",
+            ];
+            const _tipsEN=[
+                "💡 Tip: Not dying is helpful. — NOT",
+                "💡 Tip: Avoid pyramids. Or don't. Same result. — NOT",
+                "💡 Tip: Dash saves you from everything. NOT.",
+                "💡 Tip: Get better. Alternative: stop playing. — NOT",
+                "💡 Tip: The game is fair. That was also a lie. — NOT",
+                "💡 Tip: Strategy matters. Not in your case. — NOT",
+                "💡 Tip: Next run will be different. It won't. — NOT",
+                "💡 Tip: Scores go up. Yours didn't. — NOT",
+                "💡 Tip: The pyramids are alive. Don't use this info. — NOT",
+                "💡 Tip: Buy upgrades. You'll still die. — NOT",
+            ];
+            const _tipsRU=[
+                "💡 Совет: Не умирать — полезно. — NOT",
+                "💡 Совет: Избегай пирамид. Или нет. Итог тот же. — NOT",
+                "💡 Совет: Прокачивайся. Всё равно умрёшь. — NOT",
+                "💡 Совет: Следующий забег будет другим. Не будет. — NOT",
+                "💡 Совет: Игра честная. Это тоже ложь. — NOT",
+            ];
+            const _tips=CURRENT_LANG==="tr"?_tipsTR:CURRENT_LANG==="ru"?_tipsRU:_tipsEN;
+            const _tip=_tips[Math.floor(Math.random()*_tips.length)];
+            if(cy+24<=contentBot-90){
+                const _tipG=A(S.add.graphics().setDepth(D));
+                _tipG.fillStyle(0x0a1a2e,0.92); _tipG.fillRoundedRect(TX,cy,VX-TX,22,5);
+                _tipG.lineStyle(1,0x3366aa,0.5); _tipG.strokeRoundedRect(TX,cy,VX-TX,22,5);
+                A(S.add.text(CX,cy+11,_tip,{
+                    fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",
+                    color:"#88bbff",stroke:"#000",strokeThickness:2,
+                    wordWrap:{width:VX-TX-8,useAdvancedWrap:true},align:"center"
+                }).setOrigin(0.5,0.5).setDepth(D+1));
+                cy+=28;
+            }
+        }
 
         // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
@@ -17554,6 +17925,46 @@ function gameOver(S){
 
         // (Share button removed — earnings display replaces it)
 
+
+        // ── NOT SAHTE İPUÇLARI ────────────────────────────────────────
+        {
+            const _tipsTR=[
+                "💡 İpucu: Ölmemek faydalıdır. — NOT",
+                "💡 İpucu: Piramitlere dokunma. Peki nereye git? Bilmiyoruz. — NOT",
+                "💡 İpucu: Kaçmak da işe yaramaz. — NOT Corp™",
+                "💡 Profesyonel tavsiye: Oynamayı bırak. (Yine de bırakamazsın.) — NOT",
+                "💡 İpucu: Sistem seni sevmiyor. — NOT",
+                "💡 İpucu: Uzmanlar dash'ı iki kez tavsiye eder. Biz etmiyoruz. — NOT",
+                "💡 Strateji: Hayatta kal. (Bu kadar.) — NOT",
+                "💡 İpucu: Yüksek skor yapmak kolaydır. Sadece ölme. — NOT",
+                "💡 İpucu: Piramitlerin de hisleri var. İğneliyorlar işte. — NOT",
+                "💡 Hatırlatma: Bu oyunun adı NOT Fair. — NOT",
+            ];
+            const _tipsEN=[
+                "💡 Tip: Not dying is helpful. — NOT",
+                "💡 Tip: Avoid the pyramids. But where to go? No idea. — NOT",
+                "💡 Tip: Running away doesn't help either. — NOT Corp™",
+                "💡 Pro tip: Stop playing. (You can't though.) — NOT",
+                "💡 Tip: The system doesn't like you. — NOT",
+                "💡 Strategy: Survive. (That's it.) — NOT",
+                "💡 Tip: High score is easy. Just don't die. — NOT",
+                "💡 Reminder: The game is called NOT Fair. — NOT",
+                "💡 Tip: Pyramids have feelings too. Sharp ones. — NOT",
+                "💡 Fun fact: You've lost before. You'll lose again. — NOT",
+            ];
+            const _tips = CURRENT_LANG==="tr" ? _tipsTR : _tipsEN;
+            const _tip = _tips[Math.floor(Math.random()*_tips.length)];
+            const _tipY = contentBot - 14;
+            const _tipTxt = A(S.add.text(CX, _tipY, _tip, {
+                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
+                color:"#88bbcc", stroke:"#000", strokeThickness:2,
+                wordWrap:{width:pm.W-24, useAdvancedWrap:true}, align:"center"
+            }).setOrigin(0.5,1).setDepth(D).setAlpha(0));
+            S.time.delayedCall(900, ()=>{
+                if(_tipTxt && _tipTxt.scene)
+                    S.tweens.add({targets:_tipTxt, alpha:1, duration:500, ease:"Quad.easeOut"});
+            });
+        }
         // ── BUTONLAR ─────────────────────────────────────────────────
         const resetFn=()=>{
             Object.keys(UPGRADES).forEach(k=>UPGRADES[k].level=0);
