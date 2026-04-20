@@ -17746,53 +17746,7 @@ function gameOver(S){
         });
         cy += 34;
 
-        // ── NOT İPUCU — komik sahte tavsiye ─────────────────────────────
-        {
-            const _tipsTR=[
-                "💡 İpucu: Ölmemek faydalıdır. — NOT",
-                "💡 İpucu: Piramitlere yaklaşma. Yaklaş ama sonuç aynı. — NOT",
-                "💡 İpucu: Dash, seni her şeyden kurtarır. NOT.",
-                "💡 İpucu: Daha iyi ol. Alternatif: oynamayı bırak. — NOT",
-                "💡 İpucu: Oyun adaletlidir. Bu da bir yalan. — NOT",
-                "💡 İpucu: Strateji önemlidir. Senin durumunda değil. — NOT",
-                "💡 İpucu: Bir sonraki oyun farklı olacak. Olmayacak. — NOT",
-                "💡 İpucu: Skor artmaz, sen değişmezsin. — NOT",
-                "💡 İpucu: Piramitler canlıdır. Bu bilgiyi kullanma. — NOT",
-                "💡 İpucu: Upgrade al. Yine de ölürsün. — NOT",
-            ];
-            const _tipsEN=[
-                "💡 Tip: Not dying is helpful. — NOT",
-                "💡 Tip: Avoid pyramids. Or don't. Same result. — NOT",
-                "💡 Tip: Dash saves you from everything. NOT.",
-                "💡 Tip: Get better. Alternative: stop playing. — NOT",
-                "💡 Tip: The game is fair. That was also a lie. — NOT",
-                "💡 Tip: Strategy matters. Not in your case. — NOT",
-                "💡 Tip: Next run will be different. It won't. — NOT",
-                "💡 Tip: Scores go up. Yours didn't. — NOT",
-                "💡 Tip: The pyramids are alive. Don't use this info. — NOT",
-                "💡 Tip: Buy upgrades. You'll still die. — NOT",
-            ];
-            const _tipsRU=[
-                "💡 Совет: Не умирать — полезно. — NOT",
-                "💡 Совет: Избегай пирамид. Или нет. Итог тот же. — NOT",
-                "💡 Совет: Прокачивайся. Всё равно умрёшь. — NOT",
-                "💡 Совет: Следующий забег будет другим. Не будет. — NOT",
-                "💡 Совет: Игра честная. Это тоже ложь. — NOT",
-            ];
-            const _tips=CURRENT_LANG==="tr"?_tipsTR:CURRENT_LANG==="ru"?_tipsRU:_tipsEN;
-            const _tip=_tips[Math.floor(Math.random()*_tips.length)];
-            if(cy+24<=contentBot-90){
-                const _tipG=A(S.add.graphics().setDepth(D));
-                _tipG.fillStyle(0x0a1a2e,0.92); _tipG.fillRoundedRect(TX,cy,VX-TX,22,5);
-                _tipG.lineStyle(1,0x3366aa,0.5); _tipG.strokeRoundedRect(TX,cy,VX-TX,22,5);
-                A(S.add.text(CX,cy+11,_tip,{
-                    fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",
-                    color:"#88bbff",stroke:"#000",strokeThickness:2,
-                    wordWrap:{width:VX-TX-8,useAdvancedWrap:true},align:"center"
-                }).setOrigin(0.5,0.5).setDepth(D+1));
-                cy+=28;
-            }
-        }
+        // ── NOT İPUCU — kaldırıldı (çift yazı sorununu önlemek için)
 
         // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
