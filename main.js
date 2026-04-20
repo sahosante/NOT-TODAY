@@ -11314,9 +11314,10 @@ class SceneMainMenu extends Phaser.Scene {
     // ── How To Play ───────────────────────────────────────────────────
     _showHowTo(){
         const {A,close,contentTop,contentBot,TX,CX,PW,depth}
-            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"❓  NASIL OYNANIR":"❓  HOW TO PLAY",320,20);
+            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"❓  NASIL OYNANIR":"❓  HOW TO PLAY",368,20);
         let ly=contentTop+6;
         (CURRENT_LANG==="tr" ? [
+            ["⚡","DASH",         "Sol/Sağ'a 2× hızlı bas → hafif dash at! (Mobil: butona 2× dokun)"],
             ["🎯","HEDEF",        "Piramitleri yere dusmeden once yok et!"],
             ["⬅➡","HAREKET",     "Ekran kenarlarina bas veya ← → tuslari."],
             ["🔫","ATES ET",      "Ates butonu veya BOSLUK tusu."],
@@ -11326,6 +11327,7 @@ class SceneMainMenu extends Phaser.Scene {
             ["💀","COMBO",        "Hizli oldur → combo → daha fazla XP & altin!"],
             ["🍎","ELMA",         "Nadir dusme = +3 Can."],
         ] : [
+            ["⚡","DASH",        "Double-tap Left/Right → quick dash! (Mobile: tap button twice)"],
             ["🎯","GOAL",       "Destroy pyramids before they hit the ground!"],
             ["⬅➡","MOVE",      "Tap screen sides or ← → arrow keys."],
             ["🔫","SHOOT",      "Fire button or SPACE to shoot."],
@@ -11870,6 +11872,17 @@ class SceneGame extends Phaser.Scene {
         this._mobileRight = false;
         this._mobileFire = false;
 
+        // ── DASH STATE ───────────────────────────────────────────
+        this._dashState = {
+            lastLeftTime: 0, lastRightTime: 0,
+            active: false, timer: 0, dir: 0, cooldown: 0
+        };
+        // PC: çift tuş ile dash — ArrowLeft/A ve ArrowRight/D
+        this.input.keyboard.on("keydown-LEFT",  () => _checkKbDash(this, "left"));
+        this.input.keyboard.on("keydown-A",      () => _checkKbDash(this, "left"));
+        this.input.keyboard.on("keydown-RIGHT", () => _checkKbDash(this, "right"));
+        this.input.keyboard.on("keydown-D",      () => _checkKbDash(this, "right"));
+
         const _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (_isTouchDevice) {
             const W_MB = 360, H_MB = 640;
@@ -11991,11 +12004,29 @@ class SceneGame extends Phaser.Scene {
             const rightHit = this.add.rectangle(RIGHT_X, DIR_BTN_Y, DIR_BTN_W, DIR_BTN_H, 0xffffff, 0.001)
                 .setDepth(802).setScrollFactor(0).setInteractive();
 
-            leftHit.on("pointerdown",  (ptr) => { _leftActivePtr = ptr.id; this._mobileLeft = true;  _drawDirBtn(leftG,  LEFT_X,  "left",  true,  0x5588ff); });
+            leftHit.on("pointerdown",  (ptr) => {
+                _leftActivePtr = ptr.id; this._mobileLeft = true;
+                _drawDirBtn(leftG,  LEFT_X,  "left",  true,  0x5588ff);
+                // Çift dokunuş: dash
+                const _now = Date.now();
+                if (_now - (this._dashState?.lastLeftTime||0) < DASH_WINDOW_MS && this._dashState && !this._dashState.active && this._dashState.cooldown<=0) {
+                    _triggerDash(this, -1);
+                }
+                if (this._dashState) this._dashState.lastLeftTime = _now;
+            });
             leftHit.on("pointerup",    (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
             leftHit.on("pointerout",   (ptr) => { if(ptr.id===_leftActivePtr){ _leftActivePtr=null; this._mobileLeft = false; _drawDirBtn(leftG,  LEFT_X,  "left",  false, 0x5588ff); } });
 
-            rightHit.on("pointerdown", (ptr) => { _rightActivePtr = ptr.id; this._mobileRight = true; _drawDirBtn(rightG, RIGHT_X, "right", true,  0x5588ff); });
+            rightHit.on("pointerdown", (ptr) => {
+                _rightActivePtr = ptr.id; this._mobileRight = true;
+                _drawDirBtn(rightG, RIGHT_X, "right", true,  0x5588ff);
+                // Çift dokunuş: dash
+                const _now = Date.now();
+                if (_now - (this._dashState?.lastRightTime||0) < DASH_WINDOW_MS && this._dashState && !this._dashState.active && this._dashState.cooldown<=0) {
+                    _triggerDash(this, 1);
+                }
+                if (this._dashState) this._dashState.lastRightTime = _now;
+            });
             rightHit.on("pointerup",   (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
             rightHit.on("pointerout",  (ptr) => { if(ptr.id===_rightActivePtr){ _rightActivePtr=null; this._mobileRight = false; _drawDirBtn(rightG, RIGHT_X, "right", false, 0x5588ff); } });
 
@@ -12489,6 +12520,29 @@ class SceneGame extends Phaser.Scene {
                     GS._countdownActive = false;
                     this.physics.resume();
                     if(this.spawnEvent) this.spawnEvent.paused = false;
+
+                    // ── DASH TUTORIAL — oyun basladiktan 0.5s sonra goster ──
+                    const _isTouchHint = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+                    const _dashHintTxt = CURRENT_LANG === "tr"
+                        ? (_isTouchHint ? "⚡ Sola/Sağa 2× dokun → DASH!" : "⚡ ← ← veya → → Çift bas → DASH!")
+                        : (_isTouchHint ? "⚡ Double-tap Left/Right → DASH!" : "⚡ Tap ← ← or → → twice → DASH!");
+                    const _dh = this.add.text(180, 560, _dashHintTxt, {
+                        fontFamily: "LilitaOne,Arial,sans-serif",
+                        fontSize: "13px",
+                        color: "#88ddff",
+                        stroke: "#000000", strokeThickness: 3,
+                        align: "center"
+                    }).setOrigin(0.5, 1).setDepth(900).setAlpha(0).setScrollFactor(0);
+                    this.time.delayedCall(500, () => {
+                        if(!_dh || _dh.destroyed) return;
+                        this.tweens.add({ targets: _dh, alpha: 1, duration: 350, ease: "Quad.easeOut" });
+                        this.time.delayedCall(2800, () => {
+                            if(!_dh || _dh.destroyed) return;
+                            this.tweens.add({ targets: _dh, alpha: 0, duration: 500,
+                                onComplete: () => { try { _dh.destroy(); } catch(_) {} }
+                            });
+                        });
+                    });
                 });
             }
         };
@@ -12509,10 +12563,12 @@ class SceneGame extends Phaser.Scene {
         const gs=GS;
         if(!gs||gs.gameOver){
             if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
+            if(this._dashState){this._dashState.active=false;this._dashState.timer=0;}
             return;
         }
         if(gs.pickingUpgrade){
             if(this._mobileLeft!==undefined){this._mobileLeft=false;this._mobileRight=false;this._mobileFire=false;this._mobileFireHoldTime=0;this._mobileFireCutOff=false;}
+            if(this._dashState){this._dashState.active=false;this._dashState.timer=0;}
             return;
         }
         if(!this.player||!this.player.active) return;
@@ -12644,6 +12700,69 @@ class SceneGame extends Phaser.Scene {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// DASH SİSTEMİ — çift dokunuş / çift tuş ile hafif dash
+// ═══════════════════════════════════════════════════════════════
+const DASH_WINDOW_MS  = 280;  // çift basış algılama süresi (ms)
+const DASH_DURATION   = 175;  // dash süresi (ms)
+const DASH_SPEED_MULT = 1.75; // hız çarpanı (hafif dash)
+const DASH_COOLDOWN   = 700;  // dash sonrası bekleme (ms)
+
+function _checkKbDash(S, dir) {
+    const ds = S._dashState;
+    if (!ds || ds.active || ds.cooldown > 0) return;
+    const now = Date.now();
+    if (dir === "left") {
+        if (now - ds.lastLeftTime < DASH_WINDOW_MS) { _triggerDash(S, -1); }
+        ds.lastLeftTime = now;
+    } else {
+        if (now - ds.lastRightTime < DASH_WINDOW_MS) { _triggerDash(S, 1); }
+        ds.lastRightTime = now;
+    }
+}
+
+function _triggerDash(S, dir) {
+    const ds = S._dashState;
+    if (!ds) return;
+    ds.active   = true;
+    ds.timer    = DASH_DURATION;
+    ds.dir      = dir;
+    ds.cooldown = DASH_COOLDOWN;
+    try { NT_SFX.player_dash(); } catch(_) {}
+    _vfxDash(S, dir);
+}
+
+function _vfxDash(S, dir) {
+    if (!S || !S.player || !S.player.active) return;
+    const px = S.player.x, py = S.player.y - 10;
+
+    // ── Rüzgar çizgileri — yatay hız hissi ──────────────────────
+    // dir: -1 = sola, 1 = sağa → çizgiler arkada kalır
+    const lineData = [
+        { dy: -12, len: 28, alpha: 0.55, delay: 0   },
+        { dy:  -4, len: 38, alpha: 0.65, delay: 15  },
+        { dy:   4, len: 32, alpha: 0.60, delay: 8   },
+        { dy:  12, len: 20, alpha: 0.45, delay: 22  },
+        { dy:  -8, len: 18, alpha: 0.35, delay: 30  },
+        { dy:   8, len: 22, alpha: 0.40, delay: 12  },
+    ];
+    lineData.forEach(({ dy, len, alpha, delay }) => {
+        S.time.delayedCall(delay, () => {
+            if (!S.scene || !S.scene.isActive()) return;
+            const g = S.add.graphics().setDepth(6);
+            // arka taraftaki çizgi (dir'in tersine uzar)
+            const x1 = px - dir * 6;
+            const x2 = px - dir * (6 + len);
+            g.lineStyle(1.4, 0xaaddff, alpha);
+            g.lineBetween(x1, py + dy, x2, py + dy);
+            S.tweens.add({
+                targets: g, alpha: 0, duration: 130,
+                onComplete: () => { try { g.destroy(); } catch(_) {} }
+            });
+        });
+    });
+}
+
 // ── HAREKET ──────────────────────────────────────────────────
 function movePlayer(S,delta){
     const gs=GS; if(!gs||gs.gameOver) return;
@@ -12660,6 +12779,16 @@ function movePlayer(S,delta){
     if(rightDown && !leftDown)  vx=sp*_mirror;
     // Ikisi ayni anda basiliysa: dur (0 kalir)
 
+    // ── DASH cooldown tick ──────────────────────────────────────
+    const ds = S._dashState;
+    if (ds) {
+        if (ds.cooldown > 0) ds.cooldown = Math.max(0, ds.cooldown - delta);
+        if (ds.active) {
+            ds.timer -= delta;
+            if (ds.timer <= 0) { ds.active = false; }
+        }
+    }
+
     // Knockback
     if(gs._knockbackTimer>0){
         gs._knockbackTimer-=delta;
@@ -12668,6 +12797,12 @@ function movePlayer(S,delta){
         // kaliyordu ve oyuncu 350ms boyunca kayiyordu.
         S.player.body.velocity.x=0;
         S.player.body.velocity.y=0;
+    } else if (ds && ds.active) {
+        // ── DASH aktif — hız çarpanı uygula ──
+        const dashSpd = (gs.moveSpeed || 200) * DASH_SPEED_MULT;
+        S.player.body.velocity.x = ds.dir * dashSpd;
+        S.player.body.velocity.y = 0;
+        vx = ds.dir * dashSpd; // animasyon için
     } else {
         // Anlik hiz — kayma yok, gecikme yok
         S.player.body.velocity.x=vx;
