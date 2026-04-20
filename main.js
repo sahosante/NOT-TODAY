@@ -1944,6 +1944,14 @@ const NT_SFX = (function(){
             o.connect(g); g.connect(_sfxBus); o.start(t); o.stop(t+0.32);
         },
 
+        // ── CLICK — playUI("click") çağrısı için genel UI tık ────
+        click(){
+            const ctx=_getCtx(); if(!ctx) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",    _vary(520), t,      0.040, _vol(0.28), _vary(380), _uiBus);
+            _noise(t, 0.018, _vol(0.14), 3000, 9000, _uiBus);
+        },
+
     };
 
 
@@ -7432,6 +7440,7 @@ function spawnBoss(S){
         }
     }catch(e){console.warn("[NT] Boss hitbox fix:",e)}
     boss.spawnProtected=true; gs.bossActive=true;
+    try{ NT_SFX.play("boss_warning"); NT_SFX.play("boss_spawn"); }catch(_){}
     NT_SFX.setMusicState("boss", 2.5);
     S.time.delayedCall(1400,()=>{if(boss.active){boss.spawnProtected=false;boss.setAlpha(1);}});
 }
@@ -8972,10 +8981,10 @@ function showPause(S){
     A(S.add.text(CX, stripCY + pm.stripH*0.52 + 2,
         _pArr[Math.floor(Math.random()*_pArr.length)], {
         fontFamily:"LilitaOne, Arial, sans-serif",
-        fontSize:"8px", color:"#ffcc88",
-        stroke:"#000", strokeThickness:2,
+        fontSize:"12px", color:"#ffcc88",
+        stroke:"#000", strokeThickness:3,
         align:"center"
-    }).setOrigin(0.5, 0).setDepth(503).setAlpha(0.80));
+    }).setOrigin(0.5, 0).setDepth(503).setAlpha(0.90));
 
     // Stats rows
     let cy=contentTop+4;
@@ -16224,6 +16233,7 @@ function freezeEnemy(S,e){
         e._frozenVelY=e.body.velocity.y;
         e.body.velocity.set(0,0);
     }
+    try{ NT_SFX.play("freeze_hit"); }catch(_){}
     const freezeDur=1500+UPGRADES.freeze.level*200;
 
     // ── BUZ PATLAMA efekti ──
@@ -16782,6 +16792,7 @@ function spawnMiniBoss(S){
     p.setVelocityY(_mbSpeed);
     p.spawnProtected=true;
     gs.miniBossActive=true;
+    try{ NT_SFX.play("boss_warning"); }catch(_){}
     // [FIX] Miniboss hitbox — onceki hesap scaleX/Y'den kaynakli hataliydi.
     // Phaser body.setSize() UNSCALED (orijinal texture piksel) deger ister.
     // pyramid texture frame: 183x112. setDisplaySize ile scale degisir ama
