@@ -9433,6 +9433,222 @@ function spawnKillText(S, x, y){
 }
 
 // ╔══════════════════════════════════════════════════════════╗
+// ║  spawnTriangleQuip(S, px, py)                           ║
+// ║  Üçgen vurulduğunda karakterden komik sohbet balonu     ║
+// ╚══════════════════════════════════════════════════════════╝
+const _QUIP_TR = [
+    "Bak nasıl geçtim!",
+    "Hadi oradan üçgen!",
+    "Geometri bitti!",
+    "Bu mu en iyisiydi?",
+    "Açıların acıtmıyor!",
+    "Üçgen misin sen?",
+    "Matematiği geçtim!",
+    "Güle güle piramit!",
+    "Köşeli misin canım!",
+    "Bir daha gel bakalım!",
+    "Keskin mi sandın?",
+    "İşte bu kadar...",
+    "Fena değildim ha?",
+    "Sıradaki!",
+    "Geçmiş olsun!",
+    "Piramit sandın mı?",
+    "Aman yarabbi!",
+    "Yetersiz açı!",
+    "Tam üstüne!",
+    "Ben buyum!",
+    "Ne zamandır bekliyordum!",
+    "Dur bakalım!",
+    "Şimdiye kadar neredeydin?",
+    "Eyw!",
+    "Oh be!",
+    "Teker teker geliyin!",
+    "Hepsini temizlerim!",
+    "Git şimdi!",
+    "Hoşça kal eşkenar!",
+    "Kalmamış mı?",
+    "Seni çoktan bekliyordum!",
+    "Bu mudur saldırı!",
+    "Harikayım ben ya!",
+    "Açı mı verirsin?",
+    "Yan mı baktın bana?",
+    "Kolay gelsin!",
+    "Deli miyim ben?",
+    "Şampiyonum ben!",
+    "Bok ettin!",
+    "Bana göre değilsin!",
+    "Allah'ım bak!",
+    "Silindir mi sandın?",
+    "Dur diyorum!",
+    "İşte kral budur!",
+    "Süper süper!",
+    "İlk değil son değil!",
+    "Kahraman bu tarafta!",
+    "Evet evet evet!",
+    "Çığır açtım!",
+];
+const _QUIP_EN = [
+    "Get rekt, triangle!",
+    "Geometry solved!",
+    "Too easy!",
+    "Who's next?!",
+    "Sharp? I'm sharper!",
+    "Math just died!",
+    "Pyramid? More like bye-mid!",
+    "Angles can't save you!",
+    "See ya, pointy!",
+    "Three sides? Zero chance!",
+    "I'm on fire!",
+    "Is that all?!",
+    "Come on then!",
+    "Oops, you slipped!",
+    "Smashed it!",
+    "Not today!",
+    "Triangles fear me!",
+    "Next please!",
+    "Easy peasy!",
+    "Nailed it!",
+    "Booom!",
+    "Like butter!",
+    "Can't touch this!",
+    "Another one bites dust!",
+    "I'm unstoppable!",
+    "Welp, goodbye!",
+    "Oh yeah!",
+    "Piece of cake!",
+    "Ha! Too slow!",
+    "Don't mess with me!",
+    "That tickled!",
+    "Catch me if you can!",
+    "Obliterated!",
+    "KAPOW!",
+    "You had ONE job!",
+    "Yeeted into oblivion!",
+    "Pathetic!",
+    "I could do this forever!",
+    "RIP triangle!",
+    "Gone in 0.1 seconds!",
+    "Was that a triangle?!",
+    "I sneezed harder!",
+    "You call that an attack?",
+    "My grandma's scarier!",
+    "Touch me not!",
+    "Skedaddle!",
+    "Bye bye!",
+    "King stuff!",
+    "Legendary!",
+    "That's how it's done!",
+];
+
+// Kill sayacına göre özel mesajlar
+const _QUIP_MILESTONE_TR = {
+    10:  "10 UCGEN! Isınıyorum!",
+    25:  "25! Ben bir makine miyim?!",
+    50:  "50 Kill! Gerçek miyim ben?",
+    100: "100 UCGEN! Efsaneyim!",
+    200: "200?! Durun biraz...",
+    500: "500 KILL! Tanrı mıyım ben?!",
+};
+const _QUIP_MILESTONE_EN = {
+    10:  "10 kills! Just warming up!",
+    25:  "25! Am I a machine?!",
+    50:  "50 kills! Is this real?!",
+    100: "100 TRIANGLES! I'm legendary!",
+    200: "200?! Hold on a sec...",
+    500: "500 KILLS! Am I a god?!",
+};
+
+let _quipLastTime = 0;
+const _QUIP_COOLDOWN = 1800; // ms — aynı anda çok sık görünmesin
+let _quipIdx = -1; // son kullanılan index (tekrar olmasın)
+
+function spawnTriangleQuip(S, killCount){
+    if(!S||!S.add||!S.player||!S.player.active) return;
+    const now = performance.now();
+    if(now - _quipLastTime < _QUIP_COOLDOWN) return;
+    _quipLastTime = now;
+
+    const isTR = (typeof CURRENT_LANG !== "undefined" && CURRENT_LANG === "tr");
+    const milestones = isTR ? _QUIP_MILESTONE_TR : _QUIP_MILESTONE_EN;
+    const quips      = isTR ? _QUIP_TR : _QUIP_EN;
+
+    // Milestone mesajı varsa onu göster
+    let msg = milestones[killCount] || null;
+    if(!msg){
+        // Rasgele ama son kullanılanı tekrarlama
+        let idx;
+        do { idx = Math.floor(Math.random() * quips.length); } while(idx === _quipIdx && quips.length > 1);
+        _quipIdx = idx;
+        msg = quips[idx];
+    }
+
+    // Karakterin üstünde konumlandır
+    const px = S.player.x;
+    const py = S.player.y - 52;
+    const depth = 55;
+
+    // Sadece yazı — balon yok, karakter rengine uygun stil
+    const txt = S.add.text(px, py, msg, {
+        fontFamily:      "LilitaOne, Arial, sans-serif",
+        fontSize:        "11px",
+        color:           "#ffffff",
+        stroke:          "#222222",
+        strokeThickness: 3,
+        padding:         {x:2, y:2}
+    }).setOrigin(0.5, 1).setDepth(depth+1).setAlpha(0);
+
+    // Tracker hemen başlar — pop-in + float boyunca karakteri takip eder
+    const _quipOffsetY = -52; // karakterin üstündeki sabit mesafe
+    let _quipFloatOffset = 0; // float animasyonu sırasında yukarı kayma miktarı
+    const _quipTotalDuration = 140 + 900 + 420; // pop-in + bekleme + fade
+    const tracker = S.time.addEvent({
+        delay:    16,
+        repeat:   Math.ceil(_quipTotalDuration / 16) + 5,
+        callback: () => {
+            if(txt.active && S.player && S.player.active){
+                txt.x = S.player.x;
+                txt.y = S.player.y + _quipOffsetY - _quipFloatOffset;
+            }
+        }
+    });
+
+    // Pop-in
+    S.tweens.add({
+        targets:  txt,
+        alpha:    1,
+        scaleX:   { from: 0.5, to: 1 },
+        scaleY:   { from: 0.5, to: 1 },
+        duration: 140,
+        ease:     "Back.easeOut",
+        onComplete: () => {
+            // Float yukarı + soluklaş; tracker zaten çalışıyor
+            S.tweens.add({
+                targets:  { val: 0 },
+                val:      30,
+                duration: 420,
+                delay:    900,
+                ease:     "Quad.easeIn",
+                onUpdate: (tween, target) => {
+                    _quipFloatOffset = target.val;
+                },
+                onComplete: () => {
+                    tracker.remove(false);
+                    try { txt.destroy(); } catch(e){}
+                }
+            });
+            // Alpha fade ayrıca
+            S.tweens.add({
+                targets:  txt,
+                alpha:    0,
+                duration: 420,
+                delay:    900,
+                ease:     "Quad.easeIn"
+            });
+        }
+    });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
 // ║  spawnLevelUpText(x, y)                                 ║
 // ╚══════════════════════════════════════════════════════════╝
 function spawnLevelUpText(S, x, y){
@@ -15076,6 +15292,8 @@ function killEnemy(S,p,giveXP){
     }
     if(!giveXP) return;
     gs.kills++;
+    // Komik quip balonu — her öldürmede karakterden sohbet balonu çıkar
+    spawnTriangleQuip(S, gs.kills);
     // Elite/boss kill sayaci — XP hesaplamasinda kullanilir
     if(p.elite||p.elder||p.titan||p.colossus||p.obsidian||p.glacier||p.inferno||p.volt)
         gs._eliteKills = (gs._eliteKills||0) + 1;
