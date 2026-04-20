@@ -2263,11 +2263,11 @@ function _hasSkin(skinId){
 }
 
 const BOOSTS = [
-    { id:"gold2x",    name:"2X GOLD",     nameTR:"2X ALTIN",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
-    { id:"xp2x",      name:"2X XP",       nameTR:"2X XP",      desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
-    { id:"shield",     name:"SHIELD",      nameTR:"KALKAN",     desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
-    { id:"autorevive", name:"AUTO-REVIVE", nameTR:"OTO DIRILIS",desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
-    { id:"luckcharm",  name:"LUCK+",       nameTR:"SANS+",      desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
+    { id:"gold2x",    name:"PARA BASAN MAKİNE 🖨️",     nameTR:"PARA BASAN MAKİNE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
+    { id:"xp2x",      name:"KAFA GÜBRESİ 🧠",           nameTR:"KAFA GÜBRESİ 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
+    { id:"shield",     name:"SARILSANA BARİ 🛡️",        nameTR:"SARILSANA BARİ 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
+    { id:"autorevive", name:"OLMEYECEGIM DEDİM 💖",      nameTR:"OLMEYECEGIM DEDİM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
+    { id:"luckcharm",  name:"DRİP ALARM 🍀",             nameTR:"DRİP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -2322,12 +2322,12 @@ const QUEST_DIFF = {
 };
 
 const SKINS = [
-    { id:"shadow_blade",  name:"Shadow Blade",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
-    { id:"flame_sword",   name:"Flame Sword",    cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
-    { id:"frost_bow",     name:"Frost Bow",      cat:"weapon", col:0x88ddff, rar:"RARE"      },
-    { id:"shadow_walk",   name:"Shadow Walker",  cat:"char",   col:0x4444cc, rar:"RARE"      },
-    { id:"chrome_knight", name:"Chrome Knight",  cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
-    { id:"gold_warrior",  name:"Golden Warrior", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
+    { id:"shadow_blade",  name:"Karanlık Kaşık ✦",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
+    { id:"flame_sword",   name:"Ateşli Çöp Kutusu 🔥", cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
+    { id:"frost_bow",     name:"Dondurucu Sopa ❄️",   cat:"weapon", col:0x88ddff, rar:"RARE"      },
+    { id:"shadow_walk",   name:"Gizli Değil Aslında", cat:"char",   col:0x4444cc, rar:"RARE"      },
+    { id:"chrome_knight", name:"Teneke Kahraman",     cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
+    { id:"gold_warrior",  name:"Param Var Ben Varım", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
 ];
 
 const STARTER = { gems:150, gold:2000, stars:100, disc:80 };
@@ -4071,13 +4071,13 @@ const LANG_DATA = {
         evoTriCannon:"Uc Top",evoStormCore:"Firtina Cekirdegi",
         evoOverload:"Asiri Yuk",
         evoMirrorStorm:"Ayna Firtinasi",
-        startHp:"Demir Bunye",startHpDesc:"Basla: +10 max can",
-        startDmg:"Keskin Bicak",startDmgDesc:"Basla: +15% hasar",
-        startSpd:"Col Kosucusu",startSpdDesc:"Basla: +10% hiz",
-        goldBonus:"Hazine Avcisi",goldBonusDesc:"+25% altin kazan",
-        extraLife:"Ikinci Sans",extraLifeDesc:"Bir kez dirilis",
-        xpBonus:"Alim Hediyesi",xpBonusDesc:"Basla: +20% XP",
-        critStart:"Kartal Gozu",critStartDesc:"Basla: %5 kritik",
+        startHp:"Kofte Abisi 💪",startHpDesc:"Basla: +10 max can",
+        startDmg:"Cok Kizginum",startDmgDesc:"Basla: +15% hasar",
+        startSpd:"Ust Kosucusu 🏃",startSpdDesc:"Basla: +10% hiz",
+        goldBonus:"Para Para Para 🤑",goldBonusDesc:"+25% altin kazan",
+        extraLife:"Yine mi Oldun 💀",extraLifeDesc:"Bir kez dirilis",
+        xpBonus:"Okullu Cocuk 📚",xpBonusDesc:"Basla: +20% XP",
+        critStart:"Sallama Vuruyor 🦅",critStartDesc:"Basla: %5 kritik",
         chestHeal:"+5 HP",chestDamage:"+15% DMG",
         chestAttack:"+8% ATES HIZI",chestSpeed:"+10% HAREKET",
         chestMaxHp:"+3 MAX HP",chestComboBoost:"COMBO BOOST",
@@ -4196,13 +4196,13 @@ const LANG_DATA = {
         evoOverload:"Overload",
         evoMirrorStorm:"Mirror Storm",
         evoCryoField:"Cryo Field",evoPlagueBearer:"Plague Bearer",
-        startHp:"Iron Body",startHpDesc:"Start: +10 max hp",
-        startDmg:"Sharp Blade",startDmgDesc:"Start: +15% damage",
-        startSpd:"Desert Runner",startSpdDesc:"Start: +10% speed",
-        goldBonus:"Treasure Hunter",goldBonusDesc:"+25% gold earned",
-        extraLife:"Second Chance",extraLifeDesc:"One revival",
-        xpBonus:"Scholar Gift",xpBonusDesc:"Start: +20% XP",
-        critStart:"Eagle Eye",critStartDesc:"Start: 5% crit",
+        startHp:"Gym Bro Mode",startHpDesc:"Start: +10 max hp",
+        startDmg:"Anger Issues",startDmgDesc:"Start: +15% damage",
+        startSpd:"Leg Day Legend",startSpdDesc:"Start: +10% speed",
+        goldBonus:"Gold Digger Pro",goldBonusDesc:"+25% gold earned",
+        extraLife:"Oops, Did It Again",extraLifeDesc:"One revival",
+        xpBonus:"Nerd Pack 🤓",xpBonusDesc:"Start: +20% XP",
+        critStart:"Lucky Clicker",critStartDesc:"Start: 5% crit",
         chestHeal:"+5 HP",chestDamage:"+15% DAMAGE",
         chestAttack:"+8% FIRE RATE",chestSpeed:"+10% MOVEMENT",
         chestMaxHp:"+3 MAX HP",chestComboBoost:"COMBO BOOST",
@@ -16365,22 +16365,23 @@ function gameOver(S){
         ];
         const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:CURRENT_LANG==="ru"?_goFunnyRU:_goFunnyEN;
         const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
-        A(S.add.text(CX, stripCY+16, _goMsg, {
+        // [FIX] Mizah yazisi content alaninin icine alindi — title strip ile cakismiyor
+        const _funnyTxt = A(S.add.text(CX, contentTop+4, _goMsg, {
             fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
             color:"#ffaa66", stroke:"#000", strokeThickness:2,
-            wordWrap:{width:300, useAdvancedWrap:true}
+            wordWrap:{width:PW-30, useAdvancedWrap:true},
+            align:"center"
         }).setOrigin(0.5,0).setDepth(D).setAlpha(0));
-        // Gecikmeyle fad-in — başlıktan sonra gelsin
         S.time.delayedCall(600, ()=>{
-            const _fO = objs[objs.length-1];
-            if(_fO && _fO.scene) S.tweens.add({targets:_fO, alpha:1, duration:400, ease:"Quad.easeOut"});
+            if(_funnyTxt && _funnyTxt.scene)
+                S.tweens.add({targets:_funnyTxt, alpha:1, duration:400, ease:"Quad.easeOut"});
         });
 
         const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
         const isNew=gs.score>prevHs;
 
-        let cy=contentTop+12;
+        let cy=contentTop+22;
 
         // ── SKOR ─────────────────────────────────────────────────────
         A(S.add.text(CX,cy,gs.score.toLocaleString(),
