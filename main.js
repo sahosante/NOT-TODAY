@@ -13207,10 +13207,13 @@ function _checkKbDash(S, dir) {
 function _triggerDash(S, dir) {
     const ds = S._dashState;
     if (!ds) return;
-    ds.active   = true;
-    ds.timer    = DASH_DURATION;
-    ds.dir      = dir;
-    ds.cooldown = DASH_COOLDOWN;
+    ds.active        = true;
+    ds.timer         = DASH_DURATION;
+    ds.dir           = dir;
+    ds.cooldown      = DASH_COOLDOWN;
+    // Zamanlayıcıları sıfırla — dash bittikten sonra ilk tek basışta tekrar tetiklenmesin
+    ds.lastLeftTime  = 0;
+    ds.lastRightTime = 0;
     try { NT_SFX.player_dash(); } catch(_) {}
     _vfxDash(S, dir);
 }
@@ -17395,8 +17398,20 @@ function gameOver(S){
         ];
         const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:CURRENT_LANG==="ru"?_goFunnyRU:_goFunnyEN;
         const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
-        // [FIX] Mizah yazisi content alaninin icine alindi — title strip ile cakismiyor
-        const _funnyTxt = A(S.add.text(CX, contentTop+4, _goMsg, {
+
+        const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
+        if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
+        const isNew=gs.score>prevHs;
+
+        let cy=contentTop+8;
+
+        // ── SKOR — üstte büyük ve belirgin ───────────────────────────
+        A(S.add.text(CX,cy,gs.score.toLocaleString(),
+            NT_STYLE.title(32,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
+        cy+=44;
+
+        // ── KOMİK YAZI — skorun hemen altında ────────────────────────
+        const _funnyTxt = A(S.add.text(CX, cy, _goMsg, {
             fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
             color:"#ffaa66", stroke:"#000", strokeThickness:3,
             wordWrap:{width:pm.W-30, useAdvancedWrap:true},
@@ -17406,20 +17421,7 @@ function gameOver(S){
             if(_funnyTxt && _funnyTxt.scene)
                 S.tweens.add({targets:_funnyTxt, alpha:1, duration:400, ease:"Quad.easeOut"});
         });
-
-        const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
-        if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
-        const isNew=gs.score>prevHs;
-
-        let cy=contentTop+40;
-
-        // ── SKOR ─────────────────────────────────────────────────────
-        A(S.add.text(CX,cy,gs.score.toLocaleString(),
-            NT_STYLE.title(32,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
-        cy+=42;
-
-        // [FIX] Ayırıcı çizgi kaldırıldı
-        cy+=6;
+        cy += 34;
 
         // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
@@ -19889,7 +19891,7 @@ function _startPhaserGame(){
                 if(!gl) return;
 
                 function _applyFilter(glTex, minF, magF){
-                    if(!glTex) return;
+                    if(!glTex || !(glTex instanceof WebGLTexture)) return;
                     try{
                         gl.bindTexture(gl.TEXTURE_2D, glTex);
                         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minF);
