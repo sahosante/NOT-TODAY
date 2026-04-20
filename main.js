@@ -11799,8 +11799,8 @@ class SceneGame extends Phaser.Scene {
 
         // ── ARKAPLAN — once turuncu solid renk (bg image yuklenemezse fallback gorunur) ──
         this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
-        // Arka plan gorseli (kullanici degistirdigi versiyon)
-        this.add.image(W/2,H/2,"bg").setDisplaySize(W,H).setDepth(-10);
+        // Arka plan gorseli — tileSprite olarak parallax icin
+        this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg").setDepth(-10);
         // Kamera fade-in kaldirildi — direkt oyuna gecis
 
         // Zemin seridi kaldirildi
@@ -12673,6 +12673,11 @@ function movePlayer(S,delta){
             if(_curAnim !== "anim_idle") S.player.play("anim_idle",true);
             S._trailTimer = 0;
         }
+    }
+
+    // ── PARALLAX ── bg tileSprite oyuncunun hizinin 0.18x kadar kayar
+    if(S.bgTile && S.bgTile.active){
+        S.bgTile.tilePositionX += vx * 0.18 * (delta / 1000);
     }
 }
 
