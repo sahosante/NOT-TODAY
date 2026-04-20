@@ -3306,7 +3306,7 @@ function showShop(scene){
                 ];
                 const _lvXpNow = _plvXpNeeded(PLAYER_LEVEL);
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"— LEVEL XP PAKETLERi —":"— LEVEL XP PACKS —",{fontFamily:_F,fontSize:"11px",color:"#ffcc44",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"Gem harcayarak Level XP kazan!":"Spend Gems to earn Level XP directly!",{fontFamily:_F,fontSize:"9px",color:"#aa8833",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"Gem harcayarak Level XP kazan!":"Spend Gems to earn Level XP directly!",{fontFamily:_F,fontSize:"10px",color:"#ffcc55",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=28;
                 _xpPacks.forEach((pk)=>{
                     const rowH=56; const canB=PLAYER_GEMS>=pk.cost;
@@ -3391,7 +3391,7 @@ function showShop(scene){
                     });
                     y+=spH+8;
                 }
-                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ELMAS PAKETLERi":"GEM PACKS",{fontFamily:_F,fontSize:"13px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ELMAS PAKETLERi":"GEM PACKS",{fontFamily:_F,fontSize:"13px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
                 GEM_PACKS.forEach((pk,i)=>{
                     const tot=pk.gems+pk.bonus, rowH=58;
@@ -3428,7 +3428,7 @@ function showShop(scene){
                 _add(T(cx-28,SY0+y+15,PLAYER_GOLD.toLocaleString(),{fontFamily:_F,fontSize:"17px",color:"#ffcc00",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                 _add(T(cx+PW/2-24,SY0+y+15,CURRENT_LANG==="tr"?"ALTIN":"GOLD",{fontFamily:_F,fontSize:"11px",color:"#aa8800",stroke:"#000",strokeThickness:1}).setOrigin(1,0.5));
                 y+=38;
-                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#aa7700",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#ffcc44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
                 const GOLD_PACKS=[
                     {gold:5000,   price:"$0.99",  bonus:0,     tag:null,     popular:false},
@@ -3946,7 +3946,7 @@ function showMissions(scene){
             const fY=rowStart+quests.length*(ROW_H+ROW_GAP)+4;
             _scrollCont.add(scene.add.text(cx,fY+10,
                 CURRENT_LANG==="tr"?"💎 OZEL GOREV HER 3 GUNDE BIR GELIR":"💎 SPECIAL MISSION EVERY 3 DAYS",
-                {fontFamily:_F,fontSize:"10px",color:"#6688aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setAlpha(0.75));
+                {fontFamily:_F,fontSize:"11px",color:"#aaddff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
         }
 
         const totalH=8+quests.length*(ROW_H+ROW_GAP)+30;
