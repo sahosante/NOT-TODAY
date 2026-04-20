@@ -17733,18 +17733,17 @@ function gameOver(S){
             NT_STYLE.title(32,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
         cy+=44;
 
-        // ── KOMİK YAZI — skorun hemen altında ────────────────────────
-        const _funnyTxt = A(S.add.text(CX, cy, _goMsg, {
+        // ── KOMİK YAZI — butonların hemen üstünde ────────────────────────
+        const _funnyTxt = A(S.add.text(CX, btnCY - 30, _goMsg, {
             fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
             color:"#ffaa66", stroke:"#000", strokeThickness:3,
             wordWrap:{width:pm.W-30, useAdvancedWrap:true},
             align:"center"
-        }).setOrigin(0.5,0).setDepth(D).setAlpha(0));
+        }).setOrigin(0.5,1).setDepth(D).setAlpha(0));
         S.time.delayedCall(600, ()=>{
             if(_funnyTxt && _funnyTxt.scene)
                 S.tweens.add({targets:_funnyTxt, alpha:1, duration:400, ease:"Quad.easeOut"});
         });
-        cy += 34;
 
         // ── NOT İPUCU — kaldırıldı (çift yazı sorununu önlemek için)
 
@@ -17880,45 +17879,7 @@ function gameOver(S){
         // (Share button removed — earnings display replaces it)
 
 
-        // ── NOT SAHTE İPUÇLARI ────────────────────────────────────────
-        {
-            const _tipsTR=[
-                "💡 İpucu: Ölmemek faydalıdır. — NOT",
-                "💡 İpucu: Piramitlere dokunma. Peki nereye git? Bilmiyoruz. — NOT",
-                "💡 İpucu: Kaçmak da işe yaramaz. — NOT Corp™",
-                "💡 Profesyonel tavsiye: Oynamayı bırak. (Yine de bırakamazsın.) — NOT",
-                "💡 İpucu: Sistem seni sevmiyor. — NOT",
-                "💡 İpucu: Uzmanlar dash'ı iki kez tavsiye eder. Biz etmiyoruz. — NOT",
-                "💡 Strateji: Hayatta kal. (Bu kadar.) — NOT",
-                "💡 İpucu: Yüksek skor yapmak kolaydır. Sadece ölme. — NOT",
-                "💡 İpucu: Piramitlerin de hisleri var. İğneliyorlar işte. — NOT",
-                "💡 Hatırlatma: Bu oyunun adı NOT Fair. — NOT",
-            ];
-            const _tipsEN=[
-                "💡 Tip: Not dying is helpful. — NOT",
-                "💡 Tip: Avoid the pyramids. But where to go? No idea. — NOT",
-                "💡 Tip: Running away doesn't help either. — NOT Corp™",
-                "💡 Pro tip: Stop playing. (You can't though.) — NOT",
-                "💡 Tip: The system doesn't like you. — NOT",
-                "💡 Strategy: Survive. (That's it.) — NOT",
-                "💡 Tip: High score is easy. Just don't die. — NOT",
-                "💡 Reminder: The game is called NOT Fair. — NOT",
-                "💡 Tip: Pyramids have feelings too. Sharp ones. — NOT",
-                "💡 Fun fact: You've lost before. You'll lose again. — NOT",
-            ];
-            const _tips = CURRENT_LANG==="tr" ? _tipsTR : _tipsEN;
-            const _tip = _tips[Math.floor(Math.random()*_tips.length)];
-            const _tipY = contentBot - 14;
-            const _tipTxt = A(S.add.text(CX, _tipY, _tip, {
-                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
-                color:"#88bbcc", stroke:"#000", strokeThickness:2,
-                wordWrap:{width:pm.W-24, useAdvancedWrap:true}, align:"center"
-            }).setOrigin(0.5,1).setDepth(D).setAlpha(0));
-            S.time.delayedCall(900, ()=>{
-                if(_tipTxt && _tipTxt.scene)
-                    S.tweens.add({targets:_tipTxt, alpha:1, duration:500, ease:"Quad.easeOut"});
-            });
-        }
+        // ── NOT SAHTE İPUÇLARI — kaldırıldı
         // ── BUTONLAR ─────────────────────────────────────────────────
         const resetFn=()=>{
             Object.keys(UPGRADES).forEach(k=>UPGRADES[k].level=0);
