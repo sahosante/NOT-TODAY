@@ -11800,7 +11800,7 @@ class SceneGame extends Phaser.Scene {
         // ── ARKAPLAN — once turuncu solid renk (bg image yuklenemezse fallback gorunur) ──
         this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
         // Arka plan gorseli — tileSprite olarak parallax icin
-        this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg").setDepth(-10);
+        this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg").setDepth(-10).setScrollFactor(0);
         // Kamera fade-in kaldirildi — direkt oyuna gecis
 
         // Zemin seridi kaldirildi
