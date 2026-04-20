@@ -4583,7 +4583,7 @@ async function lbSubmitScore(score, kills, level){
             const personal={score,kills,level,date:Date.now(),name:_TG_USER.name};
             window.Telegram.WebApp.CloudStorage.setItem("nt_best", JSON.stringify(personal));
         }
-    }catch(e){console.warn("[NT] Hata yutuldu:",e)}
+    }catch(e){if(!String(e&&e.message).includes("WebAppMethodUnsupported"))console.warn("[NT] Hata yutuldu:",e)}
 
     const prevBest = parseInt(secureGet("nt_lb_personal_best","0","0"));
     if(score > prevBest){
@@ -16703,7 +16703,7 @@ function gameOver(S){
         const _funnyTxt = A(S.add.text(CX, contentTop+4, _goMsg, {
             fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
             color:"#ffaa66", stroke:"#000", strokeThickness:2,
-            wordWrap:{width:PW-30, useAdvancedWrap:true},
+            wordWrap:{width:pm.W-30, useAdvancedWrap:true},
             align:"center"
         }).setOrigin(0.5,0).setDepth(D).setAlpha(0));
         S.time.delayedCall(600, ()=>{
