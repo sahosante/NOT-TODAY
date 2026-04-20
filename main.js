@@ -159,6 +159,11 @@
 // State-based music, layered SFX, dynamic systems
 // Zero external dependencies — pure Web Audio API
 // ═══════════════════════════════════════════════════════════════
+// ── Kill chain state (used by spawnKillText) ──────────────────
+let _killChain     = 0;
+let _killChainLast = 0;
+const _KILL_CHAIN_GAP = 1200; // ms — longer window for kill chain
+
 const NT_SFX = (function(){
     "use strict";
 
@@ -1668,6 +1673,110 @@ const NT_SFX = (function(){
             if(Math.random()<0.42) _noise(t,0.008,_vol(0.07*vV),2000,6000, null, pan);
         },
 
+        // ── WEAPON SFX — Lightning, Thunder, Saw, Poison, Laser, Drone ──
+        // All volumes kept low-to-mid so they never overpower the music.
+
+        sfx_lightning(){
+            // Crackling electric snap — short, sharp, high-frequency
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.55);
+            // Main snap — fast rising then falling freq
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="square";
+            o.frequency.setValueAtTime(_vary(880,0.12),t);
+            o.frequency.exponentialRampToValueAtTime(_vary(3400,0.10),t+0.018);
+            o.frequency.exponentialRampToValueAtTime(_vary(220,0.08),t+0.065);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(0.28),t+0.006);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+            o.connect(g); g.connect(_sfxBus);
+            o.start(t); o.stop(t+0.10);
+            try{o.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),150);}
+            if(!_acquireVoice()) return;
+            // Static crackle layer
+            _noise(t,       _vary(0.022,0.1), _vol(0.22), 3500, 16000, null, pan);
+            _noise(t+0.012, _vary(0.038,0.1), _vol(0.14), 1200,  7000, null, pan);
+            // Sub-tick aftermath
+            _osc("sine", _vary(140,0.08), t+0.04, 0.055, _vol(0.10), _vary(55,0.1), null, pan);
+        },
+
+        sfx_thunder(){
+            // Deep resonant thunderclap — low boom + rumble tail
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Core boom — low sine impact
+            _osc("sine",   _vary(52,0.08),  t,        _vary(0.22,0.06), _vol(0.38), _vary(28,0.1));
+            _osc("sine",   _vary(36,0.08),  t+0.04,   _vary(0.30,0.06), _vol(0.30), _vary(18,0.1));
+            // Mid crack
+            _osc("sawtooth",_vary(180,0.1), t,        _vary(0.055,0.08),_vol(0.22), _vary(60,0.1));
+            // Rumble noise tail
+            _noise(t,       _vary(0.08,0.06),_vol(0.28), 40,  500);
+            _noise(t+0.06,  _vary(0.22,0.06),_vol(0.14), 30,  280);
+            // High crack transient
+            _noise(t,       _vary(0.012,0.1),_vol(0.20), 900, 5000);
+        },
+
+        sfx_saw_hit(){
+            // Metallic screech & grind — brief, industrial
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.5);
+            // Metal grind — sawtooth sweep up
+            _osc("sawtooth", _vary(320,0.12), t, _vary(0.040,0.1), _vol(0.26), _vary(1100,0.08), null, pan);
+            // Impact click
+            _noise(t,  _vary(0.010,0.1), _vol(0.30), 2200, 12000, null, pan);
+            // Resonant ring-out
+            _osc("sine", _vary(2200,0.06), t+0.008, _vary(0.055,0.08), _vol(0.12), _vary(800,0.1), null, pan);
+        },
+
+        sfx_poison(){
+            // Wet bubbling + toxic hiss — organic, disgusting in the best way
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Bubble blurp — triangle with fast pitch drop
+            _osc("triangle", _vary(520,0.12), t,       _vary(0.065,0.08), _vol(0.22), _vary(90,0.1));
+            _osc("triangle", _vary(390,0.10), t+0.03,  _vary(0.055,0.08), _vol(0.18), _vary(70,0.1));
+            _osc("triangle", _vary(640,0.10), t+0.055, _vary(0.045,0.08), _vol(0.14), _vary(110,0.1));
+            // Hiss layer — mid filtered noise
+            _noise(t,      _vary(0.095,0.08), _vol(0.18), 600,  4500);
+            _noise(t+0.04, _vary(0.10, 0.08), _vol(0.10), 300,  1800);
+        },
+
+        sfx_laser(){
+            // Charged beam fire — rising whine + hard impact buzz
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.2);
+            // Rising whine — sine sweep
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine";
+            o.frequency.setValueAtTime(_vary(380,0.08),t);
+            o.frequency.exponentialRampToValueAtTime(_vary(2800,0.06),t+0.12);
+            o.frequency.exponentialRampToValueAtTime(_vary(620,0.08),t+0.22);
+            g.gain.setValueAtTime(0,t);
+            g.gain.linearRampToValueAtTime(_vol(0.30),t+0.04);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.24);
+            const p=_mkPan(ctx,pan);
+            if(p){o.connect(g);g.connect(p);p.connect(_sfxBus);}else{o.connect(g);g.connect(_sfxBus);}
+            o.start(t); o.stop(t+0.26);
+            try{o.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),300);}
+            if(!_acquireVoice()) return;
+            // Beam buzz
+            _osc("sawtooth", _vary(1400,0.08), t+0.08, _vary(0.10,0.06), _vol(0.14), _vary(420,0.1), null, pan);
+            // Crisp impact noise
+            _noise(t+0.10, _vary(0.060,0.08), _vol(0.18), 2000, 10000, null, pan);
+        },
+
+        sfx_drone(){
+            // Quick mechanical blaster pew — tight, punchy, robotic
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime, pan=_vary(0,0.60);
+            // Main pew — descending square
+            _osc("square", _vary(640,0.10), t, _vary(0.028,0.08), _vol(0.22), _vary(180,0.1), null, pan);
+            // Harmonic layer
+            _osc("sine",   _vary(1280,0.08),t, _vary(0.020,0.08), _vol(0.12), _vary(360,0.1), null, pan);
+            // Click transient
+            _noise(t, _vary(0.008,0.1), _vol(0.18), 3000, 12000, null, pan);
+        },
+
         // ── PYRAMID SWOOP — enemy descend air-rush ────────────────
         // Very subtle whoosh — felt rather than heard. Bandpass noise
         // that sweeps downward, panned randomly for spatial presence.
@@ -1715,11 +1824,7 @@ const NT_SFX = (function(){
     // Am pentatonic (A4→E7) — 12 adim, hep temiz kulaga gelir
     const _XP_SCALE = [440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5, 1568, 1760, 2093];
 
-    // ── Kill chain state ──────────────────────────────────────────
-    // Kisa surede art arda kill → multi-kill sesi + bass hit
-    let _killChain     = 0;
-    let _killChainLast = 0;
-    const _KILL_CHAIN_GAP = 1200; // ms — longer window for kill chain
+    // ── Kill chain state (managed at top level by spawnKillText) ─
 
     // ── Triangle Wind Ambience ────────────────────────────────────
     let _windNode   = null;
@@ -9702,14 +9807,14 @@ function showFloatingText(S, priority, text, x, y){
         fs=20; depth=42; strokeTh=6; riseY=65; stayDur=800; fadeDur=500; scaleIn=1.4;
         textCol="#ffffff"; strokeCol="#330000"; glowCol="#ff4400";
     } else if(priority === FT_IMPORTANT){
-        fs=15; depth=36; strokeTh=4; riseY=50; stayDur=500; fadeDur=380; scaleIn=1.15;
-        textCol="#ffeecc"; strokeCol="#000000"; glowCol="#ffaa44";
+        fs=15; depth=36; strokeTh=4; riseY=50; stayDur=700; fadeDur=500; scaleIn=1.15;
+        textCol="#ffffff"; strokeCol="#000000"; glowCol="#ffcc44";
     } else if(priority === FT_NORMAL){
         fs=isPerfect?17:13; depth=32; strokeTh=4; riseY=40; stayDur=300; fadeDur=280;
         scaleIn=isPerfect?1.25:1.05;
         textCol=isPerfect?"#ffee44":"#ffffcc"; strokeCol="#000000"; glowCol=isPerfect?"#ffcc00":null;
     } else {
-        fs=10; depth=25; strokeTh=0; riseY=22; stayDur=180; fadeDur=200; scaleIn=0.95;
+        fs=10; depth=25; strokeTh=0; riseY=22; stayDur=260; fadeDur=240; scaleIn=0.95;
         textCol="#cccccc"; strokeCol=null; glowCol=null;
     }
 
@@ -12048,6 +12153,7 @@ class SceneGame extends Phaser.Scene {
             this.time.delayedCall(180,()=>{if(enemy.active)enemy.hitByOrbit=false;});
             const sawLv=UPGRADES.saw?.level||1;
             applyDmg(this,enemy,GS.damage*(1.8+sawLv*0.3),false);
+            NT_SFX.play("sfx_saw_hit");
         });
 
         // ── DUSMAN — OYUNCU CARPISMASI ──
@@ -12783,6 +12889,7 @@ function tickWeapons(S,delta){
         if(gs._lastPoison>cooldown){
             gs._lastPoison=0;
             spawnPoisonOrb(S);
+            NT_SFX.play("sfx_poison");
         }
     }
 }
@@ -12812,6 +12919,7 @@ function doLightning(S){
             // BUFF: biraz daha güçlü
             const _lightningDmg = Math.min(gs.damage * 0.88, BASE_DAMAGE * (1.05 + lv * 0.28));
             applyDmg(S,t,_lightningDmg,false);
+            NT_SFX.play("sfx_lightning");
             if(gs._synergyChainStorm) applyChainStormToLightning(S,t);
 
             const ex=t.x, ey=t.y-8;
@@ -13002,6 +13110,7 @@ function doLaser(S){
                 });
 
                 S.cameras.main.shake(30+lv*8, 0.004+lv*0.001);
+                NT_SFX.play("sfx_laser");
                 // Screen flash KALDIRILDI — goz yorucu
 
                 // Lazer soner — once cekirdek, sonra glow
@@ -13035,6 +13144,7 @@ function doThunderStrike(S){
             if(!te||!te.active) return;
             const _thunderDmg=Math.min(gs.damage*0.65, BASE_DAMAGE*(0.70+lv*0.20));
             applyDmg(S,te,_thunderDmg,false);
+            NT_SFX.play("sfx_thunder");
             const bx=te.x, by=te.y-4;
 
             const _thColors=[
@@ -13190,6 +13300,7 @@ S.droneGroup.getChildren().forEach((d,i)=>{if(i>=lv){d.setActive(false).setVisib
         // We store it as a fixed value on the bullet so applyDmg uses it directly
         const _db = fireBulletRaw(S,d.x,d.y,(t.x-d.x)*dspd,(t.y-d.y)*dspd,_droneDmgMult);
         if(_db) _db._droneShot = true; // flag — applyDmg will use BASE_DAMAGE not gs.damage
+        NT_SFX.play("sfx_drone");
     // ★ Drone Shield synergy — heal trigger (raised threshold: 10 hits instead of 8)
     if(gs._synergyDroneShield){gs._droneHitCount=(gs._droneHitCount||0)+1;if(gs._droneHitCount>=10){gs._droneHitCount=0;gs.health=Math.min(gs.maxHealth,gs.health+1);}}
 }}});}
@@ -15313,7 +15424,7 @@ function damagePlayer(S){
     try{
         const _hm=_nextHitMsg();
         const _px=S.player?S.player.x:180;
-        showHitTxt(S,_px,GROUND_Y-80,_hm,"#ffaa22",false);
+        showHitTxt(S,_px,GROUND_Y-80,_hm,"#ffaa22",true);
     }catch(_){}
     // ── AAA PLAYER HURT VFX ──
     vfxPlayerHurt(S);
