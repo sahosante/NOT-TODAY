@@ -2263,11 +2263,11 @@ function _hasSkin(skinId){
 }
 
 const BOOSTS = [
-    { id:"gold2x",    name:"PARA BASAN MAKİNE 🖨️",     nameTR:"PARA BASAN MAKİNE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
-    { id:"xp2x",      name:"KAFA GÜBRESİ 🧠",           nameTR:"KAFA GÜBRESİ 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
-    { id:"shield",     name:"SARILSANA BARİ 🛡️",        nameTR:"SARILSANA BARİ 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
-    { id:"autorevive", name:"OLMEYECEGIM DEDİM 💖",      nameTR:"OLMEYECEGIM DEDİM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
-    { id:"luckcharm",  name:"DRİP ALARM 🍀",             nameTR:"DRİP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
+    { id:"gold2x",    name:"PARA BASAN MAKINE 🖨️",     nameTR:"PARA BASAN MAKINE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
+    { id:"xp2x",      name:"KAFA GUBRESI 🧠",           nameTR:"KAFA GUBRESI 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
+    { id:"shield",     name:"SARILSANA BARI 🛡️",        nameTR:"SARILSANA BARI 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
+    { id:"autorevive", name:"OLMEYECEGIM DEDIM 💖",      nameTR:"OLMEYECEGIM DEDIM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
+    { id:"luckcharm",  name:"DRIP ALARM 🍀",             nameTR:"DRIP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -2322,12 +2322,12 @@ const QUEST_DIFF = {
 };
 
 const SKINS = [
-    { id:"shadow_blade",  name:"Karanlık Kaşık ✦",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
-    { id:"flame_sword",   name:"Ateşli Çöp Kutusu 🔥", cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
+    { id:"shadow_blade",  name:"Karanlik Kasik ✦",    cat:"weapon", col:0x2266ee, rar:"RARE"      },
+    { id:"flame_sword",   name:"Atesli Cop Kutusu 🔥", cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
     { id:"frost_bow",     name:"Dondurucu Sopa ❄️",   cat:"weapon", col:0x88ddff, rar:"RARE"      },
-    { id:"shadow_walk",   name:"Gizli Değil Aslında", cat:"char",   col:0x4444cc, rar:"RARE"      },
+    { id:"shadow_walk",   name:"Gizli Degil Aslinda", cat:"char",   col:0x4444cc, rar:"RARE"      },
     { id:"chrome_knight", name:"Teneke Kahraman",     cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
-    { id:"gold_warrior",  name:"Param Var Ben Varım", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
+    { id:"gold_warrior",  name:"Param Var Ben Varim", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
 ];
 
 const STARTER = { gems:150, gold:2000, stars:100, disc:80 };
@@ -7032,19 +7032,19 @@ function spawnEnemy(S){
         case"kamikaze":  p.hp=hpFor(4,gs.level,0.25);  p.kamikaze=true;p.setDisplaySize(78,64).setVelocityY(spd*0.65); break;
         case"ghost":     p.hp=hpFor(10,gs.level,0.5);  p.ghost=true;p.setDisplaySize(59,48).setAlpha(0.42).setVelocityY(spd*1.0); break;
         case"spinner":   p.hp=hpFor(7,gs.level,0.4);   p.spinner=true;p.spinRate=0;p.setDisplaySize(78,64).setTint(0xFF77CC).setVelocityY(spd*0.78); break;
-        case"armored":   p.hp=hpFor(14,gs.level,0.7);  p.armor=2;p.armored=true;p.setDisplaySize(78,64).setTint(0xFFAAEE).setVelocityY(spd*0.6); break;
-        case"elder":     p.hp=hpFor(30,gs.level,0.9);  p.armor=1;p.elder=true;p.setDisplaySize(117,96).setVelocityY(spd*0.45); break;
+        case"armored":   p.hp=hpFor(9,gs.level,0.40);  p.armor=1;p.armored=true;p.setDisplaySize(78,64).setTint(0xFFAAEE).setVelocityY(spd*0.6); break; // [NERF] base 14→9, scale 0.7→0.40, armor 2→1
+        case"elder":     p.hp=hpFor(20,gs.level,0.6);  p.armor=1;p.elder=true;p.setDisplaySize(117,96).setVelocityY(spd*0.45); break; // [NERF] base 30→20, scale 0.9→0.6
         case"bomber":    p.hp=hpFor(5,gs.level,0.3);   p.bomber=true;p.setDisplaySize(78,64).setVelocityY(spd*0.9); break;
         case"stealth":   p.hp=hpFor(7,gs.level,0.4);   p.stealth=true;p.stealthTimer=0;p.setDisplaySize(78,64).setAlpha(0.9).setVelocityY(spd*0.95); break;
         case"healer":    p.hp=hpFor(9,gs.level,0.5);   p.healer=true;p.healTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.6); break;
         case"magnet":    p.hp=hpFor(7,gs.level,0.4);   p.magnetEnemy=true;p.setDisplaySize(78,64).setVelocityY(spd*0.8); break;
         case"mirror":    p.hp=hpFor(7,gs.level,0.4);   p.mirror=true;p.mirrorSpawned=false;p.setDisplaySize(78,64).setVelocityY(spd*0.85); break;
         case"berserker": p.hp=hpFor(9,gs.level,0.55);  p.berserker=true;p.setDisplaySize(78,64).setVelocityY(spd*0.7); break;
-        case"absorber":  p.hp=hpFor(12,gs.level,0.65); p.absorber=true;p.armor=2;p.absorbTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.65); break;
+        case"absorber":  p.hp=hpFor(9,gs.level,0.45);  p.absorber=true;p.armor=1;p.absorbTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.65); break; // [NERF] base 12→9, scale 0.65→0.45, armor 2→1
         case"chain":     p.hp=hpFor(6,gs.level,0.35);  p.chain=true;p.setDisplaySize(78,64).setVelocityY(spd*1.1); break;
         case"freezer":   p.hp=hpFor(9,gs.level,0.5);   p.freezerEnemy=true;p.freezeTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.7); break;
         case"leech":     p.hp=hpFor(7,gs.level,0.4);   p.leech=true;p.setDisplaySize(78,64).setVelocityY(spd*0.9); break;
-        case"titan":     p.hp=hpFor(45,gs.level,1.4);  p.armor=2;p.titan=true;p.setDisplaySize(137,112).setVelocityY(spd*0.35); break;
+        case"titan":     p.hp=hpFor(30,gs.level,0.9);  p.armor=1;p.titan=true;p.setDisplaySize(137,112).setVelocityY(spd*0.35); break; // [NERF] base 45→30, scale 1.4→0.9, armor 2→1
         case"shadow":    p.hp=hpFor(9,gs.level,0.5);   p.shadow=true;p.shadowSpawned=false;p.setDisplaySize(78,64).setVelocityY(spd*1.0); break;
         case"spiker":    p.hp=hpFor(7,gs.level,0.4);   p.spiker=true;p.spikeTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.85); break;
         case"vortex":    p.hp=hpFor(10,gs.level,0.6);  p.vortex=true;p.setDisplaySize(78,64).setVelocityY(spd*0.6); break;
@@ -7052,7 +7052,7 @@ function spawnEnemy(S){
         case"rusher":    p.hp=hpFor(6,gs.level,0.35);  p.rusher=true;p.rushTimer=0;p.rushing=false;p.setDisplaySize(59,48).setVelocityY(spd*0.5); break;
         case"splitter":  p.hp=hpFor(10,gs.level,0.55); p.splitter=true;p.setDisplaySize(78,64).setVelocityY(spd*0.9); break;
         case"toxic":     p.hp=hpFor(7,gs.level,0.4);   p.toxic=true;p.toxTimer=0;p.setDisplaySize(78,64).setVelocityY(spd*0.85); break;
-        case"colossus":  p.hp=hpFor(30,gs.level,0.9);  p.armor=1;p.colossus=true;p.setDisplaySize(196,160).setVelocityY(spd*0.25); break;
+        case"colossus":  p.hp=hpFor(20,gs.level,0.6);  p.armor=1;p.colossus=true;p.setDisplaySize(196,160).setVelocityY(spd*0.25); break; // [NERF] base 30→20, scale 0.9→0.6
 // ── YENI PIRAMIT TIPLERI — pyramid_1/2/3/4 asset, pyramid.png ile ayni boyut ──
         // Scale 0.82–0.95 arasi: normal pyramid ile ayni gorsel buyukluk
         // ── OZEL PIRAMIT TIPLERI ──
@@ -7074,7 +7074,7 @@ function spawnEnemy(S){
             p._voltPhase=0; // zigzag faz
             p._voltAccel=false;
             break;
-        case"obsidian":    p.hp=hpFor(45,gs.level,1.3);   p.obsidian=true; p.armor=2;
+        case"obsidian":    p.hp=hpFor(26,gs.level,0.75);  p.obsidian=true; p.armor=1; // [NERF] base 45→26, scale 1.3→0.75, armor 2→1
             p.setDisplaySize(78,64).setTint(0xFF88BB).setVelocityY(spd*0.4);
             p._reflect=true; // hasar yansitma
             break;
