@@ -2680,10 +2680,17 @@ function showWheel(scene){
     const fBg=A(scene.add.graphics().setDepth(D+3));
     const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
-    A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
+    // [FIX] Free spin text referansı sakla — spin başlayınca WAITING'e çevirmek için
+    const fTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
-    .on("pointerover",()=>{if(cf)_dF(true);}).on("pointerout",()=>_dF(false))
-    .on("pointerdown",()=>{if(!_canFree()||spinning)return;_spin(true);});
+    .on("pointerover",()=>{if(cf&&!spinning)_dF(true);}).on("pointerout",()=>_dF(false))
+    .on("pointerdown",()=>{
+        if(!_canFree()||spinning)return;
+        // [FIX] Anında WAITING durumuna geç
+        if(fTxt&&fTxt.active) fTxt.setText(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING...").setColor("#777777");
+        _dF(false); // gri arka plan
+        _spin(true);
+    });
 
     // ── GEM SPIN button ──
     const gY=fY+44;
@@ -16620,23 +16627,25 @@ function gameOver(S){
             if(_elapsed>=TOTAL_TIME){ _done=true; _timerEv.remove(); _cleanup(); onDecline(); }
         }});
 
-        // ── YES butonu ───────────────────────────────────────────
-        if(canAfford){
+        // ── YES butonu — her zaman göster, gem yoksa tıklayınca uyar ──
+        {
             const yesStr = L("reviveBtn");
             const yBtnG=A2(S.add.graphics().setDepth(D2+2).setAlpha(0));
             const _drawYes=(h)=>{
                 yBtnG.clear();
-                yBtnG.fillStyle(h?0xdd6600:0xaa4400,1);
+                // Gem varsa turuncu, yoksa gri
+                const colMain = canAfford ? (h?0xdd6600:0xaa4400) : (h?0x555555:0x333333);
+                yBtnG.fillStyle(colMain,1);
                 yBtnG.fillRoundedRect(CX2-68,PY+PH-92,136,36,11);
                 yBtnG.fillStyle(0xffffff,h?0.20:0.12);
                 yBtnG.fillRoundedRect(CX2-66,PY+PH-91,132,13,{tl:10,tr:10,bl:0,br:0});
-                yBtnG.lineStyle(2,h?0xffcc44:0xff8833,0.9);
+                yBtnG.lineStyle(2,canAfford?(h?0xffcc44:0xff8833):0x666666,0.9);
                 yBtnG.strokeRoundedRect(CX2-68,PY+PH-92,136,36,11);
             };
             _drawYes(false);
             const yesTxt=A2(S.add.text(CX2,PY+PH-74,yesStr,{
                 fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"17px",
-                color:"#ffee88",stroke:"#3d1400",strokeThickness:4
+                color:canAfford?"#ffee88":"#888888",stroke:"#1a1000",strokeThickness:4
             }).setOrigin(0.5).setDepth(D2+3).setAlpha(0));
             S.tweens.add({targets:[yBtnG,yesTxt],alpha:1,duration:250,delay:220});
             const yHit=A2(S.add.rectangle(CX2,PY+PH-74,136,36,0xffffff,0.001)
@@ -16645,12 +16654,18 @@ function gameOver(S){
             yHit.on("pointerout",()=>_drawYes(false));
             yHit.on("pointerdown",()=>{
                 if(_done||_reviveUsed) return;
+                if(!canAfford){
+                    // Gem yok — salla ve uyar
+                    S.cameras.main.shake(30,0.006);
+                    showHitTxt(S,180,280,L("notEnoughGems"),"#ff4444",false);
+                    return;
+                }
                 _done=true; _reviveUsed=true;
                 _timerEv.remove();
                 NT_SFX.play("revive");
                 spendGems(GEM_REVIVE_COST);
                 _cleanup();
-                // [FIX-REVIVE] Karanlık overlay'i kaldır
+                // Overlay temizle
                 try{ ov.destroy(); }catch(_){}
                 try{
                     S.children.list
@@ -16658,7 +16673,7 @@ function gameOver(S){
                         .forEach(o=>{try{o.destroy();}catch(_){}});
                 }catch(_){}
                 gs.gameOver=false;
-                gs._gemReviveUsed=true;   // ikinci ölümde direkt game over
+                gs._gemReviveUsed=true;
                 gs.health=Math.min(gs.maxHealth,4);
                 gs.invincible=true; gs._invT=0;
                 gs.pickingUpgrade=false;
@@ -16667,15 +16682,12 @@ function gameOver(S){
                 if(S.spawnEvent) S.spawnEvent.paused=false;
                 try{ if(S.player) S.player.setVisible(true); }catch(_){}
                 S.time.delayedCall(4000,()=>{ if(gs) gs.invincible=false; });
-                // [FIX-REVIVE] Kamerayı karanlıktan kurtar
                 S.cameras.main.fadeIn(350,0,0,0);
                 S.cameras.main.flash(400,255,180,50,false);
                 S.cameras.main.shake(180,0.018);
-                // [FIX-REVIVE] Müziği yeniden başlat
                 NT_SFX.startMusic();
                 NT_SFX.setMusicState("gameplay", 0.5);
                 NT_SFX.startWindAmbience();
-                // [FIX-MOBİL] Mobil butonları geri getir
                 try{ _showMobileBtns(S); }catch(_){}
                 showHitTxt(S,180,220,L("revived"),"#ffcc44",true);
             });
@@ -16809,16 +16821,16 @@ function showDiamondReviveScreen(S, bgOv){
     S.tweens.add({targets:deco,alpha:1,duration:200,delay:150});
 
     // Elmas maliyeti bilgisi
-    S.add.text(W/2,252,L("reviveCostInfo"),{
+    S.add.text(W/2,258,L("reviveCostInfo"),{  // [FIX] spacing increased
         font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc",align:"center"
     }).setOrigin(0.5).setDepth(952);
 
-    S.add.text(W/2,268,L("reviveHpInfo"),{
+    S.add.text(W/2,278,L("reviveHpInfo"),{
         font:"bold 13px LilitaOne, Arial, sans-serif",color:"#ff8888"
     }).setOrigin(0.5).setDepth(952);
 
     // Elmas bakiyesi
-    S.add.text(W/2,284,L("goGemsStatus")+" "+PLAYER_GEMS+" 💎",{
+    S.add.text(W/2,298,L("goGemsStatus")+" "+PLAYER_GEMS+" 💎",{
         font:"bold 14px LilitaOne, Arial, sans-serif",
         color:PLAYER_GEMS>=5?"#cc99ff":"#ff4444"
     }).setOrigin(0.5).setDepth(952);
@@ -16826,7 +16838,7 @@ function showDiamondReviveScreen(S, bgOv){
     // ── GERI SAYIM DAIRESI ──
     let countdown=3;
     const cdCircle=S.add.graphics().setDepth(952);
-    const cdTxt=S.add.text(W/2,318,countdown.toString(),{
+    const cdTxt=S.add.text(W/2,334,countdown.toString(),{
         font:"bold 28px LilitaOne, Arial, sans-serif",color:"#ffffff",
         stroke:"#000",strokeThickness:3
     }).setOrigin(0.5).setDepth(953);
@@ -16834,7 +16846,7 @@ function showDiamondReviveScreen(S, bgOv){
     const drawCountdownCircle=(t)=>{
         cdCircle.clear();
         // Dis halka arka plan
-        cdCircle.lineStyle(5,0x330044,0.6); cdCircle.strokeCircle(W/2,318,26);
+        cdCircle.lineStyle(5,0x330044,0.6); cdCircle.strokeCircle(W/2,334,26);
         // Dolgu — t=3..0
         const angle=-Math.PI/2; // 12 saatten basla
         const endAngle=angle+(2*Math.PI*(t/3));
@@ -16845,12 +16857,12 @@ function showDiamondReviveScreen(S, bgOv){
             const a1=angle+(endAngle-angle)*(s/steps);
             const a2=angle+(endAngle-angle)*((s+1)/steps);
             cdCircle.lineBetween(
-                W/2+Math.cos(a1)*26,318+Math.sin(a1)*26,
-                W/2+Math.cos(a2)*26,318+Math.sin(a2)*26
+                W/2+Math.cos(a1)*26,334+Math.sin(a1)*26,
+                W/2+Math.cos(a2)*26,334+Math.sin(a2)*26
             );
         }
         // Ic parlama
-        cdCircle.lineStyle(2,0xdd88ff,0.3); cdCircle.strokeCircle(W/2,318,20);
+        cdCircle.lineStyle(2,0xdd88ff,0.3); cdCircle.strokeCircle(W/2,334,20);
     };
 
     // Animated countdown
@@ -16891,17 +16903,17 @@ function showDiamondReviveScreen(S, bgOv){
     const drawRev=(hov)=>{
         revBg.clear();
         revBg.fillStyle(hov?0xcc44ff:0x660088,1);
-        revBg.fillRoundedRect(W/2-110,354,220,44,10);
+        revBg.fillRoundedRect(W/2-110,370,220,44,10);
         revBg.lineStyle(2.5,0xdd88ff,hov?1:0.75);
-        revBg.strokeRoundedRect(W/2-110,354,220,44,10);
+        revBg.strokeRoundedRect(W/2-110,370,220,44,10);
         revBg.fillStyle(0xffffff,hov?0.12:0.05);
-        revBg.fillRoundedRect(W/2-108,356,216,14,{tl:9,tr:9,bl:0,br:0});
+        revBg.fillRoundedRect(W/2-108,372,216,14,{tl:9,tr:9,bl:0,br:0});
     };
     drawRev(false);
-    S.add.text(W/2,376,L("reviveBtnGem"),{
+    S.add.text(W/2,392,L("reviveBtnGem"),{
         font:"bold 13px LilitaOne, Arial, sans-serif",color:"#ffffff"
     }).setOrigin(0.5).setDepth(953);
-    S.add.rectangle(W/2,376,220,44,0xffffff,0.001).setInteractive().setDepth(954)
+    S.add.rectangle(W/2,392,220,44,0xffffff,0.001).setInteractive().setDepth(954)
         .on("pointerover",()=>drawRev(true))
         .on("pointerout",()=>drawRev(false))
         .on("pointerdown",()=>{
@@ -16919,15 +16931,15 @@ function showDiamondReviveScreen(S, bgOv){
     const drawEnd=(hov)=>{
         endBg.clear();
         endBg.fillStyle(hov?0x333344:0x111118,1);
-        endBg.fillRoundedRect(W/2-80,408,160,32,8);
+        endBg.fillRoundedRect(W/2-80,422,160,32,8);
         endBg.lineStyle(1.5,hov?0x666688:0x333344,0.9);
-        endBg.strokeRoundedRect(W/2-80,408,160,32,8);
+        endBg.strokeRoundedRect(W/2-80,422,160,32,8);
     };
     drawEnd(false);
-    S.add.text(W/2,424,L("reviveEndBtn"),{
+    S.add.text(W/2,438,L("reviveEndBtn"),{
         font:"bold 14px LilitaOne, Arial, sans-serif",color:"#888899"
     }).setOrigin(0.5).setDepth(953);
-    S.add.rectangle(W/2,424,160,32,0xffffff,0.001).setInteractive().setDepth(954)
+    S.add.rectangle(W/2,438,160,32,0xffffff,0.001).setInteractive().setDepth(954)
         .on("pointerover",()=>drawEnd(true))
         .on("pointerout",()=>drawEnd(false))
         .on("pointerdown",()=>{
