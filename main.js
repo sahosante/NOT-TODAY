@@ -12968,20 +12968,52 @@ class SceneGame extends Phaser.Scene {
                     const _dashHintTxt = CURRENT_LANG === "tr"
                         ? (_isTouchHint ? "⚡ Sola/Sağa 2× dokun → DASH!" : "⚡ ← ← veya → → Çift bas → DASH!")
                         : (_isTouchHint ? "⚡ Double-tap Left/Right → DASH!" : "⚡ Tap ← ← or → → twice → DASH!");
-                    const _dh = this.add.text(180, 560, _dashHintTxt, {
+
+                    // Arka plan pill — yazıyı daha okunaklı yapar
+                    const _dhBg = this.add.graphics().setDepth(899).setAlpha(0).setScrollFactor(0);
+                    _dhBg.fillStyle(0x000000, 0.55);
+                    _dhBg.fillRoundedRect(180 - 148, 320 - 22, 296, 44, 14);
+
+                    const _dh = this.add.text(180, 320, _dashHintTxt, {
                         fontFamily: "LilitaOne,Arial,sans-serif",
-                        fontSize: "13px",
+                        fontSize: "18px",
                         color: "#88ddff",
-                        stroke: "#000000", strokeThickness: 3,
+                        stroke: "#000000", strokeThickness: 4,
                         align: "center"
-                    }).setOrigin(0.5, 1).setDepth(900).setAlpha(0).setScrollFactor(0);
+                    }).setOrigin(0.5, 0.5).setDepth(900).setAlpha(0).setScrollFactor(0);
+
                     this.time.delayedCall(500, () => {
                         if(!_dh || _dh.destroyed) return;
-                        this.tweens.add({ targets: _dh, alpha: 1, duration: 350, ease: "Quad.easeOut" });
-                        this.time.delayedCall(2800, () => {
+
+                        // Fade in — yazı + arka plan birlikte
+                        this.tweens.add({ targets: [_dh, _dhBg], alpha: 1, duration: 380, ease: "Quad.easeOut",
+                            onComplete: () => {
+                                // Nefes alma animasyonu — scale yukarı aşağı titreşir
+                                if(!_dh || _dh.destroyed) return;
+                                this.tweens.add({
+                                    targets: _dh,
+                                    scaleX: 1.08, scaleY: 1.08,
+                                    duration: 600, ease: "Sine.easeInOut",
+                                    yoyo: true, repeat: 3,
+                                });
+                                // Arka plan da hafif nefes alır
+                                this.tweens.add({
+                                    targets: _dhBg,
+                                    alpha: 0.7,
+                                    duration: 600, ease: "Sine.easeInOut",
+                                    yoyo: true, repeat: 3,
+                                });
+                            }
+                        });
+
+                        // 3.5s sonra fade out
+                        this.time.delayedCall(3500, () => {
                             if(!_dh || _dh.destroyed) return;
-                            this.tweens.add({ targets: _dh, alpha: 0, duration: 500,
-                                onComplete: () => { try { _dh.destroy(); } catch(_) {} }
+                            this.tweens.add({ targets: [_dh, _dhBg], alpha: 0, duration: 500,
+                                onComplete: () => {
+                                    try { _dh.destroy(); } catch(_) {}
+                                    try { _dhBg.destroy(); } catch(_) {}
+                                }
                             });
                         });
                     });
@@ -13148,7 +13180,7 @@ class SceneGame extends Phaser.Scene {
 const DASH_WINDOW_MS  = 280;  // çift basış algılama süresi (ms)
 const DASH_DURATION   = 175;  // dash süresi (ms)
 const DASH_SPEED_MULT = 1.75; // hız çarpanı (hafif dash)
-const DASH_COOLDOWN   = 700;  // dash sonrası bekleme (ms)
+const DASH_COOLDOWN   = 0;  // bekleme yok — çift basınca anında dash
 
 function _checkKbDash(S, dir) {
     const ds = S._dashState;
