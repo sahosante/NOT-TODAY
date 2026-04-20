@@ -2368,10 +2368,10 @@ function _hasSkin(skinId){
 }
 
 const BOOSTS = [
-    { id:"gold2x",    name:"PARA BASAN MAKINE 🖨️",     nameTR:"PARA BASAN MAKINE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
-    { id:"xp2x",      name:"KAFA GUBRESI 🧠",           nameTR:"KAFA GUBRESI 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
-    { id:"shield",     name:"SARILSANA BARI 🛡️",        nameTR:"SARILSANA BARI 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
-    { id:"autorevive", name:"OLMEYECEGIM DEDIM 💖",      nameTR:"OLMEYECEGIM DEDIM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
+    { id:"gold2x",    name:"MONEY MACHINE 🖨️",        nameTR:"PARA BASAN MAKINE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
+    { id:"xp2x",      name:"BRAIN FUEL 🧠",             nameTR:"KAFA GUBRESI 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
+    { id:"shield",     name:"SHIELD UP 🛡️",              nameTR:"SARILSANA BARI 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
+    { id:"autorevive", name:"NOT TODAY 💖",               nameTR:"OLMEYECEGIM DEDIM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
     { id:"luckcharm",  name:"DRIP ALARM 🍀",             nameTR:"DRIP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
 ];
 
@@ -2427,12 +2427,12 @@ const QUEST_DIFF = {
 };
 
 const SKINS = [
-    { id:"shadow_blade",  name:"Karanlik Kasik ✦",    cat:"weapon", col:0x2266ee, rar:"RARE"      },
-    { id:"flame_sword",   name:"Atesli Cop Kutusu 🔥", cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
-    { id:"frost_bow",     name:"Dondurucu Sopa ❄️",   cat:"weapon", col:0x88ddff, rar:"RARE"      },
-    { id:"shadow_walk",   name:"Gizli Degil Aslinda", cat:"char",   col:0x4444cc, rar:"RARE"      },
-    { id:"chrome_knight", name:"Teneke Kahraman",     cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
-    { id:"gold_warrior",  name:"Param Var Ben Varim", cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
+    { id:"shadow_blade",  name:"Shadow Blade ✦",      nameTR:"Karanlik Kasik ✦",    nameRU:"Клинок Тени ✦",   cat:"weapon", col:0x2266ee, rar:"RARE"      },
+    { id:"flame_sword",   name:"Blazing Bin 🔥",       nameTR:"Atesli Cop Kutusu 🔥", nameRU:"Горящий Ящик 🔥", cat:"weapon", col:0xff4400, rar:"EXOTIC"    },
+    { id:"frost_bow",     name:"Frostrod ❄️",          nameTR:"Dondurucu Sopa ❄️",   nameRU:"Морозный Жезл ❄️",cat:"weapon", col:0x88ddff, rar:"RARE"      },
+    { id:"shadow_walk",   name:"Not Stealthy At All",  nameTR:"Gizli Degil Aslinda", nameRU:"Совсем Не Скрытно",cat:"char",   col:0x4444cc, rar:"RARE"      },
+    { id:"chrome_knight", name:"Tin Hero",             nameTR:"Teneke Kahraman",     nameRU:"Жестяной Герой",  cat:"char",   col:0xbbbbbb, rar:"EXOTIC"    },
+    { id:"gold_warrior",  name:"Got Money, Got Moves", nameTR:"Param Var Ben Varim", nameRU:"Деньги Есть",     cat:"char",   col:0xffaa00, rar:"LEGENDARY" },
 ];
 
 const STARTER = { gems:150, gold:2000, stars:100, disc:80 };
@@ -3105,8 +3105,8 @@ function showShop(scene){
                     actB.forEach((b,i)=>{
                         const bi=_s().bo[b.id];let info="";
                         if(b.dur>0&&bi){const r=b.dur-(Date.now()-bi.a);if(r>0)info=" ("+_fmt(r)+")";}
-                        else if(bi&&(bi.u||0)>0)info=" ("+bi.u+"x uses)";
-                        _add(T(cx,SY0+y+24+i*20,b.name+info,{fontFamily:_F,fontSize:"12px",color:"#88ffaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                        else if(bi&&(bi.u||0)>0)info=" ("+bi.u+(CURRENT_LANG==="tr"?"x kullanim)":" x uses)");
+                        _add(T(cx,SY0+y+24+i*20,(CURRENT_LANG==="tr"&&b.nameTR?b.nameTR:b.name)+info,{fontFamily:_F,fontSize:"12px",color:"#88ffaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                     });
                     y+=abH+8;
                 }
@@ -3199,7 +3199,7 @@ function showShop(scene){
                         sg.lineStyle(1.5,sk.col,0.40);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,7);
                         sg.fillStyle(sk.col,0.28);sg.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:7,bl:7,tr:0,br:0});
                         _add(sg);
-                        _add(T(cx-PW/2+24,SY0+y+16,sk.name,{fontFamily:_F,fontSize:"14px",color:"#ddd",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        _add(T(cx-PW/2+24,SY0+y+16,(CURRENT_LANG==="tr"&&sk.nameTR?sk.nameTR:CURRENT_LANG==="ru"&&sk.nameRU?sk.nameRU:sk.name),{fontFamily:_F,fontSize:"14px",color:"#ddd",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         _add(T(cx-PW/2+24,SY0+y+34,(CURRENT_LANG==="tr"?({COMMON:"SIRADAN",RARE:"NADIR",EXOTIC:"EGZOTIK",LEGENDARY:"EFSANE"}[sk.rar]||sk.rar):sk.rar),{fontFamily:_F,fontSize:"12px",color:({COMMON:"#aaaaaa",RARE:"#4499ff",EXOTIC:"#cc55ff",LEGENDARY:"#ffaa00"}[sk.rar]||"#ffffff"),stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         const sbg=G();sbg.fillStyle(0x0d0d16,0.92);sbg.fillRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);sbg.lineStyle(1.5,sk.col,0.5);sbg.strokeRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);_add(sbg);
                         _add(T(cx+PW/2-40,SY0+y+rowH/2,CURRENT_LANG==="tr"?"YAKINDA":"SOON",{fontFamily:_F,fontSize:"13px",color:"#778899",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
@@ -11797,10 +11797,11 @@ class SceneGame extends Phaser.Scene {
             }
         }catch(e){console.warn("[NT] Hata yutuldu:",e)}
 
-        // ── ARKAPLAN — once turuncu solid renk (bg image yuklenemezse fallback gorunur) ──
-        this.add.rectangle(W/2, H/2, W, H, 0xC85A00, 1).setDepth(-11);
-        // Arka plan gorseli — tileSprite olarak parallax icin
-        this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg").setDepth(-10).setScrollFactor(0);
+        // ── ARKAPLAN — fallback renk ──
+        this.add.rectangle(W/2, H/2, W, H, 0x111111, 1).setDepth(-13);
+        // ── PARALLAX — tek tileSprite, GPU UV-repeat ile seamless (cizgi yok) ──
+        this.bgTile = this.add.tileSprite(W/2, H/2, W, H, "bg")
+            .setDepth(-10).setScrollFactor(0);
         // Kamera fade-in kaldirildi — direkt oyuna gecis
 
         // Zemin seridi kaldirildi
@@ -12675,9 +12676,9 @@ function movePlayer(S,delta){
         }
     }
 
-    // ── PARALLAX ── bg tileSprite oyuncunun hizinin 0.18x kadar kayar
+    // ── PARALLAX — tek tileSprite, GPU seamless scroll ──
     if(S.bgTile && S.bgTile.active){
-        S.bgTile.tilePositionX += vx * 0.18 * (delta / 1000);
+        S.bgTile.tilePositionX += vx * 0.15 * (delta / 1000);
     }
 }
 
