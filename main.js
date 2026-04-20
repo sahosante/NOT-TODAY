@@ -14619,8 +14619,8 @@ function showLevelUpUI(S) {
     const EVO_BAN_H    = 14;
     const DIVIDER_Y_ABS = CARDS_TOP + ICO_H;
     const TZ_Y_BASE    = DIVIDER_Y_ABS + 6;
-    const fSzN         = CARD_W >= 100 ? 10 : 8;
-    const fSzS         = CARD_W >= 100 ? 8  : 7;
+    const fSzN         = CARD_W >= 100 ? 13 : 10;  // kart isim fontu (büyütüldü)
+    const fSzS         = CARD_W >= 100 ? 11 : 9;   // kart açıklama fontu (büyütüldü)
 
     // VFX center — aligned with card group
     const VFX_CX       = CX;
@@ -14783,12 +14783,13 @@ function showLevelUpUI(S) {
     S.tweens.add({ targets: scanGfx, alpha: 1, duration: 260, delay: 200 });
 
     // 5-D  Title text (large, with canvas text-shadow glow)
-    const titleTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + 30, "✦  " + L("levelUp") + "  ✦", {
-        font:            "28px LilitaOne, Arial, sans-serif",
+    const titleTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + 28, "✦  " + L("levelUp") + "  ✦", {
+        fontFamily:      "LilitaOne, Arial, sans-serif",
+        fontSize:        "30px",
         color:           "#ffffff",
         stroke:          "#331100",
-        strokeThickness: 6,
-        shadow:          { offsetX: 0, offsetY: 0, color: "#cc7700", blur: 10, fill: true },
+        strokeThickness: 7,
+        shadow:          { offsetX: 0, offsetY: 0, color: "#cc7700", blur: 14, fill: true },
         padding:         { x: 4, y: 2 }
     }).setOrigin(0.5).setDepth(306).setAlpha(0).setScale(0.30));
     S.tweens.add({
@@ -14796,14 +14797,45 @@ function showLevelUpUI(S) {
         duration: 400, delay: 100, ease: "Back.easeOut", easeParams: [2.8]
     });
 
-    // 5-E  Subtitle text
-    const subTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + HDR_H - 12,
-        (CURRENT_LANG==="tr"?`SEVIYE ${gs.level}  ·  ${L("pickPower").toUpperCase()}`:`LEVEL ${gs.level}  ·  CHOOSE AN UPGRADE`), {
-            font:    "10px LilitaOne, Arial, sans-serif",
-            color:   "#7a5020",
-            padding: { x: 2, y: 1 }
-        }).setOrigin(0.5).setDepth(306).setAlpha(0));
-    S.tweens.add({ targets: subTxt, alpha: 1, duration: 220, delay: 250 });
+    // 5-E  Subtitle — level göstergesi, okunabilir ve belirgin
+    const _subLbl = CURRENT_LANG==="tr"
+        ? `⭐ SEVİYE ${gs.level}`
+        : CURRENT_LANG==="ru"
+        ? `⭐ УРОВЕНЬ ${gs.level}`
+        : `⭐ LEVEL ${gs.level}`;
+    const _subPick = CURRENT_LANG==="tr"
+        ? `— GÜÇ SEÇ —`
+        : CURRENT_LANG==="ru"
+        ? `— ВЫБЕРИ СИЛУ —`
+        : `— PICK A POWER —`;
+
+    // Level badge — sol taraf, ★ sembolüyle
+    const subTxt = ui.add(S.add.text(HDR_CX - 52, HDR_TOP + HDR_H - 12,
+        _subLbl, {
+            fontFamily: "LilitaOne, Arial, sans-serif",
+            fontSize:   "13px",
+            color:      "#ffdd55",
+            stroke:     "#331100",
+            strokeThickness: 3,
+        }).setOrigin(1, 0.5).setDepth(306).setAlpha(0));
+
+    // Seçim çağrısı — sağ taraf
+    const pickTxt = ui.add(S.add.text(HDR_CX + 52, HDR_TOP + HDR_H - 12,
+        _subPick, {
+            fontFamily: "LilitaOne, Arial, sans-serif",
+            fontSize:   "11px",
+            color:      "#cc8833",
+            stroke:     "#1a0800",
+            strokeThickness: 2,
+        }).setOrigin(0, 0.5).setDepth(306).setAlpha(0));
+
+    // Orta nokta
+    const dotTxt = ui.add(S.add.text(HDR_CX, HDR_TOP + HDR_H - 12, "·", {
+        fontFamily: "LilitaOne, Arial, sans-serif",
+        fontSize: "13px", color: "#996633"
+    }).setOrigin(0.5, 0.5).setDepth(306).setAlpha(0));
+
+    S.tweens.add({ targets: [subTxt, pickTxt, dotTxt], alpha: 1, duration: 220, delay: 250 });
 
     // ════════════════════════════════════════════════════════════════════════════
     //  LAYER 6 — FLOATING PARTICLES  (spawn in UI region only)
@@ -14945,8 +14977,11 @@ function showLevelUpUI(S) {
             fadeEls.push(evoBg);
             const evoTxt = ui.add(S.add.text(ccx, cy + EVO_BAN_H / 2,
                 "⚡ EVOLUTION", {
-                    font:  `bold ${CARD_W >= 100 ? 7 : 6}px LilitaOne, Arial, sans-serif`,
-                    color: "#002211"
+                    fontFamily: "LilitaOne, Arial, sans-serif",
+                    fontSize:   `${CARD_W >= 100 ? 9 : 7}px`,
+                    color:      "#002211",
+                    stroke:     "#004422",
+                    strokeThickness: 1,
                 }).setOrigin(0.5).setDepth(310).setAlpha(0));
             fadeEls.push(evoTxt);
         }
@@ -15004,14 +15039,15 @@ function showLevelUpUI(S) {
         } catch (e) { console.warn("[NT] Hata yutuldu:", e); }
 
         // ── Name Text ────────────────────────────────────────────────────────
-        const nameTxt = ui.add(S.add.text(ccx, TZ_Y_BASE, nameStr, {
-            font:            `${fSzN}px LilitaOne, Arial, sans-serif`,
+        const nameTxt = ui.add(S.add.text(ccx, TZ_Y_BASE + 2, nameStr, {
+            fontFamily:      "LilitaOne, Arial, sans-serif",
+            fontSize:        `${fSzN}px`,
             color:           "#ffffff",
             stroke:          "#00001a",
-            strokeThickness: 2,
+            strokeThickness: 3,
             wordWrap:        { width: CARD_W - 8, useAdvancedWrap: false },
             align:           "center",
-            padding:         { x: 1, y: 0 }
+            padding:         { x: 2, y: 1 }
         }).setOrigin(0.5, 0).setDepth(310).setAlpha(0));
         fadeEls.push(nameTxt);
 
@@ -15027,19 +15063,26 @@ function showLevelUpUI(S) {
             lvBgGfx.strokeRoundedRect(ccx - bw / 2, _lvY, bw, fSzS + 7, 3);
         }
         const lvBadgeTxt = ui.add(S.add.text(ccx, _lvY + 2, lvStr, {
-            font:    `${fSzS}px LilitaOne, Arial, sans-serif`,
-            color:   isEvo ? "#44ff88" : "#ffdd88",
-            padding: { x: 2, y: 1 }
+            fontFamily: "LilitaOne, Arial, sans-serif",
+            fontSize:   `${fSzS}px`,
+            color:      isEvo ? "#44ff88" : "#ffe066",
+            stroke:     "#1a0800",
+            strokeThickness: 2,
+            padding:    { x: 2, y: 1 }
         }).setOrigin(0.5, 0).setDepth(311).setAlpha(0));
         fadeEls.push(lvBadgeTxt);
 
         // ── Description Text ─────────────────────────────────────────────────
-        const _descY  = _lvY + fSzS + 12;
+        const _descY  = _lvY + fSzS + 13;
         const descTxt = ui.add(S.add.text(ccx, _descY, descStr, {
-            font:    `${fSzS}px LilitaOne, Arial, sans-serif`,
-            color:   "#cc9944",
-            wordWrap: { width: CARD_W - 8, useAdvancedWrap: true },
-            align:   "center"
+            fontFamily: "LilitaOne, Arial, sans-serif",
+            fontSize:   `${fSzS}px`,
+            color:      "#ddaa55",
+            stroke:     "#000000",
+            strokeThickness: 2,
+            wordWrap:   { width: CARD_W - 8, useAdvancedWrap: true },
+            align:      "center",
+            lineSpacing: 2
         }).setOrigin(0.5, 0).setDepth(310).setAlpha(0));
         fadeEls.push(descTxt);
 
