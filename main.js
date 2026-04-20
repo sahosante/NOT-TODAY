@@ -4212,11 +4212,11 @@ const LANG_DATA = {
         cosmingSoonLabel:"🎨 Yakinda... / Coming Soon",
         evolutionsLabel:"— EVRIMLER —",
         synergyTitle:"⚡ SINERJI ⚡",
-        miniBossAlert:"⚠  MINI BOSS GELIYOR  ⚠",
+        miniBossAlert:"⚠  MINI BOSS GELIYOR  ⚠  (NOT'tan selamlar)",
         evolutionTitle:"⚡ EVRIM ⚡",
-        powerSpike_overload:"ASIRI YUK",
-        powerSpike_unstoppable:"DURDURULAMAZ",
-        powerSpike_godlike:"TANRI MODU",
+        powerSpike_overload:"ASIRI YUK 🔥",
+        powerSpike_unstoppable:"NOT DURDURULAMAZ",
+        powerSpike_godlike:"NOT TANRI MODUNDA",
         nearDeath_buff:"💀 OLUM ADRENALINI",
         comboBreak:"KOMBO KIRILDI",
         hiddenSynergy:"✦ GIZLI SINERJI",
@@ -4337,11 +4337,11 @@ const LANG_DATA = {
         cosmingSoonLabel:"🎨 Coming Soon...",
         evolutionsLabel:"— EVOLUTIONS —",
         synergyTitle:"⚡ SYNERGY ⚡",
-        miniBossAlert:"⚠  MINI BOSS INCOMING  ⚠",
+        miniBossAlert:"⚠  MINI BOSS INCOMING  ⚠  (NOT sorry)",
         evolutionTitle:"⚡ EVOLUTION ⚡",
-        powerSpike_overload:"OVERLOAD",
-        powerSpike_unstoppable:"UNSTOPPABLE",
-        powerSpike_godlike:"GODLIKE",
+        powerSpike_overload:"OVERLOAD 🔥",
+        powerSpike_unstoppable:"NOT STOPPABLE",
+        powerSpike_godlike:"NOT GODMODE",
         nearDeath_buff:"💀 DEATH ADRENALINE",
         comboBreak:"COMBO BROKEN",
         hiddenSynergy:"✦ HIDDEN SYNERGY",
@@ -8790,6 +8790,39 @@ function showPause(S){
         fontSize:"28px",color:"#ffffff",stroke:"#5a0000",strokeThickness:5
     }).setOrigin(0.5).setDepth(503));
 
+    // ── NOT mizah alt yazısı — her pause'da farklı komik mesaj ──────────
+    const _pauseFunnyTR = [
+        "NOT kaçmana izin vermiyor.",
+        "Oyun seni bekliyor. Acımasızca.",
+        "Dinlen. Sonra yine acı çekeceksin.",
+        "NOT: Mola hakkın yok aslında.",
+        "Kaçmak istiyorsan... dene.",
+        "Üçgenler de mola veriyor 😈",
+    ];
+    const _pauseFunnyEN = [
+        "NOT letting you off that easy.",
+        "The game waits. Patiently. Menacingly.",
+        "Rest up. The triangles aren't.",
+        "NOT: You don't actually get a break.",
+        "Running away? Go ahead. Try.",
+        "Triangles don't pause. Just saying. 😈",
+    ];
+    const _pauseFunnyRU = [
+        "NOT не даёт тебе уйти.",
+        "Игра ждёт. Терпеливо. Угрожающе.",
+        "Отдохни. Треугольники — нет.",
+        "NOT: Перерыва не предусмотрено.",
+        "Убегаешь? Попробуй. 😈",
+    ];
+    const _pArr = CURRENT_LANG==="tr"?_pauseFunnyTR:CURRENT_LANG==="ru"?_pauseFunnyRU:_pauseFunnyEN;
+    A(S.add.text(CX, stripCY + pm.stripH*0.52 + 2,
+        _pArr[Math.floor(Math.random()*_pArr.length)], {
+        fontFamily:"LilitaOne, Arial, sans-serif",
+        fontSize:"8px", color:"#ffcc88",
+        stroke:"#000", strokeThickness:2,
+        align:"center"
+    }).setOrigin(0.5, 0).setDepth(503).setAlpha(0.80));
+
     // Stats rows
     let cy=contentTop+4;
     const ROW=24;
@@ -9386,25 +9419,59 @@ function spawnKillText(S, x, y){
     _killChain=Math.min(_killChain+1, 5);
     _killChainLast=now;
     NT_SFX.play("multi_kill", _killChain);
-    const str   = "KILL!";
-    const fs    = 18;
+
+    // ── NOT-branded kill chain metinleri ──────────────────────────
+    // Her zincir seviyesinde farklı, akılda kalıcı NOT esprisi
+    const _KILL_CHAIN_TEXTS = [
+        // chain 1 — normal kill
+        ["KILL!", "NOT TODAY!", "GIT GIT!", "KÜÇÜK UCGEN!", "NOT MY PROBLEM!", "ÖLDÜ!"],
+        // chain 2 — double
+        ["DOUBLE!", "NOT ONCE NOT TWICE", "İKİLİ KATLİAM!", "NOT x2!", "ÇİFT KILL!", "NOT BAD... WAIT YES"],
+        // chain 3 — triple
+        ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN"],
+        // chain 4 — quad
+        ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOT POSSIBLE?!"],
+        // chain 5 — penta / max
+        ["NOT FAIR!!!", "N-O-T FAIR!", "BEŞ! BEŞ! BEŞ!", "TAMAMEN NOT!", "FULL NOT MODE!", "5X NOT FAIR 💀"]
+    ];
+    const _chainIdx = Math.max(0, Math.min(_killChain - 1, 4));
+    const _chainArr = _KILL_CHAIN_TEXTS[_chainIdx];
+    const str   = _chainArr[Math.floor(Math.random() * _chainArr.length)];
+
+    // Zincir büyüdükçe yazı da büyür
+    const fs    = 18 + _chainIdx * 2;
     const depth = 46;
 
+    // Zincir rengine göre tema: 1=kırmızı, 2=turuncu, 3=sarı, 4=mor, 5=NOT-beyaz (epik)
+    const _CHAIN_COLORS = ["#ff3300","#ff7700","#ffdd00","#cc44ff","#ffffff"];
+    const _CHAIN_STROKES = ["#220000","#331100","#332200","#220044","#ff3300"];
+    const _CHAIN_GLOW1   = ["#ff3300","#ff7700","#ffcc00","#9900ff","#ffffff"];
+    const _CHAIN_GLOW2   = ["#ff6600","#ffaa00","#ffee44","#cc66ff","#ff4400"];
+    const _CHAIN_BURST1  = [0xff3300, 0xff7700, 0xffcc00, 0xcc44ff, 0xffffff];
+    const _CHAIN_BURST2  = [0xff8800, 0xffaa00, 0xffee44, 0xff88ff, 0xff4400];
+
+    const _cc  = _CHAIN_COLORS[_chainIdx];
+    const _cs  = _CHAIN_STROKES[_chainIdx];
+    const _cg1 = _CHAIN_GLOW1[_chainIdx];
+    const _cg2 = _CHAIN_GLOW2[_chainIdx];
+    const _cb1 = _CHAIN_BURST1[_chainIdx];
+    const _cb2 = _CHAIN_BURST2[_chainIdx];
+
     // Glow layer
-    const glow = _jtGlow(S, x, y, str, fs, "#ff3300", "#ff6600", depth, 0.30);
+    const glow = _jtGlow(S, x, y, str, fs, _cg1, _cg2, depth, 0.30 + _chainIdx * 0.08);
 
     const t = S.add.text(x, y, str, {
         fontFamily:"LilitaOne",
         fontSize: fs+"px",
-        color:"#ff3300",
-        stroke:"#220000",
-        strokeThickness:5,
+        color: _cc,
+        stroke: _cs,
+        strokeThickness: 5 + _chainIdx,
         padding:{x:3,y:2}
     }).setOrigin(0.5).setDepth(depth).setScale(0.1);
 
-    // Burst behind text
-    _jtBurst(S, x, y, 0xff3300, 7, depth-1);
-    _jtBurst(S, x, y, 0xff8800, 4, depth-1);
+    // Burst behind text — daha büyük zincirde daha güçlü patlama
+    _jtBurst(S, x, y, _cb1, 7 + _chainIdx * 2, depth-1);
+    _jtBurst(S, x, y, _cb2, 4 + _chainIdx,     depth-1);
 
     // Text-only shake (translate oscillation — no camera)
     const startX = x;
@@ -9486,6 +9553,20 @@ const _QUIP_TR = [
     "Kahraman bu tarafta!",
     "Evet evet evet!",
     "Çığır açtım!",
+    // ── NOT markalı esprili quip'ler ──
+    "NOT: Bu hamleni gördüm!",
+    "NOT adil, NOT özür dilerim!",
+    "NOT bugün üçgen!",
+    "NOT edeceğim seni!",
+    "Şirketi NOT, kalbi merhametsiz!",
+    "NOT kayıt altına alındı 📝",
+    "NOT bir kazaydı bu!",
+    "NOT bekliyordun bunu!",
+    "NOT bitti mi sandın?",
+    "Adil mi? NOT!",
+    "NOT: Bağımlısın. İyi günler.",
+    "NOT tasarım böyle işte!",
+    "NOT diyorum, NOT!",
 ];
 const _QUIP_EN = [
     "Get rekt, triangle!",
@@ -9538,24 +9619,39 @@ const _QUIP_EN = [
     "King stuff!",
     "Legendary!",
     "That's how it's done!",
+    // ── NOT-branded quips ──
+    "NOT fair, NOT sorry!",
+    "Duly NOT-ed! 📝",
+    "NOT my problem, triangle!",
+    "NOT a drill — you're just bad!",
+    "NOT done yet! Never!",
+    "Signed & sealed by NOT!",
+    "NOT surprised you lost!",
+    "NOT even close, pyramid!",
+    "Rated: NOT suitable for triangles!",
+    "NOT fair. NOT apologizing.",
+    "By order of NOT Corp™!",
+    "NOT a coincidence — I'm just better!",
+    "Working as intended. — NOT",
+    "NOT bad for a legend!",
 ];
 
 // Kill sayacına göre özel mesajlar
 const _QUIP_MILESTONE_TR = {
     10:  "10 UCGEN! Isınıyorum!",
     25:  "25! Ben bir makine miyim?!",
-    50:  "50 Kill! Gerçek miyim ben?",
-    100: "100 UCGEN! Efsaneyim!",
-    200: "200?! Durun biraz...",
-    500: "500 KILL! Tanrı mıyım ben?!",
+    50:  "50 Kill! NOT: Bu oyun zararsızdır. (NOT yanlış.)",
+    100: "100 UCGEN! NOT kaydetti. Efsanesin.",
+    200: "200?! NOT: Lütfen biraz su iç.",
+    500: "500 KILL! NOT şirketi seni onurlandırıyor. Ciddiyiz.",
 };
 const _QUIP_MILESTONE_EN = {
     10:  "10 kills! Just warming up!",
     25:  "25! Am I a machine?!",
-    50:  "50 kills! Is this real?!",
-    100: "100 TRIANGLES! I'm legendary!",
-    200: "200?! Hold on a sec...",
-    500: "500 KILLS! Am I a god?!",
+    50:  "50 kills! NOT-ice: This game may be addictive.",
+    100: "100 TRIANGLES! NOT has logged your greatness.",
+    200: "200?! NOT recommends a water break.",
+    500: "500 KILLS! NOT Corp™ officially salutes you. We're serious.",
 };
 
 let _quipLastTime = 0;
@@ -10640,6 +10736,63 @@ class SceneMainMenu extends Phaser.Scene {
             }
         });
         // Breathing scale kaldirildi — title sabit durur
+
+        // ── NOT TAGLINE — başlığın hemen altında dönen komik NOT esprisi ──────
+        // Her menü açılışında farklı bir tagline gösterir
+        const _NOT_TAGLINES_TR = [
+            "NOT sorumlu değiliz. NOT.",
+            "Adil mi? NOT.",
+            "Bağımlılık yapabilir. NOT: Yapıyor.",
+            "Çıkış var. Ama bulamıyorsun.",
+            "NOT onaylı eğlence™",
+            "Şirketi NOT. Kalbi merhametsiz.",
+            "\"Sadece bir oyun daha.\" — Sen, az önce",
+            "NOT: Gerçekten çıkabileceğini düşünüyordun?",
+            "Tasarım böyle. — NOT Corp™",
+            "Uyarı: Bu oyun sizi sinir edebilir. NOT etmez.",
+        ];
+        const _NOT_TAGLINES_EN = [
+            "NOT our fault. NOT.",
+            "Fair? NOT.",
+            "May cause addiction. NOT: It does.",
+            "There's an exit. Good luck finding it.",
+            "NOT Certified Fun™",
+            "Company: NOT. Heart: Absent.",
+            "'Just one more game.' — You, just now",
+            "NOT responsible for lost sleep.",
+            "Working as intended. — NOT Corp™",
+            "Warning: May cause triangle-related rage.",
+        ];
+        const _NOT_TAGLINES_RU = [
+            "NOT отвечает. Нет, не отвечает.",
+            "Честно? NOT.",
+            "Может вызвать привыкание. NOT: Вызывает.",
+            "Выход есть. Удачи с поиском.",
+            "NOT Certified™",
+            "Компания: NOT. Сердце: Отсутствует.",
+            "«Ещё одна игра». — Ты, только что",
+            "NOT несёт ответственности.",
+        ];
+        const _tagArr = (typeof CURRENT_LANG!=="undefined"&&CURRENT_LANG==="tr") ? _NOT_TAGLINES_TR
+                      : (typeof CURRENT_LANG!=="undefined"&&CURRENT_LANG==="ru") ? _NOT_TAGLINES_RU
+                      : _NOT_TAGLINES_EN;
+        const _tagMsg = _tagArr[Math.floor(Math.random() * _tagArr.length)];
+        // stripCY'nin hemen altında, küçük gri/sarı italik yazı
+        const _tagY = stripCY + m.stripH * 0.5 + 3;
+        const tagline = this.add.text(CX, _tagY, _tagMsg, {
+            fontFamily: "LilitaOne, Arial, sans-serif",
+            fontSize:   "8px",
+            color:      "#ffcc88",
+            stroke:     "#000000",
+            strokeThickness: 2,
+            align:      "center",
+            alpha:      0
+        }).setOrigin(0.5, 0).setDepth(6).setAlpha(0);
+        // Yumuşak fade-in: 1.2s gecikme
+        this.time.delayedCall(1200, () => {
+            if(tagline && tagline.scene)
+                this.tweens.add({targets: tagline, alpha: 0.85, duration: 600, ease: "Quad.easeOut"});
+        });
 
         // Buttons — divide teal content area into 4 equal slots
         const aTop  = pTop + m.stripH + 8;
@@ -16823,30 +16976,47 @@ function gameOver(S){
             "Totally fair. We promise. 🤞",
             "The RNG gods send their regards.",
             "Skill issue? Nope — it's rigged.",
-            "Not Fair™ — working as intended.",
+            "NOT Fair™ — working as intended.",
             "The pyramids win again. Shocking.",
             "You were so close. (You weren't.)",
             "Our algorithm: 100% certified evil.",
-            "At least you have your dignity. (Gone.)"
+            "At least you have your dignity. (Gone.)",
+            "NOT your fault. Well... kinda.",
+            "NOT Corp™ thanks you for your service. 🫡",
+            "Error 404: Victory NOT found.",
+            "Signed, sealed, deleted. — NOT",
+            "We'd say 'good try' but... NOT.",
+            "Achievement unlocked: Still playing NOT FAIR.",
+            "NOT a bug. This is the game.",
         ];
         const _goFunnyTR = [
             "Tamamen adil. Söz veriyoruz. 🤞",
             "Kader böyle istedi. Biz değil.",
             "Sistem seni sevmiyordu zaten.",
-            "Not Fair™ — tasarım böyle.",
+            "NOT Fair™ — tasarım böyle.",
             "Piramitler kazandı. Sürpriz değil.",
             "Neredeydin! (Uzaktaydın aslında.)",
             "Bir daha dene. Yine aynı olacak.",
-            "Bu oyunun adı zaten Not Fair."
+            "Bu oyunun adı zaten NOT Fair.",
+            "NOT senin hatan. Yani... biraz senin.",
+            "NOT Corp™ hizmetine teşekkür eder. 🫡",
+            "Hata 404: Zafer NOT bulundu.",
+            "İmzalı, mühürlü, silindi. — NOT",
+            "'İyi denedin' derdik ama... NOT.",
+            "NOT: Bu bir hata değil, oyun böyle.",
+            "Başarı kilidi açıldı: Hâlâ NOT FAIR oynuyor.",
         ];
         const _goFunnyRU = [
             "Честно? Нет. Именно так задумано.",
             "RNG говорит: 'Не сегодня'.",
             "Пирамиды снова победили. Сюрприз.",
-            "Not Fair™ — так и должно быть.",
+            "NOT Fair™ — так и должно быть.",
             "Ты почти... (Нет, не почти.)",
             "Попробуй снова. Снова проиграешь.",
             "Система тебя не любит. Пока.",
+            "NOT Corp™ благодарит за службу. 🫡",
+            "Ошибка 404: Победа NOT найдена.",
+            "Подписано и удалено. — NOT",
         ];
         const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:CURRENT_LANG==="ru"?_goFunnyRU:_goFunnyEN;
         const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
