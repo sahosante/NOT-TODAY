@@ -2680,15 +2680,15 @@ function showWheel(scene){
     const fBg=A(scene.add.graphics().setDepth(D+3));
     const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
-    // [FIX] Free spin text referansı sakla — spin başlayınca WAITING'e çevirmek için
+    // [FIX] Free spin text ref sakla — spin başlayınca WAITING'e çevirmek için
     const fTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
     .on("pointerover",()=>{if(cf&&!spinning)_dF(true);}).on("pointerout",()=>_dF(false))
     .on("pointerdown",()=>{
         if(!_canFree()||spinning)return;
-        // [FIX] Anında WAITING durumuna geç
+        // [FIX] Anında WAITING durumuna geç — spin başladı
         if(fTxt&&fTxt.active) fTxt.setText(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING...").setColor("#777777");
-        _dF(false); // gri arka plan
+        _dF(false);
         _spin(true);
     });
 
@@ -5214,8 +5214,8 @@ function syncStatsFromPipeline(gs){
     } else if(wt==="chain_shot"){
         gs.damage    *= 0.92;                                // BALANCE: was 0.82, buffed for reliable chain build
     } else if(wt==="precision_rifle"){
-        gs.damage    *= 1.35;                                // was 1.4 — slight nerf, perfect-hit 2.8x still rewarding
-        gs.shootDelay = Math.max(140, gs.shootDelay / 0.85); // floor 140ms (was 130ms)
+        gs.damage    *= 2.20;                                // [BUFF] was 1.35 — sniper needs to punch hard, 1-shot satisfying
+        gs.shootDelay = Math.max(160, gs.shootDelay / 1.1); // [BUFF] slightly faster fire than before
     } else if(wt==="reflection_rifle"){
         gs.damage    *= 1.2;
         gs.shootDelay = Math.max(140, gs.shootDelay / 1.2); // floor 140ms (was 130ms)
@@ -5586,36 +5586,36 @@ const MINI_BOSS_POOL = [
     {
         id:"jelly_titan",
         name:"Jelly Titan", nameEN:"Jelly Titan", nameRU:"Желейный Титан",
-        hp:130, armor:3, scale:2.8, color:0xFF9922, tint:0xFF9922,
-        speed:0.32, reward:{chest:"legendary", xpMult:5}
+        hp:80, armor:2, scale:2.8, color:0xFF9922, tint:0xFF9922, // [NERF] 130→80 HP, 3→2 armor
+        speed:0.28, reward:{chest:"legendary", xpMult:5}
         // Behavior: slow, wide, hard to dodge — blocks bullets with mass
     },
     {
         id:"bubble_king",
         name:"Bubble King", nameEN:"Bubble King", nameRU:"Пузырьковый Король",
-        hp:95, armor:2, scale:2.2, color:0xFF88EE, tint:0xFF88EE,
-        speed:0.60, reward:{chest:"rare", xpMult:4}
+        hp:60, armor:1, scale:2.2, color:0xFF88EE, tint:0xFF88EE, // [NERF] 95→60 HP, 2→1 armor
+        speed:0.50, reward:{chest:"rare", xpMult:4}
         // Behavior: fast, zigzag, spawns mini bubbles
     },
     {
         id:"candy_overlord",
         name:"Candy Overlord", nameEN:"Candy Overlord", nameRU:"Конфетный Повелитель",
-        hp:110, armor:4, scale:2.5, color:0xFFDD44, tint:0xFFDD44,
-        speed:0.38, reward:{chest:"legendary", xpMult:5}
+        hp:70, armor:2, scale:2.5, color:0xFFDD44, tint:0xFFDD44, // [NERF] 110→70 HP, 4→2 armor
+        speed:0.32, reward:{chest:"legendary", xpMult:5}
         // Behavior: medium speed, pulsing glow, high armor
     },
     {
         id:"gummy_crusher",
         name:"Gummy Crusher", nameEN:"Gummy Crusher", nameRU:"Жевательный Давитель",
-        hp:160, armor:2, scale:3.0, color:0xFF6644, tint:0xFF6644,
-        speed:0.28, reward:{chest:"legendary", xpMult:6}
+        hp:95, armor:1, scale:3.0, color:0xFF6644, tint:0xFF6644, // [NERF] 160→95 HP, 2→1 armor
+        speed:0.24, reward:{chest:"legendary", xpMult:6}
         // Behavior: biggest/slowest, massive HP, screen-filling presence
     },
     {
         id:"sugar_phantom",
         name:"Sugar Phantom", nameEN:"Sugar Phantom", nameRU:"Сахарный Призрак",
-        hp:92, armor:1, scale:1.9, color:0xFFEEFF, tint:0xFFCCFF,
-        speed:0.75, reward:{chest:"rare", xpMult:4} // [BALANCE] 75→92: erken kolay fix
+        hp:55, armor:0, scale:1.9, color:0xFFEEFF, tint:0xFFCCFF, // [NERF] 92→55 HP, 1→0 armor
+        speed:0.60, reward:{chest:"rare", xpMult:4}
         // Behavior: fast and semi-transparent, hard to track
     },
 ];
@@ -7161,7 +7161,7 @@ function spawnBoss(S){
                      : 1.25 * Math.pow(1.05, _bMin-10);
     const _bBase = 55 + gs.level*3;
     const _rawHP = Math.ceil(Math.max(_bBase, _bBase * _bTimeMult * 0.60));
-    const _hpReduction = _bMin < 5 ? 0.35 : _bMin < 12 ? 0.42 : 0.52; // much lower HP for all phases
+    const _hpReduction = _bMin < 5 ? 0.26 : _bMin < 12 ? 0.32 : 0.40; // [NERF] further reduced HP — was 0.35/0.42/0.52
     boss.hp = boss.maxHP = Math.ceil(_rawHP * _hpReduction);
     boss.type="boss"; boss.isBoss=true;
     boss.setScale(2.4).setTint(0xff0044).setVelocityY(50).setAlpha(0.7);
@@ -7239,8 +7239,8 @@ function tickEnemies(S){
         // Minimum hiz
         if(!p.groundHit&&!p.spawnProtected){
             if(p.isBoss){
-                // Boss: yavas ve gorkemli dussun — max 65px/s
-                const bossMaxSpeed = Math.min(gs.pyramidSpeed * 0.35, 65);
+                // Boss: [NERF] yavas ve gorkemli dussun — max 42px/s (was 65)
+                const bossMaxSpeed = Math.min(gs.pyramidSpeed * 0.25, 42);
                 if(p.body.velocity.y > bossMaxSpeed) p.setVelocityY(bossMaxSpeed);
                 else if(p.body.velocity.y < bossMaxSpeed * 0.5) p.setVelocityY(bossMaxSpeed);
             } else if(p.body.velocity.y<gs.pyramidSpeed*0.4) p.setVelocityY(gs.pyramidSpeed);
@@ -11886,14 +11886,12 @@ class SceneGame extends Phaser.Scene {
             // b.x < enemy.x → mermi soldan geliyor → piramit saga iter
             const _hitDir = b.x < enemy.x ? 1 : -1;
             applyDmg(_S,enemy,dmg,isCrit,_hitDir);
-            // HEAVY CANNON — her isabet patlamasi (alan hasarı + VFX), sprite animasyon sadece öldürünce
+            // HEAVY CANNON — [FIX] Patlama animasyonu SADECE öldürünce — normal isabette sade (diğer mermiler gibi)
             if(b._weaponType==="cannon"){
-                const _cNow=Date.now();
-                if(!_S._lastCannonExp || _cNow-_S._lastCannonExp > 100){
-                    _S._lastCannonExp=_cNow;
-                    // showAnim=true sadece düşman öldüyse — üçgen patlama animasyonu gereksiz spam yapıyordu
-                    doExplosion(_S,enemy.x,enemy.y, !enemy.active);
+                if(!enemy.active){ // [FIX] Sadece öldüren isabette patlama efekti
+                    doExplosion(_S,enemy.x,enemy.y, true);
                 }
+                // enemy.active (sağ kaldı) → sade isabet, patlama yok — diğer mermiler gibi
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
                 doExplosion(_S,enemy.x,enemy.y);
             }
@@ -12431,7 +12429,7 @@ function doShoot(S){
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.02,vy,0.8,0x44aaff,"chain");
     } else if(wt==="precision_rifle"){
         NT_SFX.play("shoot_precision");
-        fireBulletRaw(S,px,py,0,vy*1.35,1.0,0xff2244,"precision");
+        fireBulletRaw(S,px,py,0,vy*1.45,1.0,0xff2244,"precision"); // [BUFF] faster projectile = easier to land
     } else if(wt==="reflection_rifle"){
         NT_SFX.play("shoot_reflect");
         const reflAngle=(Math.random()-0.5)*sp*0.08;
@@ -12507,7 +12505,7 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
 
     b.setScale(bScale);
     b.body.setVelocity(vx+bSpread,vy);
-    b._pierced=0; b._age=0;
+    b._pierced=0; b._age=0; b._chainBounced=false; b._chainCount=0; // [FIX] Reset chain state on bullet reuse
     b._weaponType=weaponType||"default";
     b._dmgMult=(dmgM!=null?dmgM:1.0); // BALANCE FIX: store per-bullet dmgM — was only used for visual scale
     b.setDepth(16); b.setAlpha(1);
@@ -15096,6 +15094,7 @@ function killEnemy(S,p,giveXP){
             if(hdx*hdx+hdy*hdy<50*50){
                 GS.health=Math.min(GS.maxHealth,GS.health+3);
                 GS._healFlash=400;
+                try{ NT_SFX.play("upgrade_heal"); }catch(_){} // [FIX] kalp sesi — +3 can alirken
                 showHitTxt(S,hDrop.x,hDrop.y-14,"+3 ❤","#ff8888",false);
                 hTick.remove();
                 S.tweens.killTweensOf(hDrop);
@@ -15725,7 +15724,7 @@ function spawnMiniBoss(S){
     resetEF(p);
 
     // ── Temel stats ──────────────────────────────────────────────
-    p.hp=p.maxHP=Math.round((def.hp*0.55)+gs.level*0.5); // [BALANCE] significantly reduced HP
+    p.hp=p.maxHP=Math.round((def.hp*0.38)+gs.level*0.4); // [NERF] further reduced HP — was *0.55 too tanky
     p.armor=def.armor;
     p.type="miniboss";
     p._isMiniBoss=true;
@@ -15777,7 +15776,7 @@ function spawnMiniBoss(S){
     // [FIX] Miniboss hiz: pyramidSpeed*def.speed erken oyunda bile cok hizli cikiyordu.
     // Sabit max cap: 55 px/s — oyuncunun tepki verebilecegi, dramatik giris hissi veren hiz.
     // Gec oyunda pyramidSpeed yuksek olsa bile miniboss tehdidi hizdan degil HP/armor'dan gelir.
-    const _mbSpeed = Math.min(55, gs.pyramidSpeed * def.speed);
+    const _mbSpeed = Math.min(38, gs.pyramidSpeed * def.speed * 0.72); // [NERF] speed cap 55→38, mult 0.72
     p.setVelocityY(_mbSpeed);
     p.spawnProtected=true;
     gs.miniBossActive=true;
@@ -16334,6 +16333,48 @@ function gameOver(S){
         // ── BAŞLIK ────────────────────────────────────────────────────
         A(S.add.text(CX,stripCY,"💀  "+L("gameOver"),
             NT_STYLE.title(22,"#ffffff","#5a0000")).setOrigin(0.5).setDepth(D));
+        // [FIX] Komik "Not Fair" temalı alt başlık
+        const _goFunnyEN = [
+            "Totally fair. We promise. 🤞",
+            "The RNG gods send their regards.",
+            "Skill issue? Nope — it's rigged.",
+            "Not Fair™ — working as intended.",
+            "The pyramids win again. Shocking.",
+            "You were so close. (You weren't.)",
+            "Our algorithm: 100% certified evil.",
+            "At least you have your dignity. (Gone.)"
+        ];
+        const _goFunnyTR = [
+            "Tamamen adil. Söz veriyoruz. 🤞",
+            "Kader böyle istedi. Biz değil.",
+            "Sistem seni sevmiyordu zaten.",
+            "Not Fair™ — tasarım böyle.",
+            "Piramitler kazandı. Sürpriz değil.",
+            "Neredeydin! (Uzaktaydın aslında.)",
+            "Bir daha dene. Yine aynı olacak.",
+            "Bu oyunun adı zaten Not Fair."
+        ];
+        const _goFunnyRU = [
+            "Честно? Нет. Именно так задумано.",
+            "RNG говорит: 'Не сегодня'.",
+            "Пирамиды снова победили. Сюрприз.",
+            "Not Fair™ — так и должно быть.",
+            "Ты почти... (Нет, не почти.)",
+            "Попробуй снова. Снова проиграешь.",
+            "Система тебя не любит. Пока.",
+        ];
+        const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:CURRENT_LANG==="ru"?_goFunnyRU:_goFunnyEN;
+        const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
+        A(S.add.text(CX, stripCY+16, _goMsg, {
+            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
+            color:"#ffaa66", stroke:"#000", strokeThickness:2,
+            wordWrap:{width:300, useAdvancedWrap:true}
+        }).setOrigin(0.5,0).setDepth(D).setAlpha(0));
+        // Gecikmeyle fad-in — başlıktan sonra gelsin
+        S.time.delayedCall(600, ()=>{
+            const _fO = objs[objs.length-1];
+            if(_fO && _fO.scene) S.tweens.add({targets:_fO, alpha:1, duration:400, ease:"Quad.easeOut"});
+        });
 
         const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
@@ -16346,10 +16387,8 @@ function gameOver(S){
             NT_STYLE.title(32,"#ffcc00","#000000")).setOrigin(0.5,0).setDepth(D));
         cy+=42;
 
-        // ── AYIRICI ──────────────────────────────────────────────────
-        const dg=A(S.add.graphics().setDepth(902));
-        dg.lineStyle(1,0x44aacc,0.35); dg.lineBetween(TX,cy,VX,cy);
-        cy+=12;
+        // [FIX] Ayırıcı çizgi kaldırıldı
+        cy+=6;
 
         // ── STATS SATIRLARI ──────────────────────────────────────────
         const _row=(lbl,val,col)=>{
@@ -16371,10 +16410,8 @@ function gameOver(S){
             const goldEarned  = Math.max(0, gs.gold || 0);
             const BD = 910;
 
-            // Ayırıcı
-            const dg2 = A(S.add.graphics().setDepth(BD));
-            dg2.lineStyle(1, 0x44aacc, 0.45); dg2.lineBetween(TX, cy+2, VX, cy+2);
-            cy += 10;
+            // [FIX] Ayırıcı çizgi kaldırıldı
+            cy += 6;
 
             // ── XP KAZANILDI satırı — açık renkli, net ──
             const xpLblKey = CURRENT_LANG==="tr" ? "KAZANILAN XP" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО XP" : "XP EARNED";
@@ -16409,13 +16446,13 @@ function gameOver(S){
             ).setOrigin(0, 0.5).setDepth(BD+1));
 
             // Value + icon on the right
-            const goldValTxt = A(S.add.text(VX-26, cy+10, "+0",
+            const goldValTxt = A(S.add.text(VX-34, cy+10, "+0",
                 {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"18px",
                  color: goldEarned>0 ? "#ffdd44" : "#888a8a",
                  stroke:"#1a0c00", strokeThickness:4}
-            ).setOrigin(1, 0.5).setDepth(BD+1));
+            ).setOrigin(1, 0.5).setDepth(BD+1)); // [FIX] icon büyüdüğü için X kaydırıldı
             if(S.textures.exists("icon_gold")){
-                const gIc = A(S.add.image(VX-10, cy+10, "icon_gold").setDisplaySize(20,20).setDepth(BD+2));
+                const gIc = A(S.add.image(VX-14, cy+10, "icon_gold").setDisplaySize(34,34).setDepth(BD+2)); // [FIX] büyütüldü
                 if(goldEarned<=0) gIc.setAlpha(0.45);
             }
 
@@ -16461,7 +16498,7 @@ function gameOver(S){
                             {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",color:"#ffdd44",stroke:"#000",strokeThickness:2}
                         ).setOrigin(1,0.5).setDepth(BD+1));
                         if(S.textures.exists("icon_gold")){
-                            A(S.add.image(VX-10,cy+11,"icon_gold").setDisplaySize(18,18).setDepth(BD+2));
+                            A(S.add.image(VX-14,cy+11,"icon_gold").setDisplaySize(28,28).setDepth(BD+2)); // [FIX]
                         }
                     }
                     lvUpG.setAlpha(0); lvUpTxt.setAlpha(0);
@@ -16532,7 +16569,7 @@ function gameOver(S){
         A2(S.add.rectangle(CX2,H2/2,W2,H2,0x1a0800,0.78).setDepth(D2).setInteractive());
 
         // ── Panel — turuncu/amber ates temasi ───────────────────
-        const PW=260, PH=220, PX=CX2-PW/2, PY=H2/2-PH/2-15;
+        const PW=260, PH=264, PX=CX2-PW/2, PY=H2/2-PH/2-15; // [FIX] daha yuksek panel
         const panelG=A2(S.add.graphics().setDepth(D2+1));
         // Dis glow
         panelG.fillStyle(0xff6600,0.12); panelG.fillRoundedRect(PX-6,PY-6,PW+12,PH+12,20);
@@ -16562,7 +16599,7 @@ function gameOver(S){
 
         // ── Gem cost — buyuk, parlak ─────────────────────────────
         const costStr = GEM_REVIVE_COST+" 💎";
-        const costT=A2(S.add.text(CX2,PY+80,costStr,{
+        const costT=A2(S.add.text(CX2,PY+72,costStr,{
             fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"30px",
             color:canAfford?"#ffcc44":"#886644",stroke:"#1a0800",strokeThickness:5
         }).setOrigin(0.5).setDepth(D2+2).setAlpha(0));
@@ -16570,13 +16607,13 @@ function gameOver(S){
 
         // Mevcut gem sayisi
         const gemBalStr = (CURRENT_LANG==="tr"?"MEVCUT: ":"HAVE: ")+PLAYER_GEMS+" 💎";
-        A2(S.add.text(CX2,PY+108,gemBalStr,{
+        A2(S.add.text(CX2,PY+98,gemBalStr,{
             fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",
             color:canAfford?"#cc9944":"#885533",stroke:"#000",strokeThickness:2
         }).setOrigin(0.5).setDepth(D2+2).setAlpha(0));
 
         if(!canAfford){
-            A2(S.add.text(CX2,PY+124,L("notEnoughGems"),{
+            A2(S.add.text(CX2,PY+114,L("notEnoughGems"),{
                 fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",
                 color:"#ff6644",stroke:"#000",strokeThickness:2
             }).setOrigin(0.5).setDepth(D2+2));
@@ -16585,7 +16622,7 @@ function gameOver(S){
         // ── Geri sayim cemberi — altta ortada ────────────────────
         const TOTAL_TIME = 5000;
         // [FIX] Timer YES butonuyla cakisiyordu — asagi tasinip kucultuldu
-        const TIMER_CX = CX2, TIMER_CY = PY+PH-22, TIMER_R = 16;
+        const TIMER_CX = CX2, TIMER_CY = PY+192, TIMER_R = 16; // [FIX] mutlak Y, PH değişiminden etkilenmiyor
         const timerG=A2(S.add.graphics().setDepth(D2+3));
         const timerTxt=A2(S.add.text(TIMER_CX,TIMER_CY,"5",{
             fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"14px",
@@ -16636,19 +16673,19 @@ function gameOver(S){
                 // Gem varsa turuncu, yoksa gri
                 const colMain = canAfford ? (h?0xdd6600:0xaa4400) : (h?0x555555:0x333333);
                 yBtnG.fillStyle(colMain,1);
-                yBtnG.fillRoundedRect(CX2-68,PY+PH-92,136,36,11);
+                yBtnG.fillRoundedRect(CX2-68,PY+130,136,36,11); // [FIX] mutlak Y
                 yBtnG.fillStyle(0xffffff,h?0.20:0.12);
-                yBtnG.fillRoundedRect(CX2-66,PY+PH-91,132,13,{tl:10,tr:10,bl:0,br:0});
+                yBtnG.fillRoundedRect(CX2-66,PY+131,132,13,{tl:10,tr:10,bl:0,br:0});
                 yBtnG.lineStyle(2,canAfford?(h?0xffcc44:0xff8833):0x666666,0.9);
-                yBtnG.strokeRoundedRect(CX2-68,PY+PH-92,136,36,11);
+                yBtnG.strokeRoundedRect(CX2-68,PY+130,136,36,11);
             };
             _drawYes(false);
-            const yesTxt=A2(S.add.text(CX2,PY+PH-74,yesStr,{
+            const yesTxt=A2(S.add.text(CX2,PY+148,yesStr,{ // [FIX]
                 fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"17px",
                 color:canAfford?"#ffee88":"#888888",stroke:"#1a1000",strokeThickness:4
             }).setOrigin(0.5).setDepth(D2+3).setAlpha(0));
             S.tweens.add({targets:[yBtnG,yesTxt],alpha:1,duration:250,delay:220});
-            const yHit=A2(S.add.rectangle(CX2,PY+PH-74,136,36,0xffffff,0.001)
+            const yHit=A2(S.add.rectangle(CX2,PY+148,136,36,0xffffff,0.001) // [FIX]
                 .setDepth(D2+4).setInteractive({useHandCursor:true}));
             yHit.on("pointerover",()=>_drawYes(true));
             yHit.on("pointerout",()=>_drawYes(false));
@@ -16699,18 +16736,18 @@ function gameOver(S){
         const _drawNo2=(h)=>{
             noBg2.clear();
             noBg2.fillStyle(h?0x442222:0x221111,0.95);
-            noBg2.fillRoundedRect(CX2-70,PY+PH+4,140,34,9);
+            noBg2.fillRoundedRect(CX2-70,PY+214,140,34,9); // [FIX] panel içinde
             noBg2.lineStyle(1.5,h?0xff6644:0x883333,0.8);
-            noBg2.strokeRoundedRect(CX2-70,PY+PH+4,140,34,9);
+            noBg2.strokeRoundedRect(CX2-70,PY+214,140,34,9);
         };
         _drawNo2(false);
         S.tweens.add({targets:noBg2,alpha:1,duration:200,delay:320});
-        const noT=A2(S.add.text(CX2,PY+PH+21,L("reviveNo"),{
+        const noT=A2(S.add.text(CX2,PY+231,L("reviveNo"),{ // [FIX]
             fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"14px",
             color:"#cc8877",stroke:"#000",strokeThickness:2
         }).setOrigin(0.5).setDepth(D2+3).setAlpha(0).setInteractive({useHandCursor:true}));
         S.tweens.add({targets:noT,alpha:1,duration:200,delay:320});
-        const noHit2=A2(S.add.rectangle(CX2,PY+PH+21,140,34,0xffffff,0.001).setDepth(D2+4).setInteractive({useHandCursor:true}));
+        const noHit2=A2(S.add.rectangle(CX2,PY+231,140,34,0xffffff,0.001).setDepth(D2+4).setInteractive({useHandCursor:true})); // [FIX]
         noHit2.on("pointerover",()=>_drawNo2(true));
         noHit2.on("pointerout",()=>_drawNo2(false));
         noHit2.on("pointerdown",()=>{
@@ -16821,7 +16858,7 @@ function showDiamondReviveScreen(S, bgOv){
     S.tweens.add({targets:deco,alpha:1,duration:200,delay:150});
 
     // Elmas maliyeti bilgisi
-    S.add.text(W/2,258,L("reviveCostInfo"),{  // [FIX] spacing increased
+    S.add.text(W/2,258,L("reviveCostInfo"),{
         font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc",align:"center"
     }).setOrigin(0.5).setDepth(952);
 
