@@ -1806,7 +1806,146 @@ const NT_SFX = (function(){
             if(p){g.connect(p);p.connect(_sfxBus);}else{g.connect(_sfxBus);}
             src.start(t); src.stop(t+0.23);
         },
+
+        // ══════════════════════════════════════════════════════════
+        // YENİ SESLER — Knockback, Panel açılışları, Eksik SFX'ler
+        // ══════════════════════════════════════════════════════════
+
+        // ── KNOCKBACK HIT — güçlü itme çarpması ─────────────────
+        knockback_hit(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Güçlü bass thud — "WHAM" hissi
+            _osc("sine",   _vary(95),  t, _vary(0.14,0.05), _vol(0.85), _vary(22));
+            _osc("sine",   _vary(48),  t, _vary(0.18,0.05), _vol(0.65), _vary(18));
+            _noise(t, _vary(0.05,0.05), _vol(0.55), 150,3500);
+            // Hava itme whoosh
+            _noise(t+0.03, _vary(0.12,0.05), _vol(0.22), 400,9000);
+            _osc("sawtooth",_vary(220),t+0.02,_vary(0.06,0.05),_vol(0.15),_vary(55));
+        },
+
+        // ── PANEL OPEN WHOOSH (PLAY butonu) — hızlı aşağı süzülme ─
+        // Hızlı "swoosh" + tok landing thud
+        panel_open_play(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Aşağı süzülen hız sesi
+            _noise(t, 0.15, _vol(0.35), 1800, 12000);
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine"; o.frequency.setValueAtTime(900,t);
+            o.frequency.exponentialRampToValueAtTime(180,t+0.18);
+            g.gain.setValueAtTime(_vol(0.30),t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.20);
+            o.connect(g); g.connect(_uiBus); o.start(t); o.stop(t+0.22);
+            // Landing thud
+            _osc("sine", _vary(65), t+0.17, 0.12, _vol(0.50), _vary(25));
+            _noise(t+0.17, 0.06, _vol(0.28), 100, 2000);
+        },
+
+        // ── PANEL OPEN BOING (SHOP butonu) — yaylı komik boing ──
+        panel_open_shop(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Klasik "boing" — hızla yükselen sonra düşen pitch
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sine"; o.frequency.setValueAtTime(120,t);
+            o.frequency.exponentialRampToValueAtTime(800,t+0.06);
+            o.frequency.exponentialRampToValueAtTime(280,t+0.22);
+            g.gain.setValueAtTime(_vol(0.50),t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+            o.connect(g); g.connect(_uiBus); o.start(t); o.stop(t+0.35);
+            // Coin jingling shimmer
+            [0.05,0.10,0.15].forEach((dt,i)=>{
+                _osc("sine",_vary(1400+i*220),t+dt,0.05,_vol(0.12),_vary(700+i*100),_uiBus,_vary(0,0.5));
+            });
+        },
+
+        // ── PANEL OPEN SLIDE (SETTINGS butonu) — mekanik slide ──
+        panel_open_settings(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Mekanik slide sesi — dişli click'leri
+            [0, 0.04, 0.08, 0.12].forEach((dt,i)=>{
+                _noise(t+dt, 0.025, _vol(0.18-i*0.02), 3000, 14000);
+                _osc("square",_vary(280+i*40),t+dt,0.015,_vol(0.12),null,_uiBus);
+            });
+            // Son yerleşme click'i
+            _osc("sine",_vary(380),t+0.16,0.08,_vol(0.32),_vary(120));
+            _noise(t+0.16, 0.04, _vol(0.20), 2000,8000);
+        },
+
+        // ── PANEL OPEN POP (LEADERBOARD) — kupa pop + fanfare ──
+        panel_open_leaderboard(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Kısa fanfare — ascending 3 nota
+            const notes=[523,659,784];
+            notes.forEach((f,i)=>{
+                _osc("square",f,t+i*0.07,0.09,_vol(0.28),f,_uiBus,_vary(0,0.3));
+                _osc("sine",  f*2,t+i*0.07+0.01,0.06,_vol(0.10),f*2,_uiBus);
+            });
+            // Pop konfeti patlaması
+            _noise(t+0.22, 0.08, _vol(0.22), 2500, 14000);
+            _osc("sine",_vary(1200),t+0.22,0.10,_vol(0.18),_vary(300));
+        },
+
+        // ── PANEL CLOSE — tüm paneller için geri kapanma sesi ───
+        panel_close(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",_vary(350),t,0.08,_vol(0.22),_vary(120));
+            _noise(t, 0.06, _vol(0.15), 1200, 7000);
+        },
+
+        // ── FREEZE HIT — düşman donduruldu ───────────────────────
+        freeze_hit(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Kristal kırılma + buz hissi
+            _osc("sine",   _vary(1800),t,      0.06, _vol(0.30), _vary(400));
+            _osc("sine",   _vary(2400),t+0.01, 0.08, _vol(0.22), _vary(600));
+            _noise(t, 0.12, _vol(0.18), 6000, 18000);
+            [0,0.03,0.06,0.09].forEach(dt=>_osc("triangle",_vary(2800+dt*400),t+dt,0.04,_vol(0.08),_vary(1000)));
+        },
+
+        // ── CHEST OPEN LEGENDARY — epik göğüs açılışı ───────────
+        chest_legendary(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            _osc("sine",_vary(55),t,0.30,_vol(0.75),_vary(22));
+            _noise(t, 0.20, _vol(0.45), 80, 2000);
+            // Yükselen choir-ish sweep
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sawtooth"; o.frequency.setValueAtTime(110,t+0.05);
+            o.frequency.exponentialRampToValueAtTime(880,t+0.35);
+            g.gain.setValueAtTime(0,t+0.05);
+            g.gain.linearRampToValueAtTime(_vol(0.28),t+0.15);
+            g.gain.exponentialRampToValueAtTime(0.0001,t+0.50);
+            const bpf=ctx.createBiquadFilter(); bpf.type="bandpass"; bpf.frequency.value=600; bpf.Q.value=1.5;
+            o.connect(bpf); bpf.connect(g); g.connect(_sfxBus);
+            o.start(t+0.05); o.stop(t+0.55);
+            // Shimmer arpegio
+            [0.15,0.22,0.30,0.38].forEach((dt,i)=>{
+                _osc("sine",_vary(880+i*220),t+dt,0.12,_vol(0.15),_vary(440+i*110),_sfxBus,_vary(0,0.6));
+            });
+        },
+
+        // ── BOSS WARNING — boss geliyor uyarısı ──────────────────
+        boss_warning(){
+            const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            const t=ctx.currentTime;
+            // Derin ominous alarm
+            _osc("sine",_vary(55),t,      0.25, _vol(0.70), _vary(48));
+            _osc("sine",_vary(55),t+0.30, 0.25, _vol(0.70), _vary(48));
+            _noise(t, 0.40, _vol(0.20), 60, 500);
+            // Alarm klakson
+            const o=ctx.createOscillator(), g=ctx.createGain();
+            o.type="sawtooth"; o.frequency.value=_vary(220);
+            g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(_vol(0.35),t+0.05);
+            g.gain.setValueAtTime(_vol(0.35),t+0.20); g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+            o.connect(g); g.connect(_sfxBus); o.start(t); o.stop(t+0.32);
+        },
+
     };
+
 
     // ── Footstep timer state ──────────────────────────────────────
     let _lastStepTime    = 0;
@@ -1890,6 +2029,13 @@ const NT_SFX = (function(){
         catch(e){ console.warn("[NT_SFX]",name,e); }
     }
 
+    function playUI(name, ...args){
+        // UI sesleri: her zaman çalınır (gameplay pause'undan etkilenmez)
+        const ctx=_getCtx(); if(!ctx) return;
+        try{ if(SFX[name]) SFX[name](...args); }
+        catch(e){ console.warn("[NT_SFX UI]",name,e); }
+    }
+
     function footstepTick(isMoving){
         if(!_sfxOn()||!isMoving) return;
         const now=performance.now();
@@ -1959,7 +2105,7 @@ const NT_SFX = (function(){
     });
 
     return {
-        play, footstepTick,
+        play, playUI, footstepTick,
         startMusic, stopMusic, setMusicState,
         setMasterVolume, setSFXVolume, setMusicVolume,
         pauseAudio, resumeAudio, setLowHPMode,
@@ -2879,7 +3025,7 @@ function showWheel(scene){
 function showShop(scene){
     let _cleanupSc=()=>{};
     const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
-        =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"MAGAZA":"SHOP",312,20,()=>_cleanupSc());
+        =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"MAGAZA":"SHOP",312,20,()=>_cleanupSc(),"shop");
 
     // ── TAB BAR ────────────────────────────────────────────────
     let _tab="power";
@@ -7306,7 +7452,9 @@ function tickEnemies(S){
         }
         if(p.type==="minion"){
             if(!p.body||!p.body.enable) return;
-            p.setVelocityY(gs.pyramidSpeed*0.58);
+            // [KNOCKBACK FIX] Minion knockback koruması — _kbTimer aktifken hız sıfırlama
+            if(!p._kbTimer || performance.now() - p._kbTimer > 380)
+                p.setVelocityY(gs.pyramidSpeed*0.58);
             if(p.x<20||p.x>340) p.body.velocity.x*=-1;
             const pb=p.y+(p.displayHeight||40)*0.5;
             if(pb>=GROUND_Y&&!p.groundHit){
@@ -7341,8 +7489,8 @@ function tickEnemies(S){
             try{p.setAngle(p._spinAngle % 360);}catch(e){console.warn("[NT] Hata yutuldu:",e)}
         }
 
-        // Minimum hiz
-        if(!p.groundHit&&!p.spawnProtected){
+        // Minimum hız — [KNOCKBACK FIX] _kbTimer aktifken hız sıfırlama devre dışı
+        if(!p.groundHit&&!p.spawnProtected&&(!p._kbTimer || performance.now() - p._kbTimer > 380)){
             if(p.isBoss){
                 // Boss: [NERF] yavas ve gorkemli dussun — max 42px/s (was 65)
                 const bossMaxSpeed = Math.min(gs.pyramidSpeed * 0.25, 42);
@@ -7631,11 +7779,17 @@ function applyDmg(S,enemy,rawDmg,isCrit,hitDir){
     } else {
         dmg=Math.max(0.5,dmg-enemy.armor);
     }
-    // [v11] KNOCKBACK — hasarla olceklendirildi + yuksek knockback'te kisa stun
-    if(gs.knockback>0&&!enemy.frozen&&enemy.body&&enemy.body.enable){ // [CRASH FIX] body.enable kontrolu
-        const kbF = gs.knockback * 80 + dmg * 18;
-        enemy.body.velocity.y=Math.max(-kbF, enemy.body.velocity.y - kbF);
-        enemy.body.velocity.x = Phaser.Math.Linear(enemy.body.velocity.x, _hitDir * kbF * 0.4, 0.5);
+    // [KNOCKBACK FIX v2] — Düzeltilmiş knockback sistemi
+    // Problem: her frame'de velocity.y < pyramidSpeed*0.4 ise setVelocityY(pyramidSpeed) çağrılıyordu
+    // Çözüm: _kbTimer ile 380ms boyunca o korumayı devre dışı bırak + velocity direkt set et
+    if(gs.knockback>0&&!enemy.frozen&&enemy.body&&enemy.body.enable){
+        const kbF = gs.knockback * 120 + dmg * 22; // daha güçlü kuvvet
+        // Direkt yukarı fırlat — Math.max yerine kesin override
+        enemy.body.velocity.y = -kbF;
+        enemy.body.velocity.x = _hitDir * kbF * 0.5;
+        // _kbTimer: update loop'ta minimum hız resetini bu süre boyunca engelle
+        enemy._kbTimer = performance.now();
+        NT_SFX.play("knockback_hit"); // knockback ses efekti
         if(dmg > gs.damage * 1.5 && !enemy._stunned){
             enemy._stunned = true;
             const _sv = {x: enemy.body.velocity.x, y: enemy.body.velocity.y};
@@ -10443,10 +10597,12 @@ function NT_YellowBtn(scene, cx, cy, bw, bh, label, depth, fn){
 // ── NT_OpenPopup — sprite window + title + content ────────────────────
 // panelCY: world y center of panel (default = 320)
 // Returns {A,close,objs,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW}
-function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose){
+function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose, animType){
     const W=360,H=640,CX=180;
     panelCY = panelCY||H/2;
     depth   = depth||20;
+    // animType: "play" | "shop" | "settings" | "leaderboard" | "howto" | "default"
+    animType = animType || "default";
     const objs=[]; const A=o=>{objs.push(o);return o;};
 
     // Arkadaki menu butonlarini devre disi birak
@@ -10474,21 +10630,154 @@ function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose)
     const [cb,ct,ch]=NT_YellowBtn(scene,CX,closeY,190,42,"✕  CLOSE",depth+3,()=>close());
     A(cb);A(ct);A(ch);
 
-    // Animate: sprite pops in; content already visible
-    sp.setScale(m.sc*0.04).setAlpha(0);
-    scene.tweens.add({targets:sp,scaleX:m.sc,scaleY:m.sc,alpha:1,duration:160,ease:"Back.easeOut"});
+    // ── AÇILIŞ ANİMASYONU — her animType için farklı + komik ──────────────
+    // Ortak: önce invisible, sonra animasyona göre tween
+    sp.setAlpha(0);
+
+    switch(animType){
+
+        case "play": {
+            // PLAY — yukarıdan hızla iner, yere çarpar, hafif sekme
+            // "Haydi başlayalım, dur durabilirsen!"
+            const startY = panelCY - H * 0.9;
+            sp.setY(startY).setScale(m.sc);
+            NT_SFX.play("panel_open_play");
+            scene.tweens.add({ targets: sp, y: panelCY + 8, alpha: 1,
+                duration: 200, ease: "Quad.easeIn",
+                onComplete: () => {
+                    // Zemine çarptı — hafif sarsıntı + sekme
+                    try{ scene.cameras.main.shake(60, 0.008); }catch(_){}
+                    scene.tweens.add({ targets: sp, y: panelCY - 4,
+                        duration: 80, ease: "Quad.easeOut",
+                        onComplete: () => {
+                            scene.tweens.add({ targets: sp, y: panelCY,
+                                duration: 60, ease: "Quad.easeIn" });
+                        }
+                    });
+                }
+            });
+            break;
+        }
+
+        case "shop": {
+            // SHOP — yay gibi boing, hafif bounce (para gibi zıplar)
+            // "Para harcamaya hazır mısın?"
+            sp.setScale(m.sc * 0.05).setY(panelCY);
+            NT_SFX.play("panel_open_shop");
+            scene.tweens.add({ targets: sp, scaleX: m.sc * 1.18, scaleY: m.sc * 0.85,
+                alpha: 1, duration: 100, ease: "Quad.easeOut",
+                onComplete: () => {
+                    scene.tweens.add({ targets: sp, scaleX: m.sc * 0.92, scaleY: m.sc * 1.12,
+                        duration: 80, ease: "Quad.easeInOut",
+                        onComplete: () => {
+                            scene.tweens.add({ targets: sp, scaleX: m.sc * 1.05, scaleY: m.sc * 0.97,
+                                duration: 60, ease: "Quad.easeInOut",
+                                onComplete: () => {
+                                    scene.tweens.add({ targets: sp, scaleX: m.sc, scaleY: m.sc,
+                                        duration: 50, ease: "Quad.easeOut" });
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+            break;
+        }
+
+        case "settings": {
+            // SETTINGS — sağdan kayar gelir, mekanik click sesiyle
+            // "Ayarlar da ayardır."
+            sp.setX(CX + W).setY(panelCY).setScale(m.sc);
+            NT_SFX.play("panel_open_settings");
+            scene.tweens.add({ targets: sp, x: CX, alpha: 1,
+                duration: 260, ease: "Back.easeOut",
+                onComplete: () => {
+                    // Yerleşme vibrasyonu
+                    scene.tweens.add({ targets: sp, x: CX + 3,
+                        duration: 25, ease: "Linear", yoyo: true, repeat: 2 });
+                }
+            });
+            break;
+        }
+
+        case "leaderboard": {
+            // LEADERBOARD — küçük bir noktadan patlar, kupa konfetisi
+            // "Sen kazanamadın ama skor tablondasın!"
+            sp.setScale(m.sc * 0.02).setY(panelCY).setAngle(-15);
+            NT_SFX.play("panel_open_leaderboard");
+            scene.tweens.add({ targets: sp, scaleX: m.sc * 1.12, scaleY: m.sc * 1.12,
+                alpha: 1, angle: 5, duration: 160, ease: "Back.easeOut",
+                onComplete: () => {
+                    scene.tweens.add({ targets: sp, scaleX: m.sc, scaleY: m.sc,
+                        angle: 0, duration: 100, ease: "Elastic.easeOut" });
+                }
+            });
+            // Konfeti parçacıkları
+            try{
+                for(let i=0;i<12;i++){
+                    const cx2=CX+Phaser.Math.Between(-80,80);
+                    const cy2=panelCY+Phaser.Math.Between(-60,60);
+                    const confetti=scene.add.graphics().setDepth(depth+10);
+                    const colors=[0xffdd00,0xff4444,0x44ff88,0x4488ff,0xff88ff];
+                    confetti.fillStyle(colors[i%colors.length],0.9);
+                    confetti.fillRect(0,0,5,5);
+                    confetti.setPosition(CX,panelCY);
+                    scene.tweens.add({targets:confetti,
+                        x:cx2, y:cy2-Phaser.Math.Between(20,80),
+                        alpha:0, angle:Phaser.Math.Between(-180,180),
+                        duration:Phaser.Math.Between(400,700), delay:i*25,
+                        ease:"Quad.easeOut",
+                        onComplete:()=>{ try{confetti.destroy();}catch(_){} }
+                    });
+                }
+            }catch(_){}
+            break;
+        }
+
+        case "howto": {
+            // HOW TO PLAY — soldan gelir, dönerek
+            // "Nasıl oynandığını sormak zorunda kaldın..."
+            sp.setX(CX - W).setY(panelCY).setScale(m.sc).setAngle(-8);
+            NT_SFX.play("panel_open_play");
+            scene.tweens.add({ targets: sp, x: CX, alpha: 1, angle: 2,
+                duration: 240, ease: "Back.easeOut",
+                onComplete: () => {
+                    scene.tweens.add({ targets: sp, angle: 0, duration: 80, ease: "Quad.easeOut" });
+                }
+            });
+            break;
+        }
+
+        default: {
+            // DEFAULT — orjinal scale pop-in
+            sp.setScale(m.sc*0.04);
+            try{ NT_SFX.play("menu_click"); }catch(_){}
+            scene.tweens.add({targets:sp,scaleX:m.sc,scaleY:m.sc,alpha:1,duration:160,ease:"Back.easeOut"});
+            break;
+        }
+    }
 
     function close(cb2){
-        if(onClose) try{ onClose(); }catch(_){}
-        objs.forEach(o=>{try{if(o.disableInteractive)o.disableInteractive();o.destroy();}catch(_){}});
-        // Arkadaki menu butonlarini yeniden etkinlestir
-        if(scene._menuHitZones){
-            scene._menuHitZones.forEach(h=>{ try{h.setInteractive({useHandCursor:true});}catch(_){} });
-        }
-        if(cb2)cb2();
+        // Kapanış sesi
+        try{ NT_SFX.play("panel_close"); }catch(_){}
+        // Kapanış animasyonu — küçülerek yukarı çekilir
+        scene.tweens.add({ targets: sp, scaleX: m.sc * 0.05, scaleY: m.sc * 0.05,
+            alpha: 0, y: panelCY - 40, duration: 120, ease: "Quad.easeIn",
+            onComplete: () => {
+                if(onClose) try{ onClose(); }catch(_){}
+                objs.forEach(o=>{try{if(o.disableInteractive)o.disableInteractive();o.destroy();}catch(_){}});
+                if(scene._menuHitZones){
+                    scene._menuHitZones.forEach(h=>{ try{h.setInteractive({useHandCursor:true});}catch(_){} });
+                }
+                if(cb2)cb2();
+            }
+        });
+        // Overlay + diğer objeleri hemen devre dışı bırak
+        objs.filter(o=>o!==sp).forEach(o=>{try{if(o.disableInteractive)o.disableInteractive();}catch(_){}});
     }
     return {A,close,objs,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW:targetW,CX,depth};
 }
+
 
 // ── Menu button (Graphics, world coords) — PREMIUM v2 ────────────────
 function NT_MenuBtn(scene,cx,cy,iconKey,label,callback){
@@ -10781,10 +11070,10 @@ class SceneMainMenu extends Phaser.Scene {
         const _tagY = stripCY + m.stripH * 0.5 + 3;
         const tagline = this.add.text(CX, _tagY, _tagMsg, {
             fontFamily: "LilitaOne, Arial, sans-serif",
-            fontSize:   "8px",
+            fontSize:   "13px",
             color:      "#ffcc88",
             stroke:     "#000000",
-            strokeThickness: 2,
+            strokeThickness: 3,
             align:      "center",
             alpha:      0
         }).setOrigin(0.5, 0).setDepth(6).setAlpha(0);
@@ -11335,7 +11624,7 @@ class SceneMainMenu extends Phaser.Scene {
         // Buton cift tiklama korumasi
         if(this._goGameFired) return;
         this._goGameFired = true;
-        NT_SFX.play("menu_click");
+        NT_SFX.play("panel_open_play"); // PLAY butonuna özel ses — "Haydi!"
         // Menu butonlarini devre disi birak
         if(this._menuHitZones){
             this._menuHitZones.forEach(h=>{ try{ h.disableInteractive(); }catch(_){} });
@@ -11352,7 +11641,7 @@ class SceneMainMenu extends Phaser.Scene {
     _showSettings(){
         // Use mm_panel (340px wide) centered slightly higher to leave room
         const {A,close,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW,CX,depth}
-            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"⚙  AYARLAR":"⚙  SETTINGS",310,20);
+            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"⚙  AYARLAR":"⚙  SETTINGS",310,20,undefined,"settings");
 
         let ly=contentTop+8;
         const _row=(lbl,getV,toggle)=>{
@@ -11467,7 +11756,7 @@ class SceneMainMenu extends Phaser.Scene {
     // ── How To Play ───────────────────────────────────────────────────
     _showHowTo(){
         const {A,close,contentTop,contentBot,TX,CX,PW,depth}
-            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"❓  NASIL OYNANIR":"❓  HOW TO PLAY",368,20);
+            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"❓  NASIL OYNANIR":"❓  HOW TO PLAY",368,20,undefined,"howto");
         let ly=contentTop+6;
         (CURRENT_LANG==="tr" ? [
             ["⚡","DASH",         "Sol/Sağ'a 2× hızlı bas → hafif dash at! (Mobil: butona 2× dokun)"],
@@ -11501,7 +11790,7 @@ class SceneMainMenu extends Phaser.Scene {
     _showLeaderboard(){
         let _lbClosed = false;
         const {A,close,contentTop,contentBot,TX,VX,CX,PW,depth}
-            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"🏆  SKOR TABLOSU":"🏆  LEADERBOARD",320,20, ()=>{ _lbClosed=true; });
+            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"🏆  SKOR TABLOSU":"🏆  LEADERBOARD",320,20, ()=>{ _lbClosed=true; },"leaderboard");
 
         // ── Personal highscore at top ──
         const hs = parseInt(localStorage.getItem("nt_highscore")||"0");
@@ -17022,8 +17311,8 @@ function gameOver(S){
         const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
         // [FIX] Mizah yazisi content alaninin icine alindi — title strip ile cakismiyor
         const _funnyTxt = A(S.add.text(CX, contentTop+4, _goMsg, {
-            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
-            color:"#ffaa66", stroke:"#000", strokeThickness:2,
+            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
+            color:"#ffaa66", stroke:"#000", strokeThickness:3,
             wordWrap:{width:pm.W-30, useAdvancedWrap:true},
             align:"center"
         }).setOrigin(0.5,0).setDepth(D).setAlpha(0));
@@ -17036,7 +17325,7 @@ function gameOver(S){
         if(gs.score>prevHs) localStorage.setItem("nt_highscore",gs.score);
         const isNew=gs.score>prevHs;
 
-        let cy=contentTop+22;
+        let cy=contentTop+40;
 
         // ── SKOR ─────────────────────────────────────────────────────
         A(S.add.text(CX,cy,gs.score.toLocaleString(),
