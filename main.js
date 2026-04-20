@@ -3076,6 +3076,7 @@ function showShop(scene){
     maskGfx.fillStyle(0xffffff,1);
     maskGfx.fillRect(VPORT_X,SY0,VPORT_W,VIEW_H);
     const geomMask=maskGfx.createGeometryMask();
+    maskGfx.setVisible(false);
 
     let _scrollCont=null;
     let _scrollItems=[];
@@ -3713,6 +3714,7 @@ function showMissions(scene){
     maskGfx.fillStyle(0xffffff,1);
     maskGfx.fillRect(VPORT_X,contentAreaY,VPORT_W,VIEW_H);
     const geomMask=maskGfx.createGeometryMask();
+    maskGfx.setVisible(false);
 
     let _scrollCont=null, _scrollY=0, _scrollMax=0;
     let _dragStartY=0, _dragStartSY=0, _isDragging=false;
