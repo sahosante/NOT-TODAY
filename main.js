@@ -4836,14 +4836,29 @@ function applyTimedBuff(gs, key, multiplier, duration, S){
 // ═══════════════════════════════════════════════════════════════
 const _IS_MOBILE_EARLY = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 let _perfMode = _IS_MOBILE_EARLY ? "low" : "high"; // "high" | "low" — mobile starts low
-let _fpsSamples = [];
+
+// [PERF-FIX] Dairesel buffer — Array.shift() O(n) kopyalamasini onler, reduce() her frame yok
+const _FPS_BUF_SIZE = 60;
+const _fpsBuf = new Float32Array(_FPS_BUF_SIZE); // pre-allocated, GC baskisi yok
+let _fpsBufIdx = 0, _fpsBufCount = 0, _fpsBufSum = 0;
+let _perfModeFrame = 0; // throttle sayaci
 
 function updatePerfMode(fps){
-    _fpsSamples.push(fps);
-    if(_fpsSamples.length > 60) _fpsSamples.shift();
-    if(_fpsSamples.length < 30) return;
-    const avg = _fpsSamples.reduce((a,b)=>a+b,0)/_fpsSamples.length;
-    // Mobile: higher threshold (50fps), desktop: 35fps
+    // [PERF-FIX] Dairesel buffer ile O(1) ekleme/cikartma — push/shift/reduce yok
+    if(_fpsBufCount >= _FPS_BUF_SIZE){
+        _fpsBufSum -= _fpsBuf[_fpsBufIdx];
+    } else {
+        _fpsBufCount++;
+    }
+    _fpsBuf[_fpsBufIdx] = fps;
+    _fpsBufSum += fps;
+    _fpsBufIdx = (_fpsBufIdx + 1) % _FPS_BUF_SIZE;
+    // [PERF-FIX] Her frame degil, her 30 frame'de bir (~500ms) guncelle
+    _perfModeFrame++;
+    if(_perfModeFrame < 30) return;
+    _perfModeFrame = 0;
+    if(_fpsBufCount < 20) return;
+    const avg = _fpsBufSum / _fpsBufCount;
     const threshold = _IS_MOBILE_EARLY ? 50 : 35;
     _perfMode = avg < threshold ? "low" : "high";
 }
@@ -5402,12 +5417,12 @@ const RUN_EVENTS = [
                  gs._glassCannon=true; gs._glassCannonPipelined=true;
                  gs.maxHealth=Math.max(2,gs.maxHealth-2);
                  gs.health=Math.min(gs.health,gs.maxHealth);
-                 syncStatsFromPipeline(gs);
+                 if(gs) gs._statsDirty=true;
                  const timerEv=S.time.addEvent({delay:40000,callback:()=>{
                      if(!GS||GS.gameOver) return;
                      GS._glassCannon=false; GS._glassCannonPipelined=false;
                      GS.maxHealth+=2; GS.health=Math.min(GS.health,GS.maxHealth);
-                     syncStatsFromPipeline(GS); EventManager.endEvent(GS);
+                     if(GS) GS._statsDirty=true; EventManager.endEvent(GS);
                      showHitTxt(S,180,220,CURRENT_LANG==="tr"?"🔮 Cam Top bitti.":"🔮 Glass Cannon ended.","#888888",false);
                  }});
                  if(EventManager._state) EventManager._state.timerEv=timerEv;
@@ -5430,7 +5445,7 @@ const RUN_EVENTS = [
              fn:(S)=>{
                  const gs=GS; EventManager.startEvent("chaos_burst",gs,30000,null);
                  gs._chaosSpeedDebuff=true;
-                 syncStatsFromPipeline(gs);
+                 if(gs) gs._statsDirty=true;
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"💥 KAOS PATLAMASI! (30sn) — Hiz -%10":"💥 CHAOS BURST! (30s) — Speed -10%","#ff2244",true);
                  let burstCount=0;
                  const burstEv=S.time.addEvent({delay:6000,loop:true,callback:()=>{
@@ -5438,7 +5453,7 @@ const RUN_EVENTS = [
                      burstCount++;
                      if(burstCount>5){
                          burstEv.remove(); GS._chaosSpeedDebuff=false;
-                         syncStatsFromPipeline(GS); EventManager.endEvent(GS);
+                         if(GS) GS._statsDirty=true; EventManager.endEvent(GS);
                          showHitTxt(S,180,220,CURRENT_LANG==="tr"?"💥 Kaos Patlamasi bitti.":"💥 Chaos Burst ended.","#888888",false);
                          return;
                      }
@@ -5474,7 +5489,7 @@ const RUN_EVENTS = [
              fn:(S)=>{
                  const gs=GS; EventManager.startEvent("survival_mode",gs,42000,null);
                  gs._survivalModeDebuff=true;
-                 syncStatsFromPipeline(gs);
+                 if(gs) gs._statsDirty=true;
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"🛡️ HAYATTA KALMA! (42sn) — Hiz -%15":"🛡️ SURVIVAL MODE! (42s) — Speed -15%","#44ff88",true);
                  let regenCount=0;
                  const regenEv=S.time.addEvent({delay:6000,loop:true,callback:()=>{
@@ -5482,7 +5497,7 @@ const RUN_EVENTS = [
                      regenCount++;
                      if(regenCount>7){
                          regenEv.remove(); GS._survivalModeDebuff=false;
-                         syncStatsFromPipeline(GS); EventManager.endEvent(GS);
+                         if(GS) GS._statsDirty=true; EventManager.endEvent(GS);
                          showHitTxt(S,180,220,CURRENT_LANG==="tr"?"🛡️ Hayatta Kalma bitti.":"🛡️ Survival Mode ended.","#888888",false);
                          return;
                      }
@@ -5510,11 +5525,11 @@ const RUN_EVENTS = [
              fn:(S)=>{
                  const gs=GS; EventManager.startEvent("blitz_mode",gs,30000,null);
                  gs._blitzMode=true; gs._blitzXpPenalty=true;
-                 syncStatsFromPipeline(gs);
+                 if(gs) gs._statsDirty=true;
                  const timerEv=S.time.addEvent({delay:30000,callback:()=>{
                      if(!GS||GS.gameOver) return;
                      GS._blitzMode=false; GS._blitzXpPenalty=false;
-                     syncStatsFromPipeline(GS); EventManager.endEvent(GS);
+                     if(GS) GS._statsDirty=true; EventManager.endEvent(GS);
                      showHitTxt(S,180,220,"⚡ Blitz Mode ended.","#888888",false);
                  }});
                  if(EventManager._state) EventManager._state.timerEv=timerEv;
@@ -8408,28 +8423,29 @@ function drawPlayerGlow(S){
     }
 
     // ── HP BAR ────────────────────────────────────────────────
-    S.hpBarGfx.clear();
-    const bW=40,bH=5,bx=px-bW/2,by=py-50;
-    // Arka plan
-    S.hpBarGfx.fillStyle(0x000000,0.88); S.hpBarGfx.fillRect(bx-2,by-2,bW+4,bH+4);
-    S.hpBarGfx.lineStyle(1,0x333333,0.9); S.hpBarGfx.strokeRect(bx-2,by-2,bW+4,bH+4);
-    if(hR>0){
-        const hc=hR>0.6?0x33ee55:hR>0.3?0xffaa00:0xff2222;
-        const barW=Math.ceil(bW*hR);
-        S.hpBarGfx.fillStyle(hc,1); S.hpBarGfx.fillRect(bx,by,barW,bH);
-        // Parlama seridi
-        S.hpBarGfx.fillStyle(0xffffff,0.3); S.hpBarGfx.fillRect(bx,by,barW,2);
-        // Dusuk canda yanip sonen overlay
-        if(hR<0.3){
-            const fAlpha=0.25+Math.sin(t*5.5)*0.2;
-            S.hpBarGfx.fillStyle(0xff4444,fAlpha); S.hpBarGfx.fillRect(bx,by,barW,bH);
-        }
-        // HP bar glow — tam doluyken yesil parlaklik
-        if(hR>0.95){
-            S.hpBarGfx.fillStyle(0x44ff88,0.15); S.hpBarGfx.fillRect(bx-1,by-1,barW+2,bH+2);
+    // [PERF-FIX] Sadece HP veya pozisyon degisince yeniden ciz
+    const _hpKey = Math.round(px) + "_" + gs.health + "_" + gs.maxHealth + "_" + (hR<0.3 ? Math.round(gs.t*0.3) : 0);
+    if(S._hpBarLastKey !== _hpKey){
+        S._hpBarLastKey = _hpKey;
+        S.hpBarGfx.clear();
+        const bW=40,bH=5,bx=px-bW/2,by=py-50;
+        S.hpBarGfx.fillStyle(0x000000,0.88); S.hpBarGfx.fillRect(bx-2,by-2,bW+4,bH+4);
+        S.hpBarGfx.lineStyle(1,0x333333,0.9); S.hpBarGfx.strokeRect(bx-2,by-2,bW+4,bH+4);
+        if(hR>0){
+            const hc=hR>0.6?0x33ee55:hR>0.3?0xffaa00:0xff2222;
+            const barW=Math.ceil(bW*hR);
+            S.hpBarGfx.fillStyle(hc,1); S.hpBarGfx.fillRect(bx,by,barW,bH);
+            S.hpBarGfx.fillStyle(0xffffff,0.3); S.hpBarGfx.fillRect(bx,by,barW,2);
+            if(hR<0.3){
+                const fAlpha=0.25+Math.sin(t*5.5)*0.2;
+                S.hpBarGfx.fillStyle(0xff4444,fAlpha); S.hpBarGfx.fillRect(bx,by,barW,bH);
+            }
+            if(hR>0.95){
+                S.hpBarGfx.fillStyle(0x44ff88,0.15); S.hpBarGfx.fillRect(bx-1,by-1,barW+2,bH+2);
+            }
         }
     }
-}
+} // end drawPlayerGlow
 
 // ── UI ────────────────────────────────────────────────────────
 function buildUI(S){
@@ -8526,9 +8542,13 @@ function buildUI(S){
 function renderUI(S){
     const gs=GS;
     if(!gs||gs.gameOver||!S.scene||!S.scene.isActive()) return;
-    updateDifficultyTick(S);
-    // Sync player stats every frame — 2s lag allowed bypassing the damage ceiling during combos
-    syncStatsFromPipeline(gs);
+    // [PERF-FIX] updateDifficultyTick her frame degil, 500ms'de bir — spawn/speed hesabi gereksiz yere tekrarlaniyordu
+    if(!S._diffTickTimer) S._diffTickTimer=0;
+    S._diffTickTimer+=(S.game.loop.delta||16);
+    if(S._diffTickTimer>=500){ S._diffTickTimer=0; updateDifficultyTick(S); }
+    // [PERF-FIX] syncStatsFromPipeline sadece _statsDirty flag'i set olunca cagrilir.
+    // Onceden her frame calcStats() yapiliyordu — upgrade secilmediginde gercekten degismiyor.
+    if(gs._statsDirty){ gs._statsDirty=false; syncStatsFromPipeline(gs); }
     // [v9.4] Event sure gostergesi — ekranin ustunde renkli bar
     renderEventHUD(S);
 
@@ -8539,7 +8559,7 @@ function renderUI(S){
     S.xpBarGlow.width=S.xpBarFill.width;
     if(S._xpBarShine) S._xpBarShine.width=S.xpBarFill.width;
     if(S._xpBarPulse){
-        const _pt=Date.now()*0.0025;
+        const _pt=(gs.t*0.0025)%1000; // [PERF-FIX] Date.now() yerine gs.t — syscall yok
         const _pw=S.xpBarFill.width;
         S._xpBarPulse.clear();
         if(_pw>10){
@@ -8594,15 +8614,19 @@ function renderUI(S){
     // ── EVOLUTION HINT — "⚡ EVO NEAR" pulsing text when 1 req met ──
     // Shows player they're on track for an evolution without spoiling which one
     if(gs.level >= 6 && !gs.pickingUpgrade){
-        let _evoNear = false;
-        if(typeof EVOLUTIONS !== "undefined"){
-            for(const evo of EVOLUTIONS){
-                if(evo.active) continue;
-                const metCount = evo.req.filter(r=>UPGRADES[r]&&UPGRADES[r].level>=UPGRADES[r].max).length;
-                if(metCount === evo.req.length - 1){ _evoNear = true; break; }
+        // [PERF-FIX] Level degismedikce EVOLUTIONS taramasini tekrar yapma
+        if(S._evoNearCachedLevel !== gs.level){
+            S._evoNearCachedLevel = gs.level;
+            S._evoNearCached = false;
+            if(typeof EVOLUTIONS !== "undefined"){
+                for(const evo of EVOLUTIONS){
+                    if(evo.active) continue;
+                    const metCount = evo.req.filter(r=>UPGRADES[r]&&UPGRADES[r].level>=UPGRADES[r].max).length;
+                    if(metCount === evo.req.length - 1){ S._evoNearCached = true; break; }
+                }
             }
         }
-        if(_evoNear){
+        if(S._evoNearCached){
             if(!S._evoHintText){
                 S._evoHintText = S.add.text(360-4, 52, "⚡ EVO", {
                     font:"bold 9px LilitaOne, Arial, sans-serif",
@@ -11201,6 +11225,8 @@ class SceneGame extends Phaser.Scene {
                 if(this.xpOrbs) this.xpOrbs=[];
                 _debrisCount=0;
                 _dmgNumCount=0;
+                // [PERF-FIX] FPS buffer ve cleanup sayaclarini sifirla — onceki oturumdan kalma birikim
+                _fpsBufIdx=0; _fpsBufCount=0; _fpsBufSum=0; _perfModeFrame=0; _cleanupFrame=0;
                 // [Artifact cleanup kaldirildi — v9.1]
                 // [CRASH FIX] Global lock state'i sifirla — bir sonraki oyun baslangicinda
                 // onceki oturumdan kalan _upgradeLock>0 veya _microFreeze=true durumu
@@ -11371,6 +11397,8 @@ class SceneGame extends Phaser.Scene {
             _eliteHuntCount:0,
             // ★ YENI: Kristal sistemi
             _crystalReviveUsed:false,
+            _gemReviveUsed:false,    // gem/diamond revive kullanildi mi — ikincisinde direkt gameover
+            _statsDirty:true,  // [PERF-FIX] ilk frame'de syncStatsFromPipeline calissin
             // ★ YENI: Yeni event flag'leri
             _glassCannon:false, _glassCannonPipelined:false,
             _dmgBurstActive:false, _survivalModeDebuff:false,
@@ -11414,7 +11442,7 @@ class SceneGame extends Phaser.Scene {
 
 
         // [v9.2] Pipeline ile baslangic stat'larini senkronize et
-        syncStatsFromPipeline(GS);
+        if(GS) GS._statsDirty=true;
 
         // ── EARLY-RUN GOLD BOOST ─────────────────────────────────────
         // New players need at least one shop upgrade quickly.
@@ -11770,7 +11798,7 @@ class SceneGame extends Phaser.Scene {
                     if(gs.combo>gs.maxCombo) gs.maxCombo=gs.combo;
                     gs.comboDmgBoost=Math.min(1.35,1+gs.combo*0.018); // sadece referans icin
                     gs.comboXpBoost=Math.min(1.20,1+gs.combo*0.020);
-                    syncStatsFromPipeline(gs); // [v9.2] combo bonus pipeline'a dahil
+                    if(gs) gs._statsDirty=true; // [v9.2] combo bonus pipeline'a dahil
                     // [VFX] Combo milestone WOW moments
                     const milestones={5:"🔥 x5 COMBO!",10:"⚡ x10 COMBO!",15:"💥 x15 COMBO!",20:"🌟 x20 MAX COMBO!"};
                     const mileCols={5:"#ff8800",10:"#ff4400",15:"#ff2244",20:"#ffcc00"};
@@ -11791,7 +11819,7 @@ class SceneGame extends Phaser.Scene {
                     gs.combo=Math.min(20,gs.combo+1); gs.comboTimer=1500;
                     if(gs.combo>gs.maxCombo) gs.maxCombo=gs.combo;
                     gs.comboDmgBoost=Math.min(1.20,1+gs.combo*0.010); // referans
-                    syncStatsFromPipeline(gs); // [v9.2]
+                    if(gs) gs._statsDirty=true; // [v9.2]
                     // ── COMBO MILESTONE VFX + SFX ──
                     if(gs.combo===5 || gs.combo===10 || gs.combo===15 || gs.combo===20){
                         const _cmTier = gs.combo===5?1:gs.combo===10?2:gs.combo===15?3:4;
@@ -11851,13 +11879,13 @@ class SceneGame extends Phaser.Scene {
             // b.x < enemy.x → mermi soldan geliyor → piramit saga iter
             const _hitDir = b.x < enemy.x ? 1 : -1;
             applyDmg(_S,enemy,dmg,isCrit,_hitDir);
-            // [BUFF] HEAVY CANNON — explosion on every hit (not only on kill)
-            // Rate-limited to 100ms so rapid-fire corner cases don't stack too many VFX
+            // HEAVY CANNON — her isabet patlamasi (alan hasarı + VFX), sprite animasyon sadece öldürünce
             if(b._weaponType==="cannon"){
                 const _cNow=Date.now();
                 if(!_S._lastCannonExp || _cNow-_S._lastCannonExp > 100){
                     _S._lastCannonExp=_cNow;
-                    doExplosion(_S,enemy.x,enemy.y);
+                    // showAnim=true sadece düşman öldüyse — üçgen patlama animasyonu gereksiz spam yapıyordu
+                    doExplosion(_S,enemy.x,enemy.y, !enemy.active);
                 }
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
                 doExplosion(_S,enemy.x,enemy.y);
@@ -12037,9 +12065,11 @@ class SceneGame extends Phaser.Scene {
 
         // [OPT] _activeEnemies cache — getMatching her frame yerine 60ms'de bir calisir
         // Tum combat fonksiyonlari bu cache'i kullanir → GC baskisi belirgin azalir
+        // [PERF-FIX] scene.restart() yapilinca addEvent tekrar cagrilir — duplike timer onle
         this._activeEnemies=[];
+        if(this._enemyCacheEvent){ try{ this._enemyCacheEvent.remove(); }catch(_){} }
         const _cacheDelay = _IS_MOBILE_EARLY ? 120 : 60; // [MOBILE PERF] mobilede daha seyrek cache guncelleme
-        this.time.addEvent({delay:_cacheDelay,loop:true,callback:()=>{
+        this._enemyCacheEvent = this.time.addEvent({delay:_cacheDelay,loop:true,callback:()=>{
             if(!GS||GS.gameOver) return;
             this._activeEnemies=this.pyramids.getMatching("active",true);
         }});
@@ -12158,6 +12188,10 @@ class SceneGame extends Phaser.Scene {
         periodicSceneCleanup(this);
 
         gs.t+=delta;
+        // [PERF-FIX] Cok uzun oyunlarda gs.t float precision kaybi yasar.
+        // Oyun mantigi icin yalnizca goreli sure onemli, 1 saatlik periyotta sifirla.
+        // _lastSpikeTime ve benzeri timerlar gs.t bazlidir — farksal olarak kullanilir, guvenli.
+        if(gs.t > 3_600_000){ const _wrap=3_600_000; gs.t-=_wrap; if(gs._lastSpikeTime>_wrap) gs._lastSpikeTime-=_wrap; if(gs._lastMiniBossTime>_wrap) gs._lastMiniBossTime-=_wrap; if(gs._lastEventTime>_wrap) gs._lastEventTime-=_wrap; if(gs._lastRunEventTime>_wrap) gs._lastRunEventTime-=_wrap; }
 
         // Spawn delay dinamik guncelle — threshold 20ms so rate changes apply quickly
         if(this.spawnEvent){
@@ -12224,7 +12258,7 @@ class SceneGame extends Phaser.Scene {
             if(gs.comboTimer<=0){
                 if(gs&&gs.combo>=5) showComboBreak(this, gs.combo);
                 gs.combo=0;gs.comboDmgBoost=1.0;gs.comboXpBoost=1.0;
-                syncStatsFromPipeline(gs); // [v9.2] combo bonus kaldirildi
+                if(gs) gs._statsDirty=true; // [v9.2] combo bonus kaldirildi
             }
         }
 
@@ -12378,7 +12412,7 @@ function doShoot(S){
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
         NT_SFX.play("shoot_cannon");
-        fireBulletRaw(S,px,py,0,vy*0.62,1.0,0xff6600,"cannon"); // [BALANCE] dmgM 1.35→1.0 — nerf heavy cannon
+        fireBulletRaw(S,px,py,0,vy*0.52,1.0,0xff6600,"cannon"); // mermi biraz daha yavaş — heavy hissettirsin
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
         const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
@@ -13421,7 +13455,7 @@ function levelUp(S){
     gs.pyramidSpeed = Math.min(240, gs.pyramidSpeed);
     S.time.timeScale = 1.0;
     // [v9.2] Pipeline sync — seviye atlayinca stat'lar yeniden hesaplanir
-    syncStatsFromPipeline(gs);
+    if(gs) gs._statsDirty=true;
     // ── AAA LEVEL UP VFX ──
     vfxLevelUp(S,gs.level);
     // Ekrandaki tum aktif mermileri durdur
@@ -14268,7 +14302,7 @@ function showLevelUpUI(S) {
             } else {
                 applyUpgrade(S, upKey, false);
             }
-            syncStatsFromPipeline(gs);
+            if(gs) gs._statsDirty=true;
 
             // Close panel + resume game
             setTimeout(() => {
@@ -14466,10 +14500,10 @@ function applyUpgrade(S,key,isEvo){
     if(key==="_reward_dmgburst"){
         // [v9.2] Gecici +12% hasar — pipeline flag uzerinden
         gs._dmgBurstActive=true;
-        syncStatsFromPipeline(gs);
+        if(gs) gs._statsDirty=true;
         showHitTxt(S,180,200,CURRENT_LANG==="tr"?"+12% HASAR (10sn)":"+12% DMG (10s)","#ff8800",true);
         S.time.delayedCall(10000,()=>{
-            if(GS&&!GS.gameOver){ GS._dmgBurstActive=false; syncStatsFromPipeline(GS); }
+            if(GS&&!GS.gameOver){ GS._dmgBurstActive=false; if(GS) GS._statsDirty=true; }
         });
         checkAndApplySynergies(S);
         return;
@@ -14576,7 +14610,7 @@ function applyUpgrade(S,key,isEvo){
             break;
     }
     // ★ Pipeline sync — tum stat degisikliklerini tek noktadan guncelle
-    syncStatsFromPipeline(gs);
+    if(gs) gs._statsDirty=true;
     // ★ YENI: Upgrade sonrasi sinerji kontrolu tetikle
     checkAndApplySynergies(S);
     // ★ Build title — guclu kombo varsa goster
@@ -15485,6 +15519,8 @@ function showCrystalRevivePrompt(S){
         NT_SFX.startMusic();
         NT_SFX.setMusicState("gameplay", 0.5);
         NT_SFX.startWindAmbience();
+        // [FIX-MOBİL] Mobil butonları göster
+        try{ _showMobileBtns(S); }catch(_){}
         showHitTxt(S,180,240,L("crystalRevived"),"#cc44ff",true);
         if(S._crystalHudText) S._crystalHudText.setText("GEM "+PLAYER_CRYSTAL);
         S.time.delayedCall(1000,()=>{ if(GS){ GS.invincible=false; GS._invT=0; }});
@@ -15937,8 +15973,7 @@ function triggerRunEvent(S){
     showRunEventUI(S,ev);
 }
 
-// [UI REDESIGN v2] showRunEventUI — Tamamen yeniden yazildi
-// Duzeltmeler: LilitaOne font, icon dairesi, yan yana Accept/Decline, tik-tak sesi
+// showRunEventUI — Temiz tasarim: baslik + aciklama + iki sari buton yan yana
 function showRunEventUI(S, ev){
     const gs=GS;
     if(gs.pickingUpgrade || _upgradeLock > 0) return;
@@ -15947,24 +15982,15 @@ function showRunEventUI(S, ev){
     const ui=new UIGroup(S);
 
     // ── TIK-TAK ZAMANLAYICI ───────────────────────────────────────
-    // Panel acikken tik-tak sesi cal, kapaninca dur (muzik etkilenmez)
-    let _tickPhase=0, _tickTimer=null;
-    function _doTick(){
-        _tickPhase=1-_tickPhase;
-        try{
-            // Tek ses ile ritmik tik-tak efekti
-            NT_SFX.play("countdown_tick");
-        }catch(_){}
-    }
-    _doTick(); // ilk ani tik
+    let _tickTimer=null;
+    function _doTick(){ try{ NT_SFX.play("countdown_tick"); }catch(_){} }
+    _doTick();
     _tickTimer=setInterval(_doTick, 700);
-    function _stopTick(){
-        if(_tickTimer){ clearInterval(_tickTimer); _tickTimer=null; }
-    }
+    function _stopTick(){ if(_tickTimer){ clearInterval(_tickTimer); _tickTimer=null; } }
 
-    // Dark overlay
+    // Karanlik overlay
     const ov=ui.add(S.add.rectangle(CX,H/2,W,H,0x000000,0).setDepth(800));
-    S.tweens.add({targets:ov,fillAlpha:0.82,duration:220});
+    S.tweens.add({targets:ov,fillAlpha:0.80,duration:220});
 
     // Panel — ui_pause_win sprite
     const pm=NT_Measure(S,"ui_pause_win",310);
@@ -15972,165 +15998,100 @@ function showRunEventUI(S, ev){
     const sprite=ui.add(S.add.image(CX,panelCY,"ui_pause_win").setScale(pm.sc*0.05).setAlpha(0).setDepth(801));
     const pTop=panelCY-pm.H/2, pBot=panelCY+pm.H/2;
     const stripCY    = pTop + pm.stripH/2;
-    const contentTop = pTop + pm.stripH + 16;
+    const contentTop = pTop + pm.stripH + 20;
     const D=802;
 
-    // Panel pop-in animasyonu
     S.tweens.add({targets:sprite, scaleX:pm.sc, scaleY:pm.sc, alpha:1, duration:240, ease:"Back.easeOut"});
 
-    // ── ICON DAIRESI (sol, serit merkezinde) ──────────────────────
-    const icR  = 26;
-    const icX  = CX - pm.W/2 + 18 + icR;
-
-    // Nabiz glow halkasi (arka)
-    const icGlow=ui.add(S.add.graphics().setDepth(D));
-    icGlow.fillStyle(ev.color, 0.15); icGlow.fillCircle(icX, stripCY, icR+14);
-    S.tweens.add({targets:icGlow,scaleX:1.40,scaleY:1.40,alpha:0,duration:1000,
-        yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
-
-    // Daire zemin (koyu + kenarlık)
-    const icBg=ui.add(S.add.graphics().setDepth(D+1).setAlpha(0));
-    icBg.fillStyle(0x000000, 0.45);
-    icBg.fillCircle(icX, stripCY, icR);
-    icBg.lineStyle(3, 0xffffff, 0.80);
-    icBg.strokeCircle(icX, stripCY, icR);
-
-    // Emoji ikon — duzgun boyutla
-    const iconTxt=ui.add(S.add.text(icX, stripCY, ev.icon,{
-        font:"24px Arial, sans-serif",
-        color:"#ffffff"
-    }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
-    S.tweens.add({targets:iconTxt,scaleX:1.15,scaleY:1.15,
-        duration:800,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
-
-    // ── BASLIK METNI — LilitaOne, buyuk, okunabilir ───────────────
+    // ── BASLIK — LilitaOne-Regular, ortalı, serit içinde ─────────
     const title=LLang(ev,"title","titleEN","titleRU");
-    const titleStartX = icX + icR + 10;
-    const titleMaxW   = (CX + pm.W/2 - 14) - titleStartX;
-    const titleTxt=ui.add(S.add.text(titleStartX, stripCY, title,{
-        font:"bold 22px LilitaOne, Arial, sans-serif",
+    const titleTxt=ui.add(S.add.text(CX, stripCY, title,{
+        fontFamily:"LilitaOne, Arial, sans-serif",
+        fontSize:"20px",
         color:"#ffffff",
-        stroke:"#00000099",
-        strokeThickness:4,
-        fixedWidth: titleMaxW,
-        wordWrap:{width: titleMaxW}
-    }).setOrigin(0, 0.5).setDepth(D+3).setAlpha(0));
+        stroke:"#00000088",
+        strokeThickness:3,
+        fixedWidth: pm.W - 24,
+        wordWrap:{width: pm.W - 24},
+        align:"center"
+    }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
 
-    // ── AYRAC CIZGISI ─────────────────────────────────────────────
-    const divG=ui.add(S.add.graphics().setDepth(D+1).setAlpha(0));
-    divG.lineStyle(1.5, ev.color, 0.45);
-    divG.lineBetween(CX-pm.W/2+18, contentTop-2, CX+pm.W/2-18, contentTop-2);
-
-    // ── ACIKLAMA METNI ────────────────────────────────────────────
+    // ── ACIKLAMA — LilitaOne-Regular, ortalı ─────────────────────
     const desc=LLang(ev,"desc","descEN","descRU");
-    const descTxt=ui.add(S.add.text(CX, contentTop+16, desc,{
-        font:"15px LilitaOne, Arial, sans-serif",
+    const descTxt=ui.add(S.add.text(CX, contentTop+14, desc,{
+        fontFamily:"LilitaOne, Arial, sans-serif",
+        fontSize:"14px",
         color:"#ddeeff",
-        wordWrap:{width:pm.W-44},
+        wordWrap:{width: pm.W - 44},
         align:"center",
-        lineSpacing:6
+        lineSpacing:5
     }).setOrigin(0.5, 0).setDepth(D+2).setAlpha(0));
 
-    // ── BUTONLAR — dikey sıra (Accept üstte büyük, Decline altta ince) ──
-    const BTN_W  = pm.W - 28;
-    const BTN_HI = 56;   // Accept yüksekliği
-    const BTN_HL = 40;   // Decline yüksekliği
-    const BTN_GAP = 8;
-    const btnDecY = pBot - 20 - BTN_HL / 2;
-    const btnAccY = btnDecY - BTN_HL / 2 - BTN_GAP - BTN_HI / 2;
+    // ── IKI SARI BUTON YAN YANA ──────────────────────────────────
+    const BTN_W  = (pm.W - 36) / 2;   // her buton eşit genişlik, aralarında 12px boşluk
+    const BTN_H  = 46;
+    const BTN_Y  = pBot - 30;
+    const BTN_L  = CX - BTN_W/2 - 6;  // sol buton merkezi
+    const BTN_R  = CX + BTN_W/2 + 6;  // sağ buton merkezi
 
-    // ── ACCEPT (üstte, event rengiyle boyalı, büyük) ──────────────
-    const ch0  = ev.choices[0];
-    const lbl0 = LLang(ch0,"label","labelEN","labelRU");
+    // --- KABUL ET (sol sarı buton) ---
+    const ch0   = ev.choices[0];
+    const lbl0  = CURRENT_LANG==="ru" ? ch0.labelRU : CURRENT_LANG==="en" ? ch0.labelEN : ch0.label;
 
-    const aG = ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
-    const _drawAcc = (h) => {
+    const aG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
+    const _drawAcc=(h)=>{
         aG.clear();
-        // Gölge
-        aG.fillStyle(0x000000, 0.35);
-        aG.fillRoundedRect(CX - BTN_W/2 + 2, btnAccY - BTN_HI/2 + 5, BTN_W, BTN_HI, 12);
-        // Alt kenar (koyu bant — derinlik hissi)
-        aG.fillStyle(0x000000, 0.40);
-        aG.fillRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2 + BTN_HI - 5, BTN_W, 5, {bl:12,br:12,tl:0,tr:0});
-        // Ana dolgu
-        aG.fillStyle(ev.color, h ? 1.0 : 0.88);
-        aG.fillRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2, BTN_W, BTN_HI - 5, 12);
-        // Üst parlaklık
-        aG.fillStyle(0xffffff, h ? 0.25 : 0.14);
-        aG.fillRoundedRect(CX - BTN_W/2 + 10, btnAccY - BTN_HI/2 + 5, BTN_W - 20, BTN_HI / 2 - 8, 8);
-        // Dış çerçeve
-        aG.lineStyle(2, 0xffffff, h ? 0.60 : 0.35);
-        aG.strokeRoundedRect(CX - BTN_W/2, btnAccY - BTN_HI/2, BTN_W, BTN_HI, 12);
+        aG.fillStyle(h?0xffdd00:0xffcc00,1);
+        aG.fillRoundedRect(BTN_L-BTN_W/2, BTN_Y-BTN_H/2, BTN_W, BTN_H, 10);
+        aG.fillStyle(0xffffff, h?0.22:0.12);
+        aG.fillRoundedRect(BTN_L-BTN_W/2+6, BTN_Y-BTN_H/2+5, BTN_W-12, BTN_H/2-8, 7);
+        aG.lineStyle(2, h?0xffffff:0xffdd44, h?0.7:0.45);
+        aG.strokeRoundedRect(BTN_L-BTN_W/2, BTN_Y-BTN_H/2, BTN_W, BTN_H, 10);
     };
     _drawAcc(false);
-
-    const aTxt = ui.add(S.add.text(CX, btnAccY - 1, "✓   " + lbl0.toUpperCase(), {
-        fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"19px",
-        color:"#ffffff", stroke:"#00000099", strokeThickness:4
+    const aTxt=ui.add(S.add.text(BTN_L, BTN_Y, lbl0.toUpperCase(),{
+        fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"15px",
+        color:"#1a1200", stroke:"#ffee8800", strokeThickness:0
     }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
-
-    const aHit = ui.add(S.add.rectangle(CX, btnAccY, BTN_W, BTN_HI, 0xffffff, 0.001)
+    const aHit=ui.add(S.add.rectangle(BTN_L, BTN_Y, BTN_W, BTN_H, 0xffffff, 0.001)
         .setDepth(D+4).setInteractive({useHandCursor:true}));
-    aHit.on("pointerover", () => { _drawAcc(true); });
-    aHit.on("pointerout",  () => { _drawAcc(false); });
-    aHit.on("pointerdown", () => {
+    aHit.on("pointerover",()=>_drawAcc(true));
+    aHit.on("pointerout", ()=>_drawAcc(false));
+    aHit.on("pointerdown",()=>{
         _stopTick();
-        S.cameras.main.shake(35, 0.006);
-        for(let ei=0;ei<14;ei++){
-            S.time.delayedCall(ei*18,()=>{
-                const ang=Phaser.Math.DegToRad(Phaser.Math.Between(0,360));
-                const ep=S.add.graphics().setDepth(812);
-                ep.x=CX; ep.y=btnAccY;
-                ep.fillStyle(ev.color,0.9); ep.fillRect(-2,-2,4,4);
-                S.tweens.add({targets:ep,
-                    x:ep.x+Math.cos(ang)*Phaser.Math.Between(30,90),
-                    y:ep.y+Math.sin(ang)*Phaser.Math.Between(20,70),
-                    alpha:0,scaleX:0.1,scaleY:0.1,
-                    duration:Phaser.Math.Between(200,420),ease:"Quad.easeOut",
-                    onComplete:()=>ep.destroy()});
-            });
-        }
+        S.cameras.main.shake(30,0.005);
         NT_SFX.play("button_confirm");
         ch0.fn(S);
         ui.fadeAndDestroy(180);
         S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
     });
 
-    // ── DECLINE (altta, ince, mat koyu — gold bonus yazısı ayrı) ──
+    // --- REDDET (sağ sarı buton) ---
     if(ev.choices.length > 1){
-        const chi  = ev.choices[1];
-        const isTR = CURRENT_LANG === "tr";
-        const isRU = CURRENT_LANG === "ru";
-        const dLabel = isTR ? "REDDET" : isRU ? "ОТКАЗАТЬ" : "DECLINE";
-        const dBonus = isTR ? "+60 🪙 bonus alırsın" : isRU ? "+60 🪙 бонус" : "+60 🪙 bonus gold";
+        const chi = ev.choices[1];
+        const isTR=CURRENT_LANG==="tr", isRU=CURRENT_LANG==="ru";
+        const dLabel=isTR?"REDDET":isRU?"ОТКАЗАТЬ":"DECLINE";
 
-        const dG = ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
-        const _drawDec = (h) => {
+        const dG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
+        const _drawDec=(h)=>{
             dG.clear();
-            dG.fillStyle(h ? 0x26263a : 0x14141e, 1);
-            dG.fillRoundedRect(CX - BTN_W/2, btnDecY - BTN_HL/2, BTN_W, BTN_HL, 10);
-            dG.lineStyle(1.5, h ? 0x8888bb : 0x303042, h ? 0.85 : 0.50);
-            dG.strokeRoundedRect(CX - BTN_W/2, btnDecY - BTN_HL/2, BTN_W, BTN_HL, 10);
+            dG.fillStyle(h?0xffdd00:0xffcc00,1);
+            dG.fillRoundedRect(BTN_R-BTN_W/2, BTN_Y-BTN_H/2, BTN_W, BTN_H, 10);
+            dG.fillStyle(0xffffff, h?0.22:0.12);
+            dG.fillRoundedRect(BTN_R-BTN_W/2+6, BTN_Y-BTN_H/2+5, BTN_W-12, BTN_H/2-8, 7);
+            dG.lineStyle(2, h?0xffffff:0xffdd44, h?0.7:0.45);
+            dG.strokeRoundedRect(BTN_R-BTN_W/2, BTN_Y-BTN_H/2, BTN_W, BTN_H, 10);
         };
         _drawDec(false);
-
-        // "✕  REDDET" — sol ortalı, orta büyüklük
-        const dMainTxt = ui.add(S.add.text(CX, btnDecY - 7, "✕   " + dLabel, {
-            fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"14px",
-            color:"#9999bb", stroke:"#000", strokeThickness:2
-        }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
-
-        // "+60 🪙 bonus alırsın" — küçük, yeşilimsi
-        const dSubTxt = ui.add(S.add.text(CX, btnDecY + 9, dBonus, {
-            fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"10px",
-            color:"#66bb55", stroke:"#000", strokeThickness:1
-        }).setOrigin(0.5, 0.5).setDepth(D+3).setAlpha(0));
-
-        const dHit = ui.add(S.add.rectangle(CX, btnDecY, BTN_W, BTN_HL, 0xffffff, 0.001)
+        const dTxt=ui.add(S.add.text(BTN_R, BTN_Y, dLabel,{
+            fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"15px",
+            color:"#1a1200"
+        }).setOrigin(0.5).setDepth(D+3).setAlpha(0));
+        const dHit=ui.add(S.add.rectangle(BTN_R, BTN_Y, BTN_W, BTN_H, 0xffffff, 0.001)
             .setDepth(D+4).setInteractive({useHandCursor:true}));
-        dHit.on("pointerover",  () => { _drawDec(true);  dMainTxt.setColor("#ccccee"); });
-        dHit.on("pointerout",   () => { _drawDec(false); dMainTxt.setColor("#9999bb"); });
-        dHit.on("pointerdown",  () => {
+        dHit.on("pointerover", ()=>_drawDec(true));
+        dHit.on("pointerout",  ()=>_drawDec(false));
+        dHit.on("pointerdown", ()=>{
             _stopTick();
             NT_SFX.play("menu_click");
             chi.fn(S);
@@ -16138,15 +16099,14 @@ function showRunEventUI(S, ev){
             S.time.delayedCall(200,()=>{ S.time.timeScale=1.0; unlockUpgrade(gs,S); });
         });
 
-        S.time.delayedCall(200,()=>{
-            S.tweens.add({targets:[dG,dMainTxt,dSubTxt],alpha:1,duration:180,ease:"Quad.easeOut"});
+        S.time.delayedCall(160,()=>{
+            S.tweens.add({targets:[dG,dTxt],alpha:1,duration:180,ease:"Quad.easeOut"});
         });
     }
 
-    // Icerik elementleri + accept buton fade-in
+    // Fade-in
     S.time.delayedCall(80,()=>{
-        S.tweens.add({targets:[icBg,iconTxt,titleTxt,descTxt,divG],
-            alpha:1,duration:220,ease:"Quad.easeOut"});
+        S.tweens.add({targets:[titleTxt,descTxt],alpha:1,duration:220,ease:"Quad.easeOut"});
     });
     S.time.delayedCall(160,()=>{
         S.tweens.add({targets:[aG,aTxt],alpha:1,duration:200,ease:"Back.easeOut"});
@@ -16162,7 +16122,6 @@ function showRunEventUI(S, ev){
         }
     });
 }
-
 // ── RELIK SISTEMI ────────────────────────────────────────────
 // [v9.1] Artifact sistemi tamamen kaldirildi.
 
@@ -16541,7 +16500,9 @@ function gameOver(S){
     }
 
     // ── GEM REVIVE PROMPT (Jetpack Joyride style) ─────────────
+    // İkinci ölümde (gs._gemReviveUsed=true) direkt panel göster, revive şansı yok
     const GEM_REVIVE_COST = 10;
+    const _canRevive = !gs._gemReviveUsed && !gs._crystalReviveUsed;
     let _reviveShown = false;
     let _reviveUsed  = false;
 
@@ -16689,32 +16650,33 @@ function gameOver(S){
                 NT_SFX.play("revive");
                 spendGems(GEM_REVIVE_COST);
                 _cleanup();
-                // [FIX-REVIVE] Karanlık overlay'i kaldır — gameOver() tarafından
-                // oluşturulan 'ov' (depth:900, setInteractive) tüm ekranı kaplıyor
-                // ve her türlü girişi engelliyordu. Revive sonrası mutlaka yok edilmeli.
+                // [FIX-REVIVE] Karanlık overlay'i kaldır
                 try{ ov.destroy(); }catch(_){}
-                // [FIX-REVIVE] Depth 900-959 arası kalmış başka overlay'leri de temizle
                 try{
                     S.children.list
                         .filter(o=>o&&o.active&&typeof o.depth==="number"&&o.depth>=900&&o.depth<960)
                         .forEach(o=>{try{o.destroy();}catch(_){}});
                 }catch(_){}
                 gs.gameOver=false;
+                gs._gemReviveUsed=true;   // ikinci ölümde direkt game over
                 gs.health=Math.min(gs.maxHealth,4);
                 gs.invincible=true; gs._invT=0;
                 gs.pickingUpgrade=false;
+                gs._statsDirty=true;
                 S.physics.resume();
                 if(S.spawnEvent) S.spawnEvent.paused=false;
                 try{ if(S.player) S.player.setVisible(true); }catch(_){}
                 S.time.delayedCall(4000,()=>{ if(gs) gs.invincible=false; });
-                // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
+                // [FIX-REVIVE] Kamerayı karanlıktan kurtar
                 S.cameras.main.fadeIn(350,0,0,0);
                 S.cameras.main.flash(400,255,180,50,false);
                 S.cameras.main.shake(180,0.018);
-                // [FIX-REVIVE] Müziği yeniden başlat — gameOver() stopMusic() çağırmıştı
+                // [FIX-REVIVE] Müziği yeniden başlat
                 NT_SFX.startMusic();
                 NT_SFX.setMusicState("gameplay", 0.5);
                 NT_SFX.startWindAmbience();
+                // [FIX-MOBİL] Mobil butonları geri getir
+                try{ _showMobileBtns(S); }catch(_){}
                 showHitTxt(S,180,220,L("revived"),"#ffcc44",true);
             });
         }
@@ -16753,38 +16715,64 @@ function gameOver(S){
             duration:600,yoyo:true,repeat:-1,ease:"Sine.easeInOut"});
     }
 
-    // ── OLUM ANIMASYONU — ayri sprite kullan ────────────────────
+    // ── ÖLÜM ANIMASYONU — ayri sprite kullan ────────────────────
     let _reviveOrPanel = (delay) => {
         S.time.delayedCall(delay, ()=>{
-            _showRevivePrompt(()=> S.time.delayedCall(50, _showPanel));
+            if(_canRevive){
+                _showRevivePrompt(()=> S.time.delayedCall(50, _showPanel));
+            } else {
+                // İkinci ölüm: revive hakkı yok, direkt game over paneli
+                _showPanel();
+            }
         });
     };
 
     if(S.player && S.player.active && S.anims.exists("anim_death")){
         try{
-            const _px=S.player.x, _py=S.player.y;
-            const _psc=S.player.scaleX||2.0;
-            const _pfl=S.player.flipX||false;
+            const _px = S.player.x;
+            const _py = S.player.y;
+            const _psc= S.player.scaleX || 2.0;
+            const _pfl= S.player.flipX  || false;
             S.player.setVisible(false);
-            const ds=S.add.sprite(_px, _py, "death")
+            const ds = S.add.sprite(_px, _py, "death")
                 .setDepth(S.player.depth)
                 .setScale(_psc)
                 .setFlipX(_pfl)
-                .setOrigin(0.5, 1);
-            ds.play("anim_death");
-            ds.once("animationcomplete", ()=>{
-                try{ ds.setAlpha(0); }catch(_){}
-                _reviveOrPanel(280);
+                .setOrigin(0.5, 0.5); // merkez-merkez — origin(0.5,1) altta kaliyordu, frameler kayiyordu
+            // Animasyon: 8 kare × 40x40, frameRate=10 → daha okunabilir
+            if(!S.anims.exists("anim_death_fixed")){
+                S.anims.create({
+                    key:"anim_death_fixed",
+                    frames: S.anims.generateFrameNumbers("death",{start:0,end:7}),
+                    frameRate: 10,
+                    repeat: 0
+                });
+            }
+            ds.play("anim_death_fixed");
+            ds.once("animationcomplete",()=>{
+                // Son kare 0.3sn görünsün sonra sil
+                S.time.delayedCall(300,()=>{
+                    try{ ds.destroy(); }catch(_){}
+                    _reviveOrPanel(80);
+                });
             });
+            // Güvenlik: animasyon olayı tetiklenmezse 1.5sn sonra devam et
+            S.time.delayedCall(1500,()=>{
+                if(ds && ds.active){ try{ds.destroy();}catch(_){} }
+                _reviveOrPanel(80);
+            });
+            return; // aşağıdaki else'e düşme
         }catch(e){
             console.warn("[NT] Death anim sprite hatasi:", e);
-            _reviveOrPanel(400);
         }
-    } else {
-        _reviveOrPanel(400);
     }
-    // Guvenlik: 3.5sn sonra her halukarda ac (revive timeout'tan sonra + panel)
-    S.time.delayedCall(6000, ()=>{ if(!_panelShown && _reviveUsed===false && _reviveShown) _showPanel(); });
+    _reviveOrPanel(400);
+    // Guvenlik: 6sn sonra panel acilmadiysa zorla ac
+    S.time.delayedCall(6000, ()=>{ if(!_panelShown && !_reviveUsed && _reviveShown) _showPanel(); });
+    // İkinci ölüm güvenliği: revive prompt hiç açılmayacaksa yine de panel aç
+    if(!_canRevive){
+        S.time.delayedCall(100, ()=>{ if(!_panelShown) _showPanel(); });
+    }
 }
 
 // ── ELMAS ILE DIRILIS — 3 saniye geri sayim + Bitir butonu ─────
@@ -16952,9 +16940,11 @@ function doRevive(S, panel){
     const gs=GS;
     gs.gameOver=false;
     gs.usedExtraLife=true;
+    gs._gemReviveUsed=true;   // ikinci ölümde direkt game over
     gs.health=Math.min(gs.maxHealth, 3);
     gs.invincible=true; gs._invT=0;
     gs.pickingUpgrade=false;
+    gs._statsDirty=true;
     S.time.delayedCall(5000,()=>{ gs.invincible=false; });
     S.physics.resume();
     if(S.spawnEvent) S.spawnEvent.paused=false;
@@ -16973,6 +16963,8 @@ function doRevive(S, panel){
     NT_SFX.startMusic();
     NT_SFX.setMusicState("gameplay", 0.5);
     NT_SFX.startWindAmbience();
+    // [FIX-MOBİL] Revive sonrası mobil butonları göster
+    try{ _showMobileBtns(S); }catch(_){}
     // Dirilis efekti
     NT_SFX.play("revive");
     S.cameras.main.shake(180,0.020);
@@ -17022,7 +17014,7 @@ function triggerResonance(S,src,depth){
         }
     }
 }
-function doExplosion(S,x,y){
+function doExplosion(S,x,y,showAnim=true){
     const gs=GS, lv=UPGRADES.explosive.level;
     // [BUFF] Heavy cannon always gets +40% explosion radius — satisfying splash, not dependent on Explosive upgrade
     const r=(44+lv*12) * (gs.activeWeapon==="heavy_cannon" ? 1.40 : 1.0);
@@ -17035,8 +17027,8 @@ function doExplosion(S,x,y){
     ];
     const _exC = _expColors[Math.min(Math.max(lv-1, 0), _expColors.length-1)];
 
-    // ── EXPLOSION SPRITE ANIMASYONU ──
-    if(S.anims && S.anims.exists("anim_expl")){
+    // ── EXPLOSION SPRITE ANIMASYONU — sadece showAnim=true (öldürünce) ──
+    if(showAnim && S.anims && S.anims.exists("anim_expl")){
         try{
             const sc=4.5+(lv*0.4);
             const es=S.add.sprite(x,y,"explosion").setDepth(25).setScale(sc).setAlpha(0.95);
@@ -17399,12 +17391,12 @@ function tickNearDeath(S){
     if(ratio <= 0.20 && !gs._nearDeathActive){
         gs._nearDeathActive = true;
         gs._nearDeathDmgBoost = 1.0; // artik pipeline'da additive olarak isleniyor
-        syncStatsFromPipeline(gs);   // [v9.2] pipeline flag'i aktif — +10% additive dahil
+        if(gs) gs._statsDirty=true;   // [v9.2] pipeline flag'i aktif — +10% additive dahil
         showHitTxt(S, 180, 200, L("nearDeath_buff"), "#ff2244", true);
     } else if(ratio > 0.20 && gs._nearDeathActive){
         gs._nearDeathActive = false;
         gs._nearDeathDmgBoost = 1.0;
-        syncStatsFromPipeline(gs);   // [v9.2] bonus kaldirildi
+        if(gs) gs._statsDirty=true;   // [v9.2] bonus kaldirildi
     }
 }
 
@@ -17416,35 +17408,35 @@ function tickNearDeathPulse(S, delta){
     if(hpRatio <= 0.35){
         if(!S._dangerVignette){
             S._dangerVignette = S.add.graphics().setDepth(700).setScrollFactor(0);
+            S._dangerVigLastAlpha = -1; // zorla ilk cizimi tetikle
         }
         const dv = S._dangerVignette;
-        dv.clear();
-        const intensity = Math.max(0, 1 - hpRatio / 0.35); // 0→1 as HP drops
-        const pulse = Math.sin(gs.t * 0.004) * 0.3 + 0.7; // slow pulse
+        const intensity = Math.max(0, 1 - hpRatio / 0.35);
+        const pulse = Math.sin(gs.t * 0.004) * 0.3 + 0.7;
         const alpha = intensity * 0.22 * pulse;
+        // [PERF-FIX] Alpha 0.015'ten fazla degismemisse yeniden cizme — 10 fillRect/frame tasarrufu
+        if(Math.abs(alpha - (S._dangerVigLastAlpha||0)) < 0.015) return;
+        S._dangerVigLastAlpha = alpha;
+        dv.clear();
         // Kenar golgeleri — gradient etkisi
-        // Ust kenar
         dv.fillStyle(0xff0000, alpha * 0.8);
         dv.fillRect(0, 0, 360, 25);
         dv.fillStyle(0xff0000, alpha * 0.4);
         dv.fillRect(0, 25, 360, 20);
-        // Alt kenar
         dv.fillStyle(0xff0000, alpha * 0.8);
         dv.fillRect(0, 615, 360, 25);
         dv.fillStyle(0xff0000, alpha * 0.4);
         dv.fillRect(0, 595, 360, 20);
-        // Sol kenar
         dv.fillStyle(0xff0000, alpha * 0.6);
         dv.fillRect(0, 0, 12, 640);
         dv.fillStyle(0xff0000, alpha * 0.3);
         dv.fillRect(12, 0, 10, 640);
-        // Sag kenar
         dv.fillStyle(0xff0000, alpha * 0.6);
         dv.fillRect(348, 0, 12, 640);
         dv.fillStyle(0xff0000, alpha * 0.3);
         dv.fillRect(338, 0, 10, 640);
     } else if(S._dangerVignette){
-        S._dangerVignette.clear();
+        if(S._dangerVigLastAlpha !== 0){ S._dangerVignette.clear(); S._dangerVigLastAlpha=0; }
     }
 }
 
@@ -17532,9 +17524,15 @@ function tickProgressiveChaos(S, delta){
 
 // ── 5. GIZLI SINERJI KESIF SISTEMI ────────────────────────────
 let _hiddenSynergyChecked = false;
+let _hiddenSynergyFrame = 0; // [PERF-FIX] throttle sayaci
 
 function tickHiddenSynergy(S){
     const gs = GS; if(!gs||gs.gameOver) return;
+    // [PERF-FIX] Her frame degil — sadece _statsDirty set olduysa veya 120 frame'de bir kontrol
+    // (upgrade secimleri zaten _statsDirty=true yapiyor, hidden synergy de o sirada tetiklenir)
+    _hiddenSynergyFrame++;
+    if(!gs._statsDirty && _hiddenSynergyFrame < 120) return;
+    _hiddenSynergyFrame = 0;
     SYNERGIES.forEach(syn=>{
         if(!syn.hidden) return;  // sadece hidden flag'li synergy'ler
         if(syn.active) return;
@@ -17654,8 +17652,39 @@ const MAX_DEBRIS = 6;  // [PERF] Daha agresif limit — FPS korumasi
 
 // [PERF] Periyodik sahne temizleyici - devre disi, donma sorunu yarattigi icin
 let _lastCleanupTime = 0;
+// [PERF-FIX] Guvenli orphan temizleme — sadece alpha=0 + active=false + depth>200 objeleri siler.
+// Oyun objelerini (dusman, mermi, xp) ASLA silmez; sadece tamamlanmis VFX artiklari temizler.
+let _cleanupFrame = 0;
 function periodicSceneCleanup(S){
-    // DEVRE DISI: aktif oyun objelerini yanlis siliyordu, donmaya neden oluyordu
+    // Her 600 frame'de bir calistir (~10 saniye 60fps'te) — hic kasma yaratmaz
+    _cleanupFrame++;
+    if(_cleanupFrame < 600) return;
+    _cleanupFrame = 0;
+    if(!S || !S.children || !S.children.list) return;
+    const list = S.children.list;
+    const toDestroy = [];
+    for(let i = 0; i < list.length; i++){
+        const o = list[i];
+        if(!o) continue;
+        // Guvende olmak icin cok katli kontrol:
+        // 1) active=false (devre disi)
+        // 2) alpha=0 veya neredeyse 0 (gorunmez)
+        // 3) depth > 200 (oyun objeleri degil — VFX/UI artigi)
+        // 4) fizik body yok (oyuncu/mermi/dusman degil)
+        // 5) texture key yok ya da "missing" (pool'dan kacan orphan grafik)
+        try{
+            if(!o.active && typeof o.alpha === "number" && o.alpha < 0.01
+               && typeof o.depth === "number" && o.depth > 200
+               && !o.body){
+                toDestroy.push(o);
+            }
+        }catch(_){}
+    }
+    // Bir defada max 30 obje sil — spike onleme
+    const limit = Math.min(toDestroy.length, 30);
+    for(let i = 0; i < limit; i++){
+        try{ toDestroy[i].destroy(); }catch(_){}
+    }
 }
 
 function spawnFallingDebris(S, x, y, type, isBig){
@@ -18700,21 +18729,18 @@ function _ensureFontLoaded(callback){
     }
 }
 
-// AudioContext resume on first user gesture (Chrome autoplay policy)
+// [PERF-FIX] AudioContext resume on first user gesture (Chrome autoplay policy)
+// Onceki versiyon tamamen no-op'tu — hicbir sey yapmiyordu.
 (function _fixAudioContext(){
     const resume=()=>{
-        if(window.Phaser&&Phaser.Sound&&Phaser.Sound.WebAudioSoundManager){
-            // Phaser handles its own context — nothing to do
-        }
-        // Resume any suspended AudioContext instances
-        if(window.AudioContext||window.webkitAudioContext){
-            document.querySelectorAll("*").forEach(()=>{});  // noop
-        }
-        document.removeEventListener("pointerdown",resume,true);
-        document.removeEventListener("keydown",resume,true);
+        // NT_SFX zaten kendi context'ini yonetiyor; ancak herhangi bir
+        // suspended AudioContext instance'i varsa burada da resume et.
+        try{
+            if(NT_SFX && typeof NT_SFX.resumeAudio === "function") NT_SFX.resumeAudio(0.05);
+        }catch(_){}
     };
-    document.addEventListener("pointerdown",resume,{once:true,capture:true});
-    document.addEventListener("keydown",resume,{once:true,capture:true});
+    document.addEventListener("pointerdown", resume, {once:true, capture:true});
+    document.addEventListener("keydown",     resume, {once:true, capture:true});
 })();
 
 function _startPhaserGame(){
