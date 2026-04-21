@@ -2686,9 +2686,11 @@ function showDaily(scene){
             } else {
                 // Amount + icon
                 const amtStr = "+"+ reward.amount;
-                const iconStr = isGem?(CURRENT_LANG==="tr"?"ELMAS":"GEM"):(CURRENT_LANG==="tr"?"ALTIN":"GOLD");
-                A(scene.add.text(cardX,cardY-2,amtStr,{fontFamily:_F,fontSize:"13px",color:current?"#ffffff":"#889999",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3));
-                A(scene.add.text(cardX,cardY+14,iconStr,{fontFamily:_F,fontSize:isGem?"11px":"14px",color:isGem?"#cc88ff":"#ffcc00"}).setOrigin(0.5).setDepth(D+3));
+                const _icKey = isGem?"icon_gem":"icon_gold";
+                A(scene.add.text(cardX,cardY-4,amtStr,{fontFamily:_F,fontSize:"13px",color:current?"#ffffff":"#889999",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3));
+                if(scene.textures.exists(_icKey)){
+                    A(scene.add.image(cardX,cardY+13,_icKey).setDisplaySize(18,18).setOrigin(0.5).setDepth(D+3));
+                }
             }
 
             // Lock overlay
@@ -3509,7 +3511,9 @@ function showDeathOffer(scene){
             og.lineStyle(1.5,tc,0.4);og.strokeRoundedRect(CX-PW/2+8,cy-16,PW-16,38,6);
             if(of.tag){og.fillStyle(tc,1);og.fillRoundedRect(CX+PW/2-68,cy-16,50,11,{tl:0,tr:6,bl:3,br:0});
                 A(scene.add.text(CX+PW/2-43,cy-11,of.tag,{fontFamily:_F,fontSize:"5px",color:"#fff"}).setOrigin(0.5).setDepth(D+4));}
-            A(scene.add.text(CX-PW/2+16,cy+2,of.gems+" GEM + "+of.gold+" GOLD",{fontFamily:_F,fontSize:"11px",color:"#ddaacc",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+            A(scene.add.text(CX-PW/2+16,cy+2,of.gems+" + "+of.gold,{fontFamily:_F,fontSize:"11px",color:"#ddaacc",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+            if(scene.textures.exists("icon_gem"))  A(scene.add.image(CX-PW/2+16+56,cy+2,"icon_gem").setDisplaySize(14,14).setOrigin(0,0.5).setDepth(D+3));
+            if(scene.textures.exists("icon_gold")) A(scene.add.image(CX-PW/2+16+74,cy+2,"icon_gold").setDisplaySize(14,14).setOrigin(0,0.5).setDepth(D+3));
             const bx=CX+PW/2-32;
             const bb=A(scene.add.graphics().setDepth(D+3));
             bb.fillStyle(0x550028,1);bb.fillRoundedRect(bx-20,cy-8,40,18,4);bb.lineStyle(1,0xff4488,0.8);bb.strokeRoundedRect(bx-20,cy-8,40,18,4);
@@ -4277,7 +4281,7 @@ function showIAPStore(scene){
     });
 
     // _closeBtn was never implemented on the scene — use NT_YellowBtn directly
-    objs.push(...NT_YellowBtn(scene,W/2,H-16,190,42,"✕  CLOSE",12,()=>close()));
+    objs.push(...NT_YellowBtn(scene,W/2,H-16,190,42,CURRENT_LANG==="tr"?"✕  KAPAT":"✕  CLOSE",12,()=>close()));
     scene._openPanel=objs;
 }
 
@@ -9593,13 +9597,13 @@ function spawnKillText(S, x, y){
         // chain 1 — normal kill
         ["KILL!", "NOT TODAY!", "GIT GIT!", "KÜÇÜK UCGEN!", "NOT MY PROBLEM!", "ÖLDÜ!"],
         // chain 2 — double
-        ["DOUBLE!", "NOT ONCE NOT TWICE", "İKİLİ KATLİAM!", "NOT x2!", "ÇİFT KILL!", "NOT BAD... WAIT YES"],
+        ["DOUBLE!", "NOT ONCE NOT TWICE", "İKİLİ KATLİAM!", "NOT x2!", "ÇİFT KILL!", "NOT BAD... WAIT YES", "TWO? NOT DONE.", "İKİ BİRDEN!"],
         // chain 3 — triple
-        ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN"],
+        ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN", "NOT EVEN CLOSE TO DONE", "ÜÇLÜ NOT!"],
         // chain 4 — quad
-        ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOT POSSIBLE?!"],
+        ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOT POSSIBLE?!", "OH. THAT WAS NOT IT.", "DÖRT! NOT BITTI!"],
         // chain 5 — penta / max
-        ["NOT FAIR!!!", "N-O-T FAIR!", "BEŞ! BEŞ! BEŞ!", "TAMAMEN NOT!", "FULL NOT MODE!", "5X NOT FAIR 💀"]
+        ["NOT FAIR!!!", "N-O-T FAIR!", "BEŞ! BEŞ! BEŞ!", "TAMAMEN NOT!", "FULL NOT MODE!", "5X NOT FAIR 💀", "NOT THE HERO WE NEEDED.", "BU NOT OLMALI!"]
     ];
     const _chainIdx = Math.max(0, Math.min(_killChain - 1, 4));
     const _chainArr = _KILL_CHAIN_TEXTS[_chainIdx];
@@ -10640,7 +10644,7 @@ function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose,
 
     // Close button — always at bottom of panel, 30px from edge
     const closeY=pBot-32;
-    const [cb,ct,ch]=NT_YellowBtn(scene,CX,closeY,190,42,"✕  CLOSE",depth+3,()=>close());
+    const [cb,ct,ch]=NT_YellowBtn(scene,CX,closeY,190,42,CURRENT_LANG==="tr"?"✕  KAPAT":"✕  CLOSE",depth+3,()=>close());
     A(cb);A(ct);A(ch);
 
     // ── AÇILIŞ ANİMASYONU — her animType için farklı + komik ──────────────
@@ -11051,7 +11055,7 @@ class SceneMainMenu extends Phaser.Scene {
             localStorage.setItem("nt_last_visit", String(_now));
 
             const _elapsed = _now - _last;
-            const _minMs = 3 * 60 * 60 * 1000; // 3 saat
+            const _minMs = 1 * 60 * 60 * 1000; // 1 saat
 
             if(_last > 0 && _elapsed >= _minMs) {
                 const _hours = Math.floor(_elapsed / (60*60*1000));
@@ -11073,6 +11077,16 @@ class SceneMainMenu extends Phaser.Scene {
                         "Eksikliğini NOT hissetti. (Biraz.)",
                         "Kaybolmuştun. Piramitler özlemişti.",
                         "Geri dönmesini beklemiyorduk. — NOT",
+                        "NOT sana kızmadı. Sormayacak bile.",
+                        "Bu bir geri dönüş. NOT bir zafer.",
+                        "NOT olmadan oyun oynayan var mıydı? Olmaz.",
+                        "Sabret dedik. Sabrettin. Aferin. — NOT",
+                        "Gitmiştin. NOT hayatına devam etti. Zordu.",
+                        "Üçgenler seni bekliyordu. NOT de.",
+                        "Kapı her zaman açıktı. Ama NOT kızmıştı.",
+                        "Dön dememiştik. Ama iyi ki döndün. — NOT",
+                        "NOT bu oyunu adil yapmak istemedi. Hâlâ istemiyor.",
+                        "Geri döndüğüne değdi mi? NOT merak etti.",
                     ];
                     const _greetEN = [
                         "Finally! NOT was waiting for you.",
@@ -11080,88 +11094,192 @@ class SceneMainMenu extends Phaser.Scene {
                         "NOT kind of missed you. (Slightly.)",
                         "The pyramids were lonely without you.",
                         "We didn't expect you back. — NOT",
+                        "NOT is NOT mad. NOT asking either.",
+                        "This is NOT a comeback. This is a return.",
+                        "Life without NOT? NOT possible.",
+                        "We said wait. You waited. Good. — NOT",
+                        "You left. NOT moved on. It was hard.",
+                        "The triangles were waiting. So was NOT.",
+                        "The door was open. NOT was NOT happy.",
+                        "We didn't say come back. Glad you did. — NOT",
+                        "NOT never made this game fair. NOT starting now.",
+                        "Was coming back worth it? NOT is curious.",
                     ];
                     const _greetArr = CURRENT_LANG==="tr" ? _greetTR : _greetEN;
                     const _greet = _greetArr[Math.floor(Math.random()*_greetArr.length)];
 
-                    const _timeStr = CURRENT_LANG==="tr"
-                        ? `${_hours} saat sonra geri döndün`
-                        : `You were away for ${_hours} hour${_hours!==1?"s":""}`;
+                    const isTR = CURRENT_LANG==="tr";
+                    const _timeStr = isTR
+                        ? `${_hours} saat${_hours>1?"":""} sonra geri dondum`
+                        : `Away for ${_hours} hour${_hours!==1?"s":""}`;
 
-                    // Overlay
-                    const _ov = _S.add.rectangle(_CX,_H/2,_W,_H,0x000000,0.65).setDepth(_D).setInteractive();
+                    // ── TUM NESNELER ──────────────────────────────────────
+                    const _all = [];
+                    const _A = o => { _all.push(o); return o; };
 
-                    // Panel
-                    const _PW=270,_PH=200,_PX=_CX-_PW/2,_PY=_H/2-_PH/2-20;
-                    const _pg = _S.add.graphics().setDepth(_D+1);
-                    _pg.fillStyle(0x0a1800,0.97); _pg.fillRoundedRect(_PX,_PY,_PW,_PH,14);
-                    _pg.fillStyle(0x226600,1); _pg.fillRoundedRect(_PX,_PY,_PW,46,{tl:14,tr:14,bl:0,br:0});
-                    _pg.fillStyle(0xffffff,0.10); _pg.fillRoundedRect(_PX+4,_PY+3,_PW-8,12,{tl:11,tr:11,bl:0,br:0});
-                    _pg.lineStyle(2,0x44ff88,0.85); _pg.strokeRoundedRect(_PX,_PY,_PW,_PH,14);
+                    // Dim overlay
+                    const _ov = _A(_S.add.rectangle(_CX,_H/2,_W,_H,0x000000,0.72)
+                        .setDepth(_D).setInteractive().setAlpha(0));
 
-                    _S.add.text(_CX,_PY+23,CURRENT_LANG==="tr"?"🎁  HOŞ GELDİN ÖDÜLÜ":"🎁  WELCOME BACK!",{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"15px",
-                        color:"#ffffff",stroke:"#000",strokeThickness:4
-                    }).setOrigin(0.5).setDepth(_D+2);
+                    // ── PANEL boyutlari ───────────────────────────────────
+                    const _PW=290, _PH=232;
+                    const _PX=_CX-_PW/2, _PY=_H/2-_PH/2-10;
+                    const _STRIP=40, _R=16;
 
-                    _S.add.text(_CX,_PY+68,_greet,{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",
-                        color:"#aaffaa",stroke:"#000",strokeThickness:3,
-                        wordWrap:{width:_PW-24,useAdvancedWrap:true},align:"center"
-                    }).setOrigin(0.5,0).setDepth(_D+2);
+                    // Panel graphics
+                    const _pg = _A(_S.add.graphics().setDepth(_D+1).setAlpha(0));
 
-                    _S.add.text(_CX,_PY+114,_timeStr,{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"10px",
-                        color:"#88aacc",stroke:"#000",strokeThickness:2
-                    }).setOrigin(0.5).setDepth(_D+2);
+                    // Dis golge
+                    _pg.fillStyle(0x000000,0.60);
+                    _pg.fillRoundedRect(_PX+5,_PY+8,_PW,_PH,_R);
 
-                    // Altın ödülü
-                    const _goldTxt = _S.add.text(_CX,_PY+138,"+"+_goldReward,{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"28px",
-                        color:"#ffcc00",stroke:"#000",strokeThickness:5
-                    }).setOrigin(0.5).setDepth(_D+2).setAlpha(0);
+                    // Ana govde — cok koyu lacivert
+                    _pg.fillStyle(0x06080f,0.98);
+                    _pg.fillRoundedRect(_PX,_PY,_PW,_PH,_R);
 
-                    _S.add.text(_CX+52,_PY+140,CURRENT_LANG==="tr"?"ALTIN":"GOLD",{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"12px",
-                        color:"#ffaa44",stroke:"#000",strokeThickness:3
-                    }).setOrigin(0,0.5).setDepth(_D+2);
+                    // Ic ust parlama
+                    _pg.fillStyle(0x181830,0.50);
+                    _pg.fillRoundedRect(_PX+2,_PY+2,_PW-4,_PH*0.38,_R-2);
 
-                    // Kapatma butonu
-                    const _btnG = _S.add.graphics().setDepth(_D+2).setInteractive(
-                        new Phaser.Geom.Rectangle(_CX-65,_PY+_PH-42,130,34),
-                        Phaser.Geom.Rectangle.Contains
-                    );
-                    const _drawBtn=(p)=>{
+                    // Altin dis cerceve
+                    _pg.lineStyle(2.5,0xffcc00,1.0);
+                    _pg.strokeRoundedRect(_PX,_PY,_PW,_PH,_R);
+
+                    // Ince ic cerceve
+                    _pg.lineStyle(1,0xffffff,0.08);
+                    _pg.strokeRoundedRect(_PX+4,_PY+4,_PW-8,_PH-8,_R-4);
+
+                    // Ust serit — koyu altin
+                    _pg.fillStyle(0x8a4400,1);
+                    _pg.fillRoundedRect(_PX,_PY,_PW,_STRIP,{tl:_R,tr:_R,bl:0,br:0});
+                    _pg.fillStyle(0xffaa00,0.45);
+                    _pg.fillRoundedRect(_PX+5,_PY+4,_PW-10,_STRIP-10,8);
+                    // Serit ust parlak cizgi
+                    _pg.lineStyle(1,0xffee88,0.30);
+                    _pg.beginPath();
+                    _pg.moveTo(_PX+18,_PY+3);
+                    _pg.lineTo(_PX+_PW-18,_PY+3);
+                    _pg.strokePath();
+
+                    // Alt bolge gold kutusu — hafif cerceveli
+                    _pg.fillStyle(0x0d1020,0.80);
+                    _pg.fillRoundedRect(_PX+16,_PY+_STRIP+82,_PW-32,48,10);
+                    _pg.lineStyle(1.5,0xffcc0055,1);
+                    _pg.strokeRoundedRect(_PX+16,_PY+_STRIP+82,_PW-32,48,10);
+
+                    // ── HEADER YAZISI ─────────────────────────────────────
+                    _A(_S.add.text(_CX, _PY+_STRIP/2,
+                        isTR ? "NOT SENI BEKLIYORDU" : "NOT WAS WAITING FOR YOU",
+                        { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"11px",
+                          color:"#1a0800", stroke:"#bb5500", strokeThickness:1 }
+                    ).setOrigin(0.5,0.5).setDepth(_D+2).setAlpha(0));
+
+                    // ── EMOJI / IKON ──────────────────────────────────────
+                    _A(_S.add.text(_CX, _PY+_STRIP+18, "👋",
+                        { fontSize:"28px" }
+                    ).setOrigin(0.5,0).setDepth(_D+2).setAlpha(0));
+
+                    // ── KARSILAMA MESAJI — ana yazi ───────────────────────
+                    _A(_S.add.text(_CX, _PY+_STRIP+54, _greet,
+                        { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
+                          color:"#ffeecc", stroke:"#000", strokeThickness:3,
+                          wordWrap:{width:_PW-28,useAdvancedWrap:true}, align:"center" }
+                    ).setOrigin(0.5,0).setDepth(_D+2).setAlpha(0));
+
+                    // ── SURE BILGISI — kucuk, soluk ───────────────────────
+                    _A(_S.add.text(_CX, _PY+_STRIP+78, _timeStr,
+                        { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
+                          color:"#5566aa", stroke:"#000", strokeThickness:1 }
+                    ).setOrigin(0.5,0).setDepth(_D+2).setAlpha(0));
+
+                    // ── GOLD ODULU ────────────────────────────────────────
+                    const _goldNumTxt = _A(_S.add.text(_CX-14, _PY+_STRIP+106,
+                        "+"+_goldReward,
+                        { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"30px",
+                          color:"#ffdd00", stroke:"#1a0a00", strokeThickness:5 }
+                    ).setOrigin(1,0.5).setDepth(_D+2).setAlpha(0).setScale(0.5));
+
+                    if(_S.textures.exists("icon_gold")){
+                        _A(_S.add.image(_CX+12, _PY+_STRIP+106, "icon_gold")
+                            .setDisplaySize(28,28).setOrigin(0,0.5).setDepth(_D+2).setAlpha(0));
+                    }
+
+                    // ── TAMAM BUTONU ──────────────────────────────────────
+                    const _BW=150, _BH=38;
+                    const _BX=_CX-_BW/2, _BY=_PY+_PH-_BH-14;
+
+                    const _btnG = _A(_S.add.graphics().setDepth(_D+2).setAlpha(0)
+                        .setInteractive(
+                            new Phaser.Geom.Rectangle(_BX,_BY,_BW,_BH),
+                            Phaser.Geom.Rectangle.Contains
+                        ));
+
+                    const _drawBtn=(pressed)=>{
                         _btnG.clear();
-                        _btnG.fillStyle(p?0xffcc00:0xffaa00,1);
-                        _btnG.fillRoundedRect(_CX-65,_PY+_PH-42,130,34,8);
-                        _btnG.fillStyle(0xffffff,p?0.25:0.15);
-                        _btnG.fillRoundedRect(_CX-63,_PY+_PH-40,126,12,{tl:7,tr:7,bl:0,br:0});
-                        _btnG.fillStyle(0x000000,0.30);
-                        _btnG.fillRoundedRect(_CX-65,_PY+_PH-14,130,8,{tl:0,tr:0,bl:8,br:8});
+                        // Golge
+                        _btnG.fillStyle(0x000000,0.40);
+                        _btnG.fillRoundedRect(_BX+2,_BY+4,_BW,_BH,10);
+                        // Ana buton
+                        _btnG.fillStyle(pressed?0xffdd44:0xffbb00,1);
+                        _btnG.fillRoundedRect(_BX,_BY,_BW,_BH,10);
+                        // Ust parlama
+                        _btnG.fillStyle(0xffffff,pressed?0.10:0.22);
+                        _btnG.fillRoundedRect(_BX+3,_BY+3,_BW-6,_BH*0.40,{tl:8,tr:8,bl:0,br:0});
+                        // Alt golge
+                        _btnG.fillStyle(0x000000,0.20);
+                        _btnG.fillRoundedRect(_BX,_BY+_BH-8,_BW,8,{tl:0,tr:0,bl:10,br:10});
                     };
                     _drawBtn(false);
-                    const _btnTxt = _S.add.text(_CX,_PY+_PH-25,CURRENT_LANG==="tr"?"TAMAM ✓":"OK ✓",{
-                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"16px",
-                        color:"#000000",stroke:"#00000033",strokeThickness:2
-                    }).setOrigin(0.5).setDepth(_D+3);
 
+                    const _btnTxt = _A(_S.add.text(_CX, _BY+_BH/2,
+                        isTR ? "TAMAM  ✓" : "GOT IT  ✓",
+                        { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"16px",
+                          color:"#1a0800", stroke:"#00000022", strokeThickness:1 }
+                    ).setOrigin(0.5,0.5).setDepth(_D+3).setAlpha(0));
+
+                    // ── KAPAT FONKSiYONU ──────────────────────────────────
                     const _closeAll=()=>{
-                        [_ov,_pg,_goldTxt,_btnG,_btnTxt].forEach(o=>{ try{o.destroy();}catch(_){} });
-                        _S.children.list.filter(c=>c.depth>=_D&&c.depth<=_D+3).forEach(c=>{ try{c.destroy();}catch(_){} });
+                        _all.forEach(o=>{
+                            try{
+                                _S.tweens.add({targets:o,alpha:0,y:o.y-12,
+                                    duration:200,ease:"Quad.easeIn",
+                                    onComplete:()=>{ try{o.destroy();}catch(_){} }});
+                            }catch(_){}
+                        });
                     };
-                    _btnG.on("pointerdown",()=>{ _drawBtn(true); try{NT_SFX.play("menu_click");}catch(_){} });
-                    _btnG.on("pointerup", _closeAll);
+
+                    _btnG.on("pointerdown",()=>{
+                        _drawBtn(true);
+                        try{NT_SFX.play("menu_click");}catch(_){}
+                    });
+                    _btnG.on("pointerup", ()=>{ _drawBtn(false); _closeAll(); });
                     _ov.on("pointerdown", _closeAll);
 
-                    // Altın sayacı animasyonu
-                    _S.tweens.add({targets:_goldTxt,alpha:1,scaleX:1.3,scaleY:1.3,duration:200,
-                        onComplete:()=>_S.tweens.add({targets:_goldTxt,scaleX:1,scaleY:1,duration:150})});
-                    try{NT_SFX.play("gold");}catch(_){}
+                    // ── GIRIS ANiMASYONU ──────────────────────────────────
+                    // Overlay fade
+                    _S.tweens.add({targets:_ov,alpha:1,duration:250});
 
-                    // Genel fade-in
-                    [_ov,_pg,_btnG,_btnTxt].forEach(o=>{ try{o.setAlpha(0);}catch(_){} });
-                    _S.tweens.add({targets:[_ov,_pg,_btnG,_btnTxt],alpha:1,duration:300});
+                    // Panel scale-bounce giris
+                    _pg.setScale(0.88).setAlpha(0);
+                    _S.tweens.add({targets:_pg,alpha:1,scaleX:1,scaleY:1,
+                        duration:320,ease:"Back.easeOut"});
+
+                    // Yazılar kademeli gelir
+                    _all.filter(o=>o!==_ov&&o!==_pg&&o!==_goldNumTxt).forEach((o,i)=>{
+                        _S.tweens.add({targets:o,alpha:1,y:o.y+6,
+                            delay:120+i*55,duration:260,ease:"Quad.easeOut"});
+                    });
+
+                    // Gold patlama animasyonu
+                    _S.time.delayedCall(500,()=>{
+                        try{NT_SFX.play("gold");}catch(_){}
+                        _S.tweens.add({targets:_goldNumTxt,alpha:1,scaleX:1.25,scaleY:1.25,
+                            duration:180,ease:"Back.easeOut",
+                            onComplete:()=>{
+                                _S.tweens.add({targets:_goldNumTxt,scaleX:1,scaleY:1,
+                                    duration:140,ease:"Quad.easeOut"});
+                            }});
+                    });
                 });
             }
         }
@@ -11286,6 +11404,16 @@ class SceneMainMenu extends Phaser.Scene {
             "NOT: Gerçekten çıkabileceğini düşünüyordun?",
             "Tasarım böyle. — NOT Corp™",
             "Uyarı: Bu oyun sizi sinir edebilir. NOT etmez.",
+            "Bu oyun adil mi? NOT.",
+            "NOT bir şans. NOT bir hile. Sadece NOT.",
+            "Kolay mod? NOT mevcut.",
+            "Herkese iyi notlar. Oyunda değil.",
+            "NOT bu oyunu adil yapacak. Bugün değil.",
+            "Değiştir her şeyi. Sonucu değil. — NOT",
+            "Çıkış bu değil. Bu sadece bir mola. — NOT",
+            "\"NOT\" bir şirket. \"FAIR\" bir yalan.",
+            "Kazanabilirsin. NOT ihtimal dahilinde.",
+            "Bu bir NOT üretimi. ™",
         ];
         const _NOT_TAGLINES_EN = [
             "NOT our fault. NOT.",
@@ -11298,6 +11426,16 @@ class SceneMainMenu extends Phaser.Scene {
             "NOT responsible for lost sleep.",
             "Working as intended. — NOT Corp™",
             "Warning: May cause triangle-related rage.",
+            "Is this game fair? NOT.",
+            "NOT a fluke. NOT a cheat. Just NOT.",
+            "Easy mode? NOT a thing.",
+            "Good luck to everyone. NOT you.",
+            "NOT will make this fair. NOT today.",
+            "Change everything. NOT the outcome. — NOT",
+            "This is NOT goodbye. It's a 5-minute break.",
+            "\"NOT\" is a company. \"FAIR\" is a lie.",
+            "You can win. NOT likely.",
+            "A NOT production. ™",
         ];
         const _NOT_TAGLINES_RU = [
             "NOT отвечает. Нет, не отвечает.",
@@ -17691,6 +17829,14 @@ function gameOver(S){
             "We'd say 'good try' but... NOT.",
             "Achievement unlocked: Still playing NOT FAIR.",
             "NOT a bug. This is the game.",
+            "NOT your day. Or yesterday. Or tomorrow.",
+            "Oh. That was NOT it.",
+            "NOT great. NOT terrible. Actually terrible.",
+            "NOT even close.",
+            "We did NOT see that coming. (We did.)",
+            "NOT the hero we needed.",
+            "Error 404: Victory NOT found. Again.",
+            "Surprisingly NOT alive.",
         ];
         const _goFunnyTR = [
             "Tamamen adil. Söz veriyoruz. 🤞",
@@ -17708,6 +17854,14 @@ function gameOver(S){
             "'İyi denedin' derdik ama... NOT.",
             "NOT: Bu bir hata değil, oyun böyle.",
             "Başarı kilidi açıldı: Hâlâ NOT FAIR oynuyor.",
+            "NOT bugün. NOT yarın. NOT hiç.",
+            "Oh. Bu NOT olmamalıydı.",
+            "NOT harika. NOT berbat. Yani berbat.",
+            "NOT yakın bile değildin.",
+            "Bunu beklemiyorduk. (Bekliyorduk.)",
+            "NOT gereken kahraman değildin.",
+            "Hata 404: Zafer NOT bulundu. Yine.",
+            "Şaşırtıcı biçimde NOT hayatta.",
         ];
         const _goFunnyRU = [
             "Честно? Нет. Именно так задумано.",
