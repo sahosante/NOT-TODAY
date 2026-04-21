@@ -2318,21 +2318,34 @@ function showBigReward(scene, x, y, type, amount, depth){
         });
     }
 
-    // 5) BIG reward text — scale bounce + float up
-    const txt = scene.add.text(x, y-10, "+"+amount+" "+icon, {
+    // 5) BIG reward — rakam + ikon, birlikte scale bounce + float up
+    const _icKey2 = isGem ? "icon_gem" : "icon_gold";
+    const _hasIc  = scene.textures && scene.textures.exists(_icKey2);
+
+    // Rakam metni — ikon varsa saga biraz kayar, yoksa ortada
+    const _numOffX = _hasIc ? -18 : 0;
+    const txt = scene.add.text(x + _numOffX, y-10, "+"+amount, {
         fontFamily: _F, fontSize: "28px", color: colStr,
         stroke: "#000000", strokeThickness: 4
     }).setOrigin(0.5).setDepth(D+32).setAlpha(0).setScale(0.3);
 
+    // Ikon — rakamin hemen saginda
+    let _icImg = null;
+    if(_hasIc){
+        _icImg = scene.add.image(x + _numOffX + 28 + (String(amount).length * 9), y-10, _icKey2)
+            .setDisplaySize(26,26).setOrigin(0,0.5).setDepth(D+32).setAlpha(0).setScale(0.3);
+    }
+
+    const _rewardObjs = [txt, _icImg].filter(Boolean);
+
     scene.tweens.add({
-        targets: txt, alpha: 1, scaleX: 1.15, scaleY: 1.15, y: y-55,
+        targets: _rewardObjs, alpha: 1, scaleX: 1.15, scaleY: 1.15, y: "-=45",
         duration: 400, ease: "Back.easeOut",
         onComplete: ()=>{
-            // Settle to 1.0
-            scene.tweens.add({targets:txt, scaleX:1, scaleY:1, duration:150, ease:"Quad.easeOut"});
-            // Hold, then fade
+            scene.tweens.add({targets:_rewardObjs, scaleX:1, scaleY:1, duration:150, ease:"Quad.easeOut"});
             scene.time.delayedCall(1400, ()=>{
-                scene.tweens.add({targets:txt, alpha:0, y:y-80, duration:350, ease:"Quad.easeIn", onComplete:()=>txt.destroy()});
+                scene.tweens.add({targets:_rewardObjs, alpha:0, y:"-=25", duration:350, ease:"Quad.easeIn",
+                    onComplete:()=>{ _rewardObjs.forEach(o=>{ try{o.destroy();}catch(_){} }); }});
             });
         }
     });
@@ -2958,7 +2971,7 @@ function showWheel(scene){
     const gBg=A(scene.add.graphics().setDepth(D+3));
     const _dG=h=>{gBg.clear();gBg.fillStyle(0x000000,0.35);gBg.fillRoundedRect(CX-108+2,gY-16+2,216,34,10);gBg.fillStyle(h?0x5020aa:0x380068,1);gBg.fillRoundedRect(CX-108,gY-16,216,34,10);gBg.lineStyle(2,0xbb44ff,0.8);gBg.strokeRoundedRect(CX-108,gY-16,216,34,10);if(h){gBg.fillStyle(0xffffff,0.08);gBg.fillRoundedRect(CX-106,gY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dG(false);
-    const gemCostTxt=A(scene.add.text(CX+10,gY,WHEEL_COST+"  "+(CURRENT_LANG==="tr"?"ELMAS CEVIR":"GEM SPIN"),{fontFamily:_F,fontSize:"15px",color:"#dd88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+    const gemCostTxt=A(scene.add.text(CX+10,gY,WHEEL_COST+"  "+(CURRENT_LANG==="tr"?"CEVİR":"SPIN"),{fontFamily:_F,fontSize:"15px",color:"#dd88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
     if(scene.textures.exists("icon_gem")){A(scene.add.image(CX-52,gY,"icon_gem").setDisplaySize(22,22).setDepth(D+4));}
     A(scene.add.rectangle(CX,gY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:true}))
     .on("pointerover",()=>_dG(true)).on("pointerout",()=>_dG(false))
@@ -4290,14 +4303,31 @@ function showPurchaseEffect(scene,x,y,col,amount,icon){
     scene.cameras.main.shake(40,0.008);
     const fl=scene.add.graphics().setDepth(30);fl.fillStyle(col,0.25);fl.fillRect(0,0,360,640);
     scene.tweens.add({targets:fl,alpha:0,duration:300,onComplete:()=>fl.destroy()});
+    // Parcacik patlamasi — ikon imaji
+    const _icKeyPE = (icon==="GEM"||icon==="gem")?"icon_gem":"icon_gold";
+    const _hasIcPE = scene.textures && scene.textures.exists(_icKeyPE);
     for(let i=0;i<24;i++){
         const ang=Phaser.Math.DegToRad(i*15);const spd=Phaser.Math.Between(50,140);
-        const p=scene.add.text(x+Math.cos(ang)*15,y+Math.sin(ang)*15,icon,{font:"14px LilitaOne, Arial, sans-serif"}).setDepth(31).setAlpha(0.9);
+        let p;
+        if(_hasIcPE){
+            p=scene.add.image(x+Math.cos(ang)*15,y+Math.sin(ang)*15,_icKeyPE)
+                .setDisplaySize(14,14).setDepth(31).setAlpha(0.9);
+        } else {
+            p=scene.add.graphics().setDepth(31);
+            p.fillStyle(col,0.9);p.fillCircle(x+Math.cos(ang)*15,y+Math.sin(ang)*15,5);
+        }
         scene.tweens.add({targets:p,x:x+Math.cos(ang)*spd,y:y+Math.sin(ang)*spd*0.7,alpha:0,scaleX:0.1,scaleY:0.1,duration:Phaser.Math.Between(300,600),ease:"Quad.easeOut",onComplete:()=>p.destroy()});
     }
-    const gt=scene.add.text(x,y-20,"✦ +"+amount+" "+icon,{font:"bold 20px LilitaOne, Arial, sans-serif",color:Phaser.Display.Color.IntegerToColor(col).rgba,stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(32).setAlpha(0);
-    scene.tweens.add({targets:gt,alpha:1,y:y-60,duration:600,ease:"Back.easeOut"});
-    scene.time.delayedCall(1600,()=>scene.tweens.add({targets:gt,alpha:0,duration:300,onComplete:()=>gt.destroy()}));
+    // Buyuk odül yazisi — rakam + ikon
+    const _colStr=Phaser.Display.Color.IntegerToColor(col).rgba;
+    const gt=scene.add.text(x-16,y-20,"✦ +"+amount,{font:"bold 20px LilitaOne, Arial, sans-serif",color:_colStr,stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(32).setAlpha(0);
+    let _gtIc=null;
+    if(_hasIcPE){
+        _gtIc=scene.add.image(x+gt.width/2-8,y-20,_icKeyPE).setDisplaySize(22,22).setOrigin(0,0.5).setDepth(32).setAlpha(0);
+    }
+    const _gtObjs=[gt,_gtIc].filter(Boolean);
+    scene.tweens.add({targets:_gtObjs,alpha:1,y:"-=40",duration:600,ease:"Back.easeOut"});
+    scene.time.delayedCall(1600,()=>scene.tweens.add({targets:_gtObjs,alpha:0,duration:300,onComplete:()=>_gtObjs.forEach(o=>o.destroy())}));
 }
 
 const LANG_DATA = {
