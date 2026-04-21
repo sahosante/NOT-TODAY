@@ -2445,7 +2445,7 @@ function showSkinReward(scene, x, y, skin, depth){
 function showBoosterReward(scene, x, y, name, depth){
     const D = depth||800;
     scene.cameras.main.shake(40, 0.008);
-    const txt = scene.add.text(x, y-15, "🔥 "+name+" ACTIVATED", {
+    const txt = scene.add.text(x, y-15, "🔥 "+name+" — NOThing can stop you now.", {
         fontFamily:_F, fontSize:"18px", color:"#ff8844", stroke:"#000", strokeThickness:3
     }).setOrigin(0.5).setDepth(D+32).setAlpha(0).setScale(0.4);
     scene.tweens.add({targets:txt, alpha:1, scaleX:1, scaleY:1, y:y-50, duration:400, ease:"Back.easeOut"});
@@ -2606,8 +2606,8 @@ const SKINS = [
 const STARTER = { gems:150, gold:2000, stars:100, disc:80 };
 const DEATH_OFFERS = [
     { gems:30,  gold:500,  stars:30  },
-    { gems:80,  gold:1500, stars:60,  tag:"POPULAR" },
-    { gems:200, gold:5000, stars:120, tag:"BEST VALUE" },
+    { gems:80,  gold:1500, stars:60,  tag:"POPULAR — NOT biased" },
+    { gems:200, gold:5000, stars:120, tag:"NOThing better" },
 ];
 
 
@@ -2649,7 +2649,7 @@ function checkDaily(sc){ if(_dailyOK()) sc.time.delayedCall(600,()=>showDaily(sc
 
 function showDaily(scene){
     const {A,close,contentTop,contentBot,CX:cx,depth:D,objs}
-        = NT_OpenPopup(scene,"mm_panel",300,CURRENT_LANG==="tr"?"GUNLUK ODUL":"DAILY REWARD",320,20,null);
+        = NT_OpenPopup(scene,"mm_panel",300,CURRENT_LANG==="tr"?"GUNLUK ODUL — NOT bedava":"DAILY REWARD — NOThing for free",320,20,null);
 
     // Remove the default close button (last 3 objects added by NT_OpenPopup: graphics, text, hitRect)
     // Pop them from objs and destroy
@@ -2770,6 +2770,7 @@ function showWheel(scene){
 
     // Title with glow
     const titleGlow=A(scene.add.text(CX,20,CURRENT_LANG==="tr"?"SANS CARKI":"FORTUNE WHEEL",{fontFamily:_F,fontSize:"26px",color:"#ffdd44",stroke:"#000",strokeThickness:5}).setOrigin(0.5).setDepth(D+2));
+    A(scene.add.text(CX,42,CURRENT_LANG==="tr"?"NOT garantisi vermiyoruz.":"NOThing guaranteed.",{fontFamily:_F,fontSize:"10px",color:"#ffaa55",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+2));
     const tgv={v:0};
     A({destroy:()=>{},scene:scene});
     scene.tweens.add({targets:tgv,v:1,duration:1500,yoyo:true,repeat:-1,ease:"Sine.easeInOut",
@@ -2943,7 +2944,7 @@ function showWheel(scene){
         const tt=A(scene.add.text(CX,WY+R+26,"",{fontFamily:_F,fontSize:"12px",color:"#ff8844",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
         const te=scene.time.addEvent({delay:500,loop:true,callback:()=>{
             if(!tt.scene){te.remove();return;}
-            const r=_freeT(); if(r<=0){tt.setText(CURRENT_LANG==="tr"?"UCRETSIZ CEVIRME HAZIR!":"FREE SPIN READY!").setColor("#44ff66");te.remove();return;}
+            const r=_freeT(); if(r<=0){tt.setText(CURRENT_LANG==="tr"?"BEDAVA ÇEVİRME HAZIR — NOT şaka!":"FREE SPIN — NOT a trick. Ready!").setColor("#44ff66");te.remove();return;}
             tt.setText((CURRENT_LANG==="tr"?"Sonraki ucretsiz: ":"Next free: ")+_fmt(r));
         }});
         te.callback();
@@ -2956,13 +2957,13 @@ function showWheel(scene){
     const _dF=h=>{fBg.clear();const c=cf?(h?0x228840:0x116630):0x333333;fBg.fillStyle(0x000000,0.35);fBg.fillRoundedRect(CX-108+2,fY-16+2,216,34,10);fBg.fillStyle(c,1);fBg.fillRoundedRect(CX-108,fY-16,216,34,10);fBg.lineStyle(2,cf?0x44ff66:0x555555,0.8);fBg.strokeRoundedRect(CX-108,fY-16,216,34,10);if(cf&&h){fBg.fillStyle(0xffffff,0.08);fBg.fillRoundedRect(CX-106,fY-14,212,12,{tl:8,tr:8,bl:0,br:0});}};
     _dF(false);
     // [FIX] Free spin text ref sakla — spin başlayınca WAITING'e çevirmek için
-    const fTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING..."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
+    const fTxt=A(scene.add.text(CX,fY,cf?(CURRENT_LANG==="tr"?"✦  UCRETSIZ CEVIR  ✦":"✦  FREE SPIN  ✦"):(CURRENT_LANG==="tr"?"NOT henüz...":"NOT yet."),{fontFamily:_F,fontSize:"16px",color:cf?"#ffffff":"#777777",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+4));
     A(scene.add.rectangle(CX,fY,216,34,0xffffff,0.001).setDepth(D+5).setInteractive({useHandCursor:cf}))
     .on("pointerover",()=>{if(cf&&!spinning)_dF(true);}).on("pointerout",()=>_dF(false))
     .on("pointerdown",()=>{
         if(!_canFree()||spinning)return;
         // [FIX] Anında WAITING durumuna geç — spin başladı
-        if(fTxt&&fTxt.active) fTxt.setText(CURRENT_LANG==="tr"?"BEKLENIYOR...":"WAITING...").setColor("#777777");
+        if(fTxt&&fTxt.active) fTxt.setText(CURRENT_LANG==="tr"?"NOT henüz...":"NOT yet.").setColor("#777777");
         _dF(false);
         _spin(true);
     });
@@ -3207,7 +3208,7 @@ function showShop(scene, defaultTab){
                     _add(T(cx-PW/2+22,ry+14,L(u.nameKey),{fontFamily:_F,fontSize:"14px",color:"#ffffff",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     // Description text
                     _add(T(cx-PW/2+22,ry+32,(CURRENT_LANG==="tr"?u.descTxtTR:u.descTxt)||"",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-                    _add(T(cx-PW/2+22,ry+48,mx?(CURRENT_LANG==="tr"?"MAX SEVIYE ✓":"MAX LEVEL ✓"):"Lv "+u.level+" / "+u.maxLevel,{fontFamily:_F,fontSize:"12px",color:mx?"#55dd55":"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+22,ry+48,mx?(CURRENT_LANG==="tr"?"NOT MAX ✓":"NOT MAX ✓"):"Lv "+u.level+" / "+u.maxLevel,{fontFamily:_F,fontSize:"12px",color:mx?"#55dd55":"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     if(!mx){
                         const bx=cx+PW/2-52, bw=72, bh=28;
                         _btn(bx,ry+rowH/2,bw,bh,cost.toLocaleString(),can?0x1a6640:0x2a1a1a,can?0x44dd66:0x553333,null);
@@ -3406,7 +3407,7 @@ function showShop(scene, defaultTab){
                 _fHdr.fillStyle(0x880000,0.35);_fHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,24,{tl:8,tr:8,bl:0,br:0});
                 _add(_fHdr);
                 _add(T(cx,SY0+y+13,"⚡  FLASH SALE",{fontFamily:_F,fontSize:"16px",color:"#ff4422",stroke:"#000",strokeThickness:4}).setOrigin(0.5));
-                _add(T(cx,SY0+y+30,CURRENT_LANG==="tr"?"HER GUN YENI KOSTUM VE SANDIKLAR!":"NEW SKINS & CHESTS EVERY DAY!",{fontFamily:_F,fontSize:"8px",color:"#ff8866",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+30,CURRENT_LANG==="tr"?"HER GÜN YENİ — NOThing kalıcı.":"NEW EVERY DAY — NOThing lasts forever.",{fontFamily:_F,fontSize:"8px",color:"#ff8866",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                 y+=56;
 
                 // Sayac
@@ -3702,7 +3703,7 @@ function showShop(scene, defaultTab){
                 if(!s.sp){
                     const spH=62;
                     const sg=G();sg.fillStyle(0x180828,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.lineStyle(2.5,0xff4488,0.9);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.fillStyle(0xff4488,0.06);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);_add(sg);
-                    _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"BASLANGIC PAKETI  -":"STARTER PACK  -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"NOT BASLANGIC — -":"NOT STARTER — -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" ELMAS + ":" GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=72,bh=30;
                     _btn(bx,SY0+y+spH/2,bw,bh,"⭐ "+STARTER.stars,0x88002a,0xff4488,null);
@@ -3826,7 +3827,7 @@ function showDeathOffer(scene){
         pg.lineStyle(3,0xff4488,0.9);pg.strokeRoundedRect(CX-PW/2,PY,PW,PH,14);
         pg.setScale(0.8).setAlpha(0);
         scene.tweens.add({targets:pg,scaleX:1,scaleY:1,alpha:1,duration:280,ease:"Back.easeOut"});
-        A(scene.add.text(CX,PY+24,"POWER UP!",{fontFamily:_F,fontSize:"15px",color:"#ff88aa",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+2));
+        A(scene.add.text(CX,PY+24,"POWER UP — NOT free though.",{fontFamily:_F,fontSize:"15px",color:"#ff88aa",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+2));
         DEATH_OFFERS.forEach((of,i)=>{
             const cy=PY+52+i*50;
             const tc=of.tag?0xffaa00:0x4a3070;
@@ -4248,7 +4249,10 @@ function showMissions(scene){
                 _zones.push({
                     x1:btnX,x2:btnX+btnW,y1:btnY-SY0,y2:btnY-SY0+btnH,
                     fn:()=>{
-                        _qClaim(scene,q,btnX+btnW/2,SY0+btnY+btnH/2-_scrollY+10,D);
+                        // Ödül animasyonu her zaman popup ortasında görünür — scroll pozisyonundan bağımsız
+                        const _rewardX = cx;
+                        const _rewardY = contentTop + (contentBot - contentTop) / 2;
+                        _qClaim(scene,q,_rewardX,_rewardY,D);
                         scene.time.delayedCall(300,()=>{close();showMissions(scene);});
                     }
                 });
@@ -4273,7 +4277,7 @@ function showMissions(scene){
         if(!hasSpecial){
             const fY=rowStart+quests.length*(ROW_H+ROW_GAP)+4;
             _scrollCont.add(scene.add.text(cx,fY+10,
-                CURRENT_LANG==="tr"?"💎 OZEL GOREV HER 3 GUNDE BIR GELIR":"💎 SPECIAL MISSION EVERY 3 DAYS",
+                CURRENT_LANG==="tr"?"💎 NOThing özel... henüz. (Her 3 günde bir gelir)":"💎 NOThing special... yet. (Every 3 days)",
                 {fontFamily:_F,fontSize:"11px",color:"#aaddff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
         }
 
@@ -4312,7 +4316,7 @@ function showMissions(scene){
         hdrG.lineStyle(1.5,0xaa44ff,0.5);hdrG.strokeRoundedRect(cx-PW/2+10,SY0+4,PW-20,44,6);
         _scrollCont.add(hdrG);
         _scrollCont.add(scene.add.text(cx,SY0+18,
-            CURRENT_LANG==="tr"?"𝕏  X'TEN TAKİP ET — ELMAS KAZAN!":"𝕏  FOLLOW ON X — EARN GEMS!",
+            CURRENT_LANG==="tr"?"𝕏  TAKİP ET — ELMAS KAZAN (NOT bedava)":"𝕏  FOLLOW — EARN GEMS (NOT free)",
             {fontFamily:_F,fontSize:"11px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
         _scrollCont.add(scene.add.text(cx,SY0+34,
             CURRENT_LANG==="tr"?"Her hesap kalıcı olarak 1 kez tamamlanır":"Each account completes permanently once",
@@ -4506,7 +4510,7 @@ function showIAPStore(scene){
     pg.fillStyle(0xcc44ff,0.09); pg.fillRoundedRect(6,6,348,54,{tl:12,tr:12,bl:0,br:0});
     pg.lineStyle(1,0x440066,0.3); pg.strokeRoundedRect(10,10,340,620,10);
 
-    const titleStr=CURRENT_LANG==="ru"?"💎 МАГАЗИН ГЕМОВ":CURRENT_LANG==="en"?"💎 GEM STORE":"💎 ELMAS MAGAZASI";
+    const titleStr=CURRENT_LANG==="ru"?"💎 МАГАЗИН ГЕМОВ":CURRENT_LANG==="en"?"💎 GEM STORE — NOThing is free":"💎 ELMAS — NOT bedava";
     addO(scene.add.text(W/2,28,titleStr,{font:"bold 16px LilitaOne, Arial, sans-serif",color:"#cc44ff"}).setOrigin(0.5).setDepth(12));
     const subStr=CURRENT_LANG==="ru"?"Покупай гемы · используй для контента":CURRENT_LANG==="en"?"Buy gems · use for exclusive content":"Elmas al · ozel icerikler icin kullan";
     addO(scene.add.text(W/2,46,subStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc"}).setOrigin(0.5).setDepth(12));
@@ -4720,8 +4724,8 @@ const LANG_DATA = {
         powerSpike_unstoppable:"NOT DURDURULAMAZ",
         powerSpike_godlike:"NOT TANRI MODUNDA",
         nearDeath_buff:"💀 OLUM ADRENALINI",
-        comboBreak:"KOMBO KIRILDI",
-        hiddenSynergy:"✦ GIZLI SINERJI",
+        comboBreak:"KOMBO KIRILDI — NOT sürpriz",
+        hiddenSynergy:"✦ GIZLI SINERJI — NOT soylemiyordu.",
         eventDoubleDmg:"CIFT HASAR",
         eventGodBurst:"TANRI PATLAMASI",
         eventTripleGold:"3X ALTIN MODU",
@@ -4731,7 +4735,7 @@ const LANG_DATA = {
         crystalRevived:"💎 DIRILDIN!",
         crystalRevivedFull:"💎 DIRILDIN! 5SN YENILMEZ",
         reviveTitle:"** DIRILIS **",
-        reviveCostInfo:"5 ELMAS KARSILIGINDA DIRILIS",
+        reviveCostInfo:"5 ELMAS — NOT bedava tabii",
         reviveHpInfo:"HP+3 / 5SN YENILMEZLIK",
         reviveBtnGem:"✦ DIRIL  (5 💎)",
         reviveEndBtn:"OYUNU BITIR",
@@ -4747,23 +4751,23 @@ const LANG_DATA = {
         howto_synergy:"2 uyumlu silah birlikte = gizli guclu sinerji bonusu!",
         goRevive:"💎 DIRIL",goReviveCost:"(5 Elmas)",goInsufficientGems:"❌ Yetersiz Elmas!",
         goGemsStatus:"💎 Mevcut:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
-        goRevivePrompt:"DIRILMEK ISTER MISIN?",goReviveCrystalCost:"Mevcut:",
+        goRevivePrompt:"DIRILMEK ISTER MISIN?",goReviveCrystalCost:"NOT bitirdin daha →",
         goReviveBtn:"✦ DIRIL  (3 💎)",
-        leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"NOThing yok burada. Henüz.",lbYou:"(Sen)",lbSubmit:"Skoru Gonder",lbError:"NOT bağlandı. Tahmin et neden.",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
+        leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"NOThing yok burada. Henüz.",lbYou:"(NOT sen, ama evet sen)",lbSubmit:"NOT gizleyecektim",lbError:"NOT bağlandı. Tahmin et neden.",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
         menuPlay:"OYNA",menuShop:"MAGAZA",menuSettings:"AYARLAR",menuLeaderboard:"SKOR TABLOSU",
         playAgain:"TEKRAR OYNA",mainMenu:"ANA MENU",gameOver:"OYUN BITTI",
         eventGoldRush:"ALTIN AKINI",eventGoldRushMsg:"ALTIN AKINI! +150 Altin Aninda / +40% Altin (35sn)",
-        eventGoldRushEnd:"Altin Akini bitti.",
+        eventGoldRushEnd:"Altin Akini bitti. NOT sürpriz.",
         eventGlassCannon:"CAM TOP",eventGlassCannonMsg:"CAM TOP! +15% HASAR / Max HP-2 (40sn)",eventGlassCannonEnd:"Cam Top bitti.",
         eventChaosBurst:"KAOS PATLAMASI",eventChaosBurstMsg:"KAOS PATLAMASI! (30sn) — Hiz -%10",eventChaosBurstEnd:"Kaos Patlamasi bitti.",
         eventSurvival:"HAYATTA KALMA",eventSurvivalMsg:"HAYATTA KALMA! (42sn) — Hiz -%15",eventSurvivalEnd:"Hayatta Kalma bitti.",
         eventBlitz:"YILDIRIN HIZI",eventBlitzMsg:"YILDIRIN HIZI! +25% Ates / XP -%30 (30sn)",eventBlitzEnd:"Blitz Mode bitti.",
         eventXpFrenzy:"XP CILGINLIGI",eventXpFrenzyMsg:"XP CILGINLIGI! +40% XP / Hizli Spawn (25sn)",eventXpFrenzyEnd:"XP Cilginligi bitti.",
-        rejectionBonus:"+60G Reddetme Bonusu",
-        bossSpawned:"BOSS GELIYOR!",eliteKilled:"★ ELIT OLDURULDU ★",titanDown:"DEV YIKILDI!",eliteHuntBonus:"ELIT AV BONUS!",
+        rejectionBonus:"+60G — NOT almadin. Akillica.",
+        bossSpawned:"BOSS GELIYOR!",eliteKilled:"★ ELIT OLDURULDU ★",titanDown:"DEV YIKILDI — NOT etkilenmedi pek.",eliteHuntBonus:"ELIT AV BONUS!",
         blocked:"BLOK",hpPickup:"+20 CAN",goldBonus10:"+10% ALTIN BONUSU",dmgBuff:"+12% HASAR (10sn)",knockbackActive:"Itme aktif — hasar -15%",
-        revivePrompt:"DIRILMEK ISTER MISIN?",reviveBtn:"✦ DIRIL",reviveNo:"HAYIR",notEnoughGems:"YETERSIZ ELMAS!",revived:"✦ DIRILDIN!",
-        goScore:"SKOR",goNewRecord:"** YENI REKOR **",goLevel:"SEVIYE",goTime:"SURE",
+        revivePrompt:"DIRILMEK ISTER MISIN?",reviveBtn:"✦ DIRIL",reviveNo:"NOT bu sefer",notEnoughGems:"YETERSIZ ELMAS!",revived:"✦ DIRILDIN!",
+        goScore:"SKOR",goNewRecord:"** NOT eski rekor **",goLevel:"SEVIYE",goTime:"SURE",
         levelXpPacks:"— LEVEL XP PAKETLERI —",levelXpPacksDesc:"Gem harcayarak dogrudan Level XP kazan!"
     },
     en:{
@@ -4845,8 +4849,8 @@ const LANG_DATA = {
         powerSpike_unstoppable:"NOT STOPPABLE",
         powerSpike_godlike:"NOT GODMODE",
         nearDeath_buff:"💀 DEATH ADRENALINE",
-        comboBreak:"COMBO BROKEN",
-        hiddenSynergy:"✦ HIDDEN SYNERGY",
+        comboBreak:"COMBO BROKEN — NOThing lasts",
+        hiddenSynergy:"✦ HIDDEN SYNERGY — NOT telling you.",
         eventDoubleDmg:"DOUBLE DAMAGE",
         eventGodBurst:"GOD BURST",
         eventTripleGold:"3X GOLD MODE",
@@ -4856,7 +4860,7 @@ const LANG_DATA = {
         crystalRevived:"💎 REVIVED!",
         crystalRevivedFull:"💎 REVIVED! 5s INVINCIBLE",
         reviveTitle:"** REVIVE **",
-        reviveCostInfo:"REVIVE FOR 5 GEMS",
+        reviveCostInfo:"5 GEMS — NOThing is free",
         reviveHpInfo:"HP+3 / 5s INVINCIBLE",
         reviveBtnGem:"✦ REVIVE  (5 💎)",
         reviveEndBtn:"END GAME",
@@ -4870,15 +4874,15 @@ const LANG_DATA = {
         howto_apple:"Rarely drops from enemies. Collect = +3 HP",
         howto_crystal:"Kill a boss or survive 5 mins → earn a crystal!",
         howto_synergy:"2 compatible weapons together = hidden powerful synergy!",
-        goScore:"SCORE",goNewRecord:"** NEW RECORD **",goLevel:"LEVEL",goTime:"TIME",
+        goScore:"SCORE",goNewRecord:"** NOT your old record **",goLevel:"LEVEL",goTime:"TIME",
         goRevive:"💎 REVIVE",goReviveCost:"(5 Gems)",goInsufficientGems:"❌ Not enough gems!",
         goGemsStatus:"💎 Gems:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
-        goRevivePrompt:"WANT TO REVIVE?",goReviveCrystalCost:"Current:",
+        goRevivePrompt:"WANT TO REVIVE?",goReviveCrystalCost:"NOT giving up yet →",
         goReviveBtn:"✦ REVIVE  (3 💎)",
-        leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"NOThing here yet.",lbYou:"(You)",lbSubmit:"Submit Score",lbError:"NOT connected. Shocking.",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
+        leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"NOThing here yet.",lbYou:"(NOT you, but yes you)",lbSubmit:"Submit — NOT hiding it",lbError:"NOT connected. Shocking.",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
         menuPlay:"PLAY",menuShop:"SHOP",menuSettings:"SETTINGS",menuLeaderboard:"LEADERBOARD",
         playAgain:"PLAY AGAIN",mainMenu:"MAIN MENU",gameOver:"GAME OVER",
-        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"No thanks",notEnoughGems:"Not enough gems!",revived:"✦ REVIVED!",
+        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"NOThing to lose",notEnoughGems:"Not enough gems!",revived:"✦ REVIVED!",
         levelXpPacks:"— LEVEL XP PACKS —",levelXpPacksDesc:"Spend Gems to earn Level XP directly!"
     },
     ru:{
@@ -5174,7 +5178,8 @@ const _GROUND_MSGS_TR = [
     "Bu sefer tamam!","Gozun nerede?!","Ah be!",
     "Boyle oyun olmaz!","Korktun mu?","Kabul edemiyorum!",
     "Bundan utanmalisin!","Git evine!","Hay aksi!",
-    "El salladim gitti!","Soguk mu dusunuyordun?","Piramit 1 - Sen 0"
+    "El salladim gitti!","Soguk mu dusunuyordun?","Piramit 1 - Sen 0",
+    "NOT bu. NOT olur mu?!","NOThing yapamadin. Hiçbir şey."
 ];
 const _GROUND_MSGS_EN = [
     "It got away!","Really?!","Missed it!","How did you miss that?!",
@@ -5182,7 +5187,8 @@ const _GROUND_MSGS_EN = [
     "That one's on you!","Wake up!","Nooo!",
     "Unacceptable!","Were you scared?","I can't watch!",
     "Pyramid wins this round!","Just go home!","Oh come on!",
-    "You were RIGHT THERE!","Were you asleep?!","Pyramid 1 - You 0"
+    "You were RIGHT THERE!","Were you asleep?!","Pyramid 1 - You 0",
+    "NOT your finest moment.","NOThing. You did NOThing."
 ];
 let _groundMsgIdx = Math.floor(Math.random()*_GROUND_MSGS_TR.length);
 function _nextGroundMsg(){
@@ -6007,13 +6013,13 @@ const RUN_EVENTS = [
                      if(!GS||GS.gameOver) return;
                      GS.goldMult=origGold; GS._goldRushActive=false;
                      EventManager.endEvent(GS);
-                     showHitTxt(S,180,220,CURRENT_LANG==="tr"?"Altin Akini bitti.":"Gold Rush ended.","#888888",false);
+                     showHitTxt(S,180,220,CURRENT_LANG==="tr"?"Altin Akini bitti. NOT sürpriz.":"Gold Rush ended. NOThing lasts forever.","#888888",false);
                  }});
                  if(EventManager._state) EventManager._state.timerEv=timerEv;
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"ALTIN AKINI! +150 Altin Aninda / +40% Altin (35sn)":"GOLD RUSH! +150 Gold Instantly / +40% Gold (35s)","#ffcc00",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
     // 3. GLASS CANNON
@@ -6021,7 +6027,7 @@ const RUN_EVENTS = [
         id:"glass_cannon",
         title:"CAM TOP", titleEN:"GLASS CANNON", titleRU:"\u0421\u0422\u0415\u041a\u041b\u042f\u041d\u041d\u0410\u042f \u041f\u0423\u0428\u041a\u0410",
         desc:"+%15 hasar (40sn) \u2014 ama max can\u0131n 2 azal\u0131r.",
-        descEN:"+15% damage (40s) \u2014 max HP drops by 2.",
+        descEN:"+15% damage (40s) — max HP drops by 2. NOThing comes free.",
         descRU:"+15% \u0443\u0440\u043e\u043d (40\u0441) \u2014 \u043c\u0430\u043a\u0441. HP -2.",
         icon:"\ud83d\udd2e", color:0x44aaff,
         choices:[
@@ -6043,7 +6049,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"🔮 CAM TOP! +15% HASAR / Max HP-2 (40sn)":"🔮 GLASS CANNON! +15% DMG / Max HP-2 (40s)","#ffaa22",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
     // 4. CHAOS BURST
@@ -6087,7 +6093,7 @@ const RUN_EVENTS = [
                  if(EventManager._state) EventManager._state.timerEv=burstEv;
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
     // 5. SURVIVAL MODE
@@ -6123,7 +6129,7 @@ const RUN_EVENTS = [
                  if(EventManager._state) EventManager._state.timerEv=regenEv;
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
     // 6. BLITZ MODE
@@ -6150,7 +6156,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"⚡ YILDIRIN HIZI! +25% Ates / XP -%30 (30sn)":"⚡ LIGHTNING SPEED! +25% Fire Rate / XP -30% (30s)","#ffee44",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
     // 7. XP FRENZY
@@ -6158,7 +6164,7 @@ const RUN_EVENTS = [
         id:"xp_frenzy",
         title:"XP \u00c7ILGINLI\u011eI", titleEN:"XP FRENZY", titleRU:"XP \u0411\u0415\u0417\u0423\u041c\u0418\u0415",
         desc:"+%40 XP kazan\u0131m\u0131 (25sn) \u2014 d\u00fc\u015fmanlar %20 daha h\u0131zl\u0131 \u00e7\u0131kar.",
-        descEN:"+40% XP gain (25s) \u2014 enemies spawn 20% faster.",
+        descEN:"+40% XP gain (25s) — enemies spawn 20% faster. NOThing is fair.",
         descRU:"+40% XP (25\u0441) \u2014 \u0432\u0440\u0430\u0433\u0438 +20% \u0447\u0430\u0449\u0435.",
         icon:"\ud83d\udcda", color:0x44ffcc,
         choices:[
@@ -6179,7 +6185,7 @@ const RUN_EVENTS = [
                  showHitTxt(S,180,200,CURRENT_LANG==="tr"?"📚 XP CILGINLIGI! +40% XP / Hizli Spawn (25sn)":"📚 XP FRENZY! +40% XP / Fast Spawn (25s)","#44ffcc",true);
              }},
             {label:"Reddet (+60⬡)",labelEN:"Decline (+60⬡)",labelRU:"\u041e\u0442\u043a\u0430\u0437 (+60⬡)",
-             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G Reddetme Bonusu":"+60G Rejection Bonus","#ffcc44",false); }}
+             fn:(S)=>{ const _dg=60; if(GS){GS.gold+=_dg; PLAYER_GOLD+=_dg; secureSet("nt_gold",PLAYER_GOLD);} EventManager.endEvent(GS); showHitTxt(S,180,240,CURRENT_LANG==="tr"?"+60G — NOT almadin. Akillica.":"+60G — NOT taking it. Smart.","#ffcc44",false); }}
         ]
     },
 ];
@@ -9251,7 +9257,7 @@ function renderUI(S){
         }
         if(S._evoNearCached){
             if(!S._evoHintText){
-                S._evoHintText = S.add.text(360-4, 52, "⚡ EVO", {
+                S._evoHintText = S.add.text(360-4, 52, "⚡ EVO — NOT yet", {
                     font:"bold 9px LilitaOne, Arial, sans-serif",
                     color:"#ffee44", stroke:"#000", strokeThickness:2, padding:{x:2,y:1}
                 }).setOrigin(1,0).setDepth(60).setScrollFactor(0).setAlpha(0);
@@ -9941,7 +9947,7 @@ function spawnKillText(S, x, y){
         // chain 2 — double
         ["DOUBLE!", "NOT ONCE NOT TWICE", "İKİLİ KATLİAM!", "NOT x2!", "ÇİFT KILL!", "NOT BAD... WAIT YES", "TWO? NOT DONE.", "İKİ BİRDEN!"],
         // chain 3 — triple
-        ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN", "NOT EVEN CLOSE TO DONE", "ÜÇLÜ NOT!"],
+        ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN", "NOThing left of that triangle.", "ÜÇLÜ NOT!"],
         // chain 4 — quad
         ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOThing can stop you.", "OH. THAT WAS NOT IT.", "DÖRT! NOT BITTI!", "NOThing left here."],
         // chain 5 — penta / max
@@ -10080,6 +10086,8 @@ const _QUIP_TR = [
     "NOT: Bağımlısın. İyi günler.",
     "NOT tasarım böyle işte!",
     "NOT diyorum, NOT!",
+    "NOThing kaldı senden, piramit!",
+    "NOThing durduramaz beni!",
 ];
 const _QUIP_EN = [
     "Get rekt, triangle!",
@@ -11574,7 +11582,7 @@ class SceneMainMenu extends Phaser.Scene {
                     _drawBtn(false);
 
                     const _btnTxt = _A(_S.add.text(_CX, _BY+_BH/2,
-                        isTR ? "TAMAM  ✓" : "GOT IT  ✓",
+                        isTR ? "NOT reddederim  ✓" : "NOT saying no  ✓",
                         { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"16px",
                           color:"#1a0800", stroke:"#00000022", strokeThickness:1 }
                     ).setOrigin(0.5,0.5).setDepth(_D+3).setAlpha(0));
@@ -12573,6 +12581,7 @@ class SceneMainMenu extends Phaser.Scene {
             ["🔗","EVRiM",        "2 eslesme → Evrim!"],
             ["💀","COMBO",        "Hizli oldur → combo → daha fazla XP & altin!"],
             ["🍎","ELMA",         "Nadir dusme = +3 Can."],
+            ["🏴","NOT FAIR",     "Bu oyun adil degil. Adi zaten soyluyor. — NOT Corp™"],
         ] : [
             ["⚡","DASH",        "Double-tap Left/Right → quick dash! (Mobile: tap button twice)"],
             ["🎯","GOAL",       "Destroy pyramids before they hit the ground!"],
@@ -12583,6 +12592,7 @@ class SceneMainMenu extends Phaser.Scene {
             ["🔗","EVOLUTION",  "Max 2 matching upgrades → Evolution!"],
             ["💀","COMBO",      "Kill fast → combo → more XP & gold!"],
             ["🍎","APPLE",      "Rare drops = +3 HP."],
+            ["🏴","NOT FAIR",   "This game is NOT fair. The name said so. — NOT Corp™"],
         ]).forEach(([ico,ttl,desc])=>{
             if(ly+46>contentBot) return;
             A(this.add.text(TX,ly,ico+" "+ttl,NT_STYLE.accent(13,"#ffdd44")).setOrigin(0,0).setDepth(depth+3));
@@ -12709,6 +12719,8 @@ class SceneGame extends Phaser.Scene {
             "📜 Hüküm ve koşullar görmezden geliniyor...",
             "😈 Piramit patronu uyandırılıyor...",
             "⚡ Dash düzeltiliyor (tamam tamam)...",
+            "🏴 NOThing hazır değil. Ama ne fark eder...",
+            "📦 NOT Corp™ sorumluluk reddediyor...",
         ];
         const _funnyLoadEN=[
             "⏳ Calibrating injustice...",
@@ -12721,6 +12733,8 @@ class SceneGame extends Phaser.Scene {
             "📜 Ignoring terms & conditions...",
             "😈 Waking up the pyramid boss...",
             "⚡ Fixing dash (finally)...",
+            "🏴 NOThing is ready. But who's counting...",
+            "📦 NOT Corp™ disclaims all responsibility...",
         ];
         const _loadLines=CURRENT_LANG==="tr"?_funnyLoadTR:_funnyLoadEN;
         let _loadIdx=0;
@@ -13496,7 +13510,7 @@ class SceneGame extends Phaser.Scene {
                     gs.activeWeapon === "heavy_cannon"    ? 1.5 :
                     3.0;
                 dmg *= _perfectMult;
-                const perfectMsgs=[L("perfect"),L("centerHit"),L("bullseye"),L("perfect")];
+                const perfectMsgs=[L("perfect"),L("centerHit"),L("bullseye"),L("perfect"),"NOT BAD!","NOThing missed."];
                 showHitTxt(_S,enemy.x,enemy.y-18,perfectMsgs[Math.floor(Math.random()*perfectMsgs.length)],"#ff4400",true);
                 trackPerfectHit(gs);
                 // PRECISION RIFLE ZOOM — hafif feedback, fazla titreme yok
@@ -13515,7 +13529,7 @@ class SceneGame extends Phaser.Scene {
                     gs.comboXpBoost=Math.min(1.20,1+gs.combo*0.020);
                     if(gs) gs._statsDirty=true; // [v9.2] combo bonus pipeline'a dahil
                     // [VFX] Combo milestone WOW moments
-                    const milestones={5:"🔥 x5 COMBO!",10:"⚡ x10 COMBO!",15:"💥 x15 COMBO!",20:"🌟 x20 MAX COMBO!"};
+                    const milestones={5:"🔥 x5 COMBO!",10:"⚡ x10 — NOThing slowing you down!",15:"💥 x15 — NOT human.",20:"🌟 x20 — NOThing can stop this."};
                     const mileCols={5:"#ff8800",10:"#ff4400",15:"#ff2244",20:"#ffcc00"};
                     if(milestones[gs.combo]){
                         showHitTxt(_S,180,260,milestones[gs.combo],mileCols[gs.combo],true);
@@ -13567,7 +13581,11 @@ class SceneGame extends Phaser.Scene {
                     // ── FIRST BLOOD ──
                     if(gs.kills===1 && gs.combo===1){
                         NT_SFX.play("first_blood");
-                        const fbLang = CURRENT_LANG==="en"?"FIRST BLOOD!":CURRENT_LANG==="ru"?"ПЕРВАЯ КРОВЬ!":"ILK KAN!";
+                        const _fbOpts = CURRENT_LANG==="en"
+                            ? ["FIRST BLOOD!", "NOT your last!", "FIRST. NOT the last."]
+                            : CURRENT_LANG==="ru" ? ["ПЕРВАЯ КРОВЬ!"]
+                            : ["ILK KAN!", "NOT bitti mi? Hayır.", "ILK — NOT son!"];
+                        const fbLang = _fbOpts[Math.floor(Math.random()*_fbOpts.length)];
                         const fbTxt = _S.add.text(180, 200, fbLang, {
                             fontFamily:"LilitaOne",
                             fontSize:"22px",
@@ -13615,7 +13633,7 @@ class SceneGame extends Phaser.Scene {
                 const _visited=new Set([enemy]);
                 const doBounce=()=>{
                     if(!GS||GS.gameOver) return;
-                    if(b._chainCount>=4) return;  // BALANCE: 6→4 sekme (chain lightning ile kombinasyonda aşırı güçlüydü)
+                    if(b._chainCount>=3) return;  // BALANCE: 4→3 sekme (öldürme zinciri kırıldı)
                     b._chainCount++;
                     const allE=_S._activeEnemies&&_S._activeEnemies.length>0?_S._activeEnemies:_S.pyramids.getMatching("active",true);
                     let nearest=null; let nearD=9999;
@@ -13624,7 +13642,7 @@ class SceneGame extends Phaser.Scene {
                         if(!ce.active||_visited.has(ce)||ce.spawnProtected) continue;
                         const _dx=ce.x-lastX, _dy=ce.y-lastY;
                         const _d=Math.sqrt(_dx*_dx+_dy*_dy);
-                        if(_d<320&&_d<nearD){nearD=_d;nearest=ce;}  // BALANCE: 420→320 menzil
+                        if(_d<220&&_d<nearD){nearD=_d;nearest=ce;}  // BALANCE: 320→220 menzil
                     }
                     if(!nearest) return;
                     // Chain VFX — segmented electric lightning arc
@@ -13668,9 +13686,9 @@ class SceneGame extends Phaser.Scene {
                     flash.fillStyle(0xffffff,0.6); flash.fillCircle(nearest.x,nearest.y,6);
                     _S.tweens.add({targets:flash,alpha:0,scaleX:2.5,scaleY:2.5,duration:150,onComplete:()=>{try{flash.destroy();}catch(e){}}});
                     _S.tweens.add({targets:lg,alpha:0,duration:280,onComplete:()=>{try{lg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
-                    // BUFF: hasar artirildi — falloff azaltildi
-                    const falloff=Math.pow(0.82,b._chainCount); // BALANCE: 0.92→0.82 daha fazla falloff (chain lightning ile kombinasyonda dengeli)
-                    applyDmg(_S,nearest,GS.damage*0.85*falloff,false); // BALANCE: 1.15→0.85 zincir hasarı dengelendi
+                    // BALANCE: Bounce hasarı öldürmemeli — zayıflatma rolü
+                    const falloff=Math.pow(0.65,b._chainCount); // BALANCE: 0.82→0.65 dik falloff
+                    applyDmg(_S,nearest,GS.damage*0.40*falloff,false); // BALANCE: 0.85→0.40 sekme hasarı zayıflatıldı
                     // [SES FIX] Sadece 1. ve son sekmede ses çal — her sekmede 9 voice yerine max 2 kez
                     if(b._chainCount===1 || b._chainCount>=4) NT_SFX.play("shoot_chain");
                     // [BALANCE FIX] Chain Lightning: tüm sekme zincirinde sadece 1 kez tetikle
@@ -13811,9 +13829,22 @@ class SceneGame extends Phaser.Scene {
         const cdOverlay = this.add.rectangle(180, 320, 360, 640, 0x000000, 0.45).setDepth(_cdDepth-1);
 
         // Tutorial tip — ortadan vurma ipucu
-        const tipLang = CURRENT_LANG === "en" ? "🎯 Hit enemies at the CENTER for 2x DAMAGE!" :
-                        CURRENT_LANG === "ru" ? "🎯 Бейте врагов в ЦЕНТР для 2x УРОНА!" :
-                        "🎯 Dusmanlari ORTADAN vur = 2x HASAR!";
+        const _tipPoolEN = [
+            "🎯 Hit enemies at the CENTER for 2x DAMAGE!",
+            "💡 NOT tip: There is no easy mode. — NOT Corp™",
+            "⚡ Double-tap left/right to DASH!",
+            "🏴 NOThing prepares you for this.",
+        ];
+        const _tipPoolTR = [
+            "🎯 Düşmanları ORTADAN vur = 2x HASAR!",
+            "💡 NOT ipucu: Kolay mod yok. — NOT Corp™",
+            "⚡ Sol/Sağ'a 2× bas = DASH!",
+            "🏴 NOThing seni buna hazırlayamaz.",
+        ];
+        const _tipPool = CURRENT_LANG === "en" ? _tipPoolEN :
+                         CURRENT_LANG === "ru" ? ["🎯 Бейте врагов в ЦЕНТР для 2x УРОНА!"] :
+                         _tipPoolTR;
+        const tipLang = _tipPool[Math.floor(Math.random() * _tipPool.length)];
         const tipTxt = this.add.text(CX_CD, CY_CD + 90, tipLang, {
             fontFamily: "LilitaOne",
             fontSize: "15px",
@@ -15698,10 +15729,10 @@ function showLevelUpUI(S) {
         ? `⭐ УРОВЕНЬ ${gs.level}`
         : `⭐ LEVEL ${gs.level}`;
     const _subPick = CURRENT_LANG==="tr"
-        ? `— GÜÇ SEÇ —`
+        ? `— NOT kolay. Seç.`
         : CURRENT_LANG==="ru"
         ? `— ВЫБЕРИ СИЛУ —`
-        : `— PICK A POWER —`;
+        : `— NOT easy. Pick.`;
 
     // Level badge — sol taraf, ★ sembolüyle
     const subTxt = ui.add(S.add.text(HDR_CX - 52, HDR_TOP + HDR_H - 12,
@@ -16819,7 +16850,7 @@ function killEnemy(S,p,giveXP){
             S.tweens.add({targets:bsw,scaleX:22,scaleY:22,alpha:0,
                 duration:800,ease:"Quad.easeOut",onComplete:()=>bsw.destroy()});
             S.time.delayedCall(200,()=>{
-                showHitTxt(S,px,py-40,CURRENT_LANG==="tr"?"BOSS GELIYOR!":"BOSS SPAWNED!","#ffcc00",true);
+                showHitTxt(S,px,py-40,CURRENT_LANG==="tr"?"BOSS GELIYOR!":"BOSS — NOT a good sign.","#ffcc00",true);
             });
         }
         p.disableBody(true,true);
@@ -16868,7 +16899,7 @@ function killEnemy(S,p,giveXP){
 
     // Elite/Titan kill VFX
     if(p.elite&&!p.isBoss){
-        showHitTxt(S,px,py-22,CURRENT_LANG==="tr"?"★ ELIT OLDURULDU ★":"★ ELITE KILLED ★","#ffdd00",true);
+        showHitTxt(S,px,py-22,CURRENT_LANG==="tr"?"★ ELIT OLDURULDU ★":"★ ELITE DOWN — NOT impressed. Yet.","#ffdd00",true);
         spawnKillText(S, px, py-44);
         S.cameras.main.shake(45,0.007);
         for(let ei=0;ei<10;ei++){
@@ -16884,14 +16915,14 @@ function killEnemy(S,p,giveXP){
                 onComplete:()=>esp.destroy()});
         }
     } else if(p.titan||p.colossus||p.elder){
-        showHitTxt(S,px,py-22,CURRENT_LANG==="tr"?"DEV YIKILDI!":"TITAN DOWN!","#aa44ff",true);
+        showHitTxt(S,px,py-22,CURRENT_LANG==="tr"?"DEV YIKILDI — NOT etkilenmedi pek.":"TITAN DOWN! NOThing is safe.","#aa44ff",true);
         S.cameras.main.shake(60,0.008);
     }
 
     // Elite Hunt bonus
     if((p.elite||p.isBoss)&&gs._eliteHuntCount>0){
         gs._eliteHuntCount--;
-        showHitTxt(S,px,py-20,CURRENT_LANG==="tr"?"ELIT AV BONUS!":"ELITE HUNT BONUS!","#ffdd44",true);
+        showHitTxt(S,px,py-20,CURRENT_LANG==="tr"?"ELIT AV BONUS!":"ELITE HUNT — NOT your average bonus!","#ffdd44",true);
         const gvBonus=Math.round((p.isBoss?6:p.elite?3:1)*gs.goldMult*2);
         gs.gold+=gvBonus; PLAYER_GOLD+=gvBonus; secureSet("nt_gold",PLAYER_GOLD);
     }
@@ -17226,7 +17257,7 @@ function damagePlayer(S){
             S.cameras.main.shake(200, 0.025);
             S.cameras.main.zoomTo(1.08, 150, "Quad.easeOut");
             S.time.delayedCall(150, ()=>S.cameras.main.zoomTo(1.0, 400, "Quad.easeIn"));
-            showHitTxt(S, 180, 200, "PHOENIX!", "#ff8800", true);
+            showHitTxt(S, 180, 200, "PHOENIX! NOThing kills you.", "#ff8800", true);
             const plx=S.player.x, ply=S.player.y;
             for(let ri=0;ri<12;ri++){
                 S.time.delayedCall(ri*30,()=>{
@@ -17859,7 +17890,7 @@ function handleMiniBossDeath(S, p){
         });
     }
 
-    showHitTxt(S,p.x,p.y-30,"MINI BOSS OLDU!","#ffcc00",true);
+    showHitTxt(S,p.x,p.y-30,"MINI BOSS BİTTİ — NOT satisfied.","#ffcc00",true);
 }
 
 // ── RUN EVENT SISTEMI ────────────────────────────────────────
@@ -18451,7 +18482,7 @@ function gameOver(S){
             }
 
             if(PLAYER_LEVEL>=50&&result.levelsGained>0&&cy+16<=contentBot-4){
-                A(S.add.text(CX,cy+3,"⭐ PRESTIGE AVAILABLE!",
+                A(S.add.text(CX,cy+3,"⭐ PRESTIGE — NOThing left to prove. Or everything.",
                     {fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",color:"#ffaa44",stroke:"#000",strokeThickness:2}
                 ).setOrigin(0.5).setDepth(BD));
                 cy+=16;
@@ -18977,7 +19008,7 @@ function doRevive(S, panel){
 
 // ── TELEGRAM SKOR PAYLASIM ────────────────────────────────────
 function shareTelegramScore(score, kills, level){
-    const txt=`🎮 NOT FAIR\n🏆 Skor: ${score.toLocaleString()}\n☠ Kill: ${kills} | ⭐ Lv${level}\n👉 Sen de oyna!`;
+    const txt=`🎮 NOT FAIR\n🏆 Skor: ${score.toLocaleString()}\n☠ Kill: ${kills} | ⭐ Lv${level}\n💬 NOThing stopped me. Almost.\n👉 Sen de oyna!`;
     try{
         // Telegram Mini App API
         if(window.Telegram&&window.Telegram.WebApp){
