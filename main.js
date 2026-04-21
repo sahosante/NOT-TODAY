@@ -2128,11 +2128,11 @@ const NT_SFX = (function(){
 const SCENE_KEY = "SceneGame";
 
 const GEM_PACKS=[
-    {gems:50,   price:"$0.99",  bonus:0,   tag:null,      popular:false},
-    {gems:130,  price:"$1.99",  bonus:10,  tag:"popular",  popular:true},
-    {gems:320,  price:"$3.99",  bonus:30,  tag:null,       popular:false},
-    {gems:750,  price:"$7.99",  bonus:100, tag:"best",     popular:false},
-    {gems:1800, price:"$14.99", bonus:300, tag:null,       popular:false},
+    {gems:60,   price:"$1.99",  bonus:0,   tag:null,      popular:false},
+    {gems:160,  price:"$4.99",  bonus:20,  tag:"popular",  popular:true},
+    {gems:400,  price:"$9.99",  bonus:50,  tag:null,       popular:false},
+    {gems:900,  price:"$19.99", bonus:150, tag:"best",     popular:false},
+    {gems:2200, price:"$49.99", bonus:500, tag:null,       popular:false},
 ];
 
 // ── GUVENLIK: Checksum sistemi — kritik deger manipulasyonunu tespit eder
@@ -2506,10 +2506,10 @@ const CHEST_SKINS = [
 
 // Chest tiers: higher cost = higher chance of rare/legendary
 const CHESTS = [
-    { name:"COMMON",    nameTR:"SIRADAN",  cost:10,  col:0x888888, tierWeights:[60,30,8,2],  tag:null },
-    { name:"RARE",      nameTR:"NADIR",    cost:30,  col:0x3388ee, tierWeights:[25,45,22,8], tag:null },
-    { name:"EXOTIC",    nameTR:"EGZOTIK",  cost:80,  col:0xaa44ff, tierWeights:[8,25,45,22], tag:null },
-    { name:"LEGENDARY", nameTR:"EFSANE",   cost:200, col:0xffaa00, tierWeights:[2,10,30,58], tag:"BEST" },
+    { name:"COMMON",    nameTR:"SIRADAN",  cost:25,  col:0x888888, tierWeights:[60,30,8,2],  tag:null },
+    { name:"RARE",      nameTR:"NADIR",    cost:75,  col:0x3388ee, tierWeights:[25,45,22,8], tag:null },
+    { name:"EXOTIC",    nameTR:"EGZOTIK",  cost:175, col:0xaa44ff, tierWeights:[8,25,45,22], tag:null },
+    { name:"LEGENDARY", nameTR:"EFSANE",   cost:450, col:0xffaa00, tierWeights:[2,10,30,58], tag:"BEST" },
 ];
 
 function _rollChestSkin(chestIdx){
@@ -2535,11 +2535,11 @@ function _hasSkin(skinId){
 }
 
 const BOOSTS = [
-    { id:"gold2x",    name:"MONEY MACHINE 🖨️",        nameTR:"PARA BASAN MAKINE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:20, col:0xff8800 },
-    { id:"xp2x",      name:"BRAIN FUEL 🧠",             nameTR:"KAFA GUBRESI 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:20, col:0x44aaff },
-    { id:"shield",     name:"SHIELD UP 🛡️",              nameTR:"SARILSANA BARI 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:15, col:0x44ddaa },
-    { id:"autorevive", name:"NOT TODAY 💖",               nameTR:"OLMEYECEGIM DEDIM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:25, col:0xff4466 },
-    { id:"luckcharm",  name:"DRIP ALARM 🍀",             nameTR:"DRIP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:30, col:0x44ff44 },
+    { id:"gold2x",    name:"MONEY MACHINE 🖨️",        nameTR:"PARA BASAN MAKINE 🖨️",   desc:"2x gold for 2 hours",       descTR:"2 saat 2x altin",             icon:"🔥", dur:7200000, cost:30, col:0xff8800 },
+    { id:"xp2x",      name:"BRAIN FUEL 🧠",             nameTR:"KAFA GUBRESI 🧠",          desc:"2x XP for 2 hours",         descTR:"2 saat 2x XP",                icon:"📚", dur:7200000, cost:30, col:0x44aaff },
+    { id:"shield",     name:"SHIELD UP 🛡️",              nameTR:"SARILSANA BARI 🛡️",       desc:"Start with +1 HP",          descTR:"Baslangicta +1 HP",           icon:"🛡️", dur:0,       cost:25, col:0x44ddaa },
+    { id:"autorevive", name:"NOT TODAY 💖",               nameTR:"OLMEYECEGIM DEDIM 💖",     desc:"Auto revive once on death", descTR:"Olunce bir kez otomatik diril",icon:"💖", dur:0,       cost:40, col:0xff4466 },
+    { id:"luckcharm",  name:"DRIP ALARM 🍀",             nameTR:"DRIP ALARM 🍀",            desc:"+50% rare skin drop (2 hours)", descTR:"+50% nadir kostum sans (2 saat)", icon:"🍀", dur:7200000, cost:50, col:0x44ff44 },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -3045,17 +3045,17 @@ function showWheel(scene){
 // §6  SHOP — 5 tabs, scrollable, fully functional
 // ═══════════════════════════════════════════════════════════════
 
-function showShop(scene){
+function showShop(scene, defaultTab){
     let _cleanupSc=()=>{};
     const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
         =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"MAGAZA":"SHOP",312,20,()=>_cleanupSc(),"shop");
 
     // ── TAB BAR ────────────────────────────────────────────────
-    let _tab="power";
+    let _tab=defaultTab||"power";
     const TH=30, TY=contentTop+18;
     const tabs=CURRENT_LANG==="tr"
-        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"gems",l:"MARKET"}]
-        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"gems",l:"MARKET"}];
+        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"flash",l:"⚡"},{k:"gems",l:"MARKET"}]
+        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"flash",l:"⚡"},{k:"gems",l:"MARKET"}];
     const TC=tabs.length, TWid=Math.floor((PW-16)/TC)-2;
     const TX0=cx-(TC*TWid+(TC-1)*4)/2;
     const tG={},tT={};
@@ -3235,7 +3235,7 @@ function showShop(scene){
                 let y=6;
                 // Title
                 _add(T(cx,SY0+y+10,CURRENT_LANG==="tr"?"KOSTUM SANDIKLARI":"SKIN CHESTS",{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
-                _add(T(cx,SY0+y+28,CURRENT_LANG==="tr"?"SILAH VE KARAKTER KOSTUMLERINI ACMAK ICIN SANDIK AC!":"Open chests to unlock weapon & character skins!",{fontFamily:_F,fontSize:"9px",color:"#6699aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+28,CURRENT_LANG==="tr"?"SILAH VE KARAKTER KOSTUMLERINI ACMAK ICIN SANDIK AC!":"Open chests to unlock weapon & character skins!",{fontFamily:_F,fontSize:"9px",color:"#8899aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                 y+=42;
                 CHESTS.forEach((ch,ci)=>{
                     const rowH=72, canB=PLAYER_GEMS>=ch.cost;
@@ -3357,7 +3357,7 @@ function showShop(scene){
             }
             case "skins":{
                 let y=6;
-                [{k:"weapon",l:CURRENT_LANG==="tr"?"SiLAH SKiNLERi":"WEAPON SKINS"},{k:"char",l:CURRENT_LANG==="tr"?"KARAKTER KOSTUMLERI":"CHARACTER SKINS"}].forEach(cat=>{
+                [{k:"weapon",l:CURRENT_LANG==="tr"?"SILAH SKINLERI":"WEAPON SKINS"},{k:"char",l:CURRENT_LANG==="tr"?"KARAKTER KOSTUMLERI":"CHARACTER SKINS"}].forEach(cat=>{
                     const skins=SKINS.filter(s=>s.cat===cat.k);
                     if(!skins.length)return;
                     _add(T(cx-PW/2+16,SY0+y+10,cat.l,{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
@@ -3371,8 +3371,8 @@ function showShop(scene){
                         _add(sg);
                         _add(T(cx-PW/2+24,SY0+y+16,(CURRENT_LANG==="tr"&&sk.nameTR?sk.nameTR:CURRENT_LANG==="ru"&&sk.nameRU?sk.nameRU:sk.name),{fontFamily:_F,fontSize:"14px",color:"#ddd",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         _add(T(cx-PW/2+24,SY0+y+34,(CURRENT_LANG==="tr"?({COMMON:"SIRADAN",RARE:"NADIR",EXOTIC:"EGZOTIK",LEGENDARY:"EFSANE"}[sk.rar]||sk.rar):sk.rar),{fontFamily:_F,fontSize:"12px",color:({COMMON:"#aaaaaa",RARE:"#4499ff",EXOTIC:"#cc55ff",LEGENDARY:"#ffaa00"}[sk.rar]||"#ffffff"),stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
-                        const sbg=G();sbg.fillStyle(0x0d0d16,0.92);sbg.fillRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);sbg.lineStyle(1.5,sk.col,0.5);sbg.strokeRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);_add(sbg);
-                        _add(T(cx+PW/2-40,SY0+y+rowH/2,CURRENT_LANG==="tr"?"YAKINDA":"SOON",{fontFamily:_F,fontSize:"13px",color:"#778899",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                        const sbg=G();sbg.fillStyle(0x0d0d16,0.92);sbg.fillRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);sbg.lineStyle(1.5,0x334455,0.4);sbg.strokeRoundedRect(cx+PW/2-66,SY0+y+rowH/2-12,52,24,5);_add(sbg);
+                        _add(T(cx+PW/2-40,SY0+y+rowH/2,CURRENT_LANG==="tr"?"🔒 KILITLI":"🔒 LOCKED",{fontFamily:_F,fontSize:"10px",color:"#445566",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                         y+=rowH+5;
                     });
                     y+=8;
@@ -3380,6 +3380,316 @@ function showShop(scene){
                 totalH=y+10;
                 break;
             }
+            // ───────────────── FLASH SALE ──────────────────────
+            case "flash":{
+                let y=6;
+
+                // ── GUNLUK sayac — gece yarisi sifirlanan ────────────────
+                const _nowMs   = Date.now();
+                const _daySeed = Math.floor(_nowMs / 86400000); // UTC gun sayisi
+                const _today   = new Date(_nowMs);
+                const _midnight= new Date(_today);
+                _midnight.setUTCHours(24,0,0,0);
+                const _remMs   = _midnight.getTime() - _nowMs;
+                const _remH    = Math.floor(_remMs / 3600000);
+                const _remM    = Math.floor((_remMs % 3600000) / 60000);
+                const _remS    = Math.floor((_remMs % 60000) / 1000);
+
+                // Deterministik RNG — ayni gun, ayni urunler
+                const _rngD=(n)=>{ let s=(_daySeed*0xcafebabe)^(n*0x9e3779b9+0x1337); s^=s>>16; s*=0x45d9f3b; s^=s>>16; s^=s>>15; return (s>>>0)/0xffffffff; };
+
+                // ── BASLIK ──────────────────────────────────────────────
+                const _fHdr=G();
+                _fHdr.fillStyle(0x160000,0.98);_fHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,48,8);
+                _fHdr.lineStyle(2,0xcc0000,0.9);_fHdr.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,48,8);
+                _fHdr.fillStyle(0x880000,0.35);_fHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,24,{tl:8,tr:8,bl:0,br:0});
+                _add(_fHdr);
+                _add(T(cx,SY0+y+13,"⚡  FLASH SALE",{fontFamily:_F,fontSize:"16px",color:"#ff4422",stroke:"#000",strokeThickness:4}).setOrigin(0.5));
+                _add(T(cx,SY0+y+30,CURRENT_LANG==="tr"?"HER GUN YENI KOSTUM VE SANDIKLAR!":"NEW SKINS & CHESTS EVERY DAY!",{fontFamily:_F,fontSize:"8px",color:"#ff8866",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=56;
+
+                // Sayac
+                const _tg=G();
+                _tg.fillStyle(0x0d0000,0.97);_tg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,22,5);
+                _tg.lineStyle(1,0x880000,0.5);_tg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,22,5);
+                _add(_tg);
+                _add(T(cx,SY0+y+11,
+                    (CURRENT_LANG==="tr"?"Yarin yenileniyor: ":"Resets in: ")+`⏰ ${_remH}h ${_remM}m ${_remS}s`,
+                    {fontFamily:_F,fontSize:"10px",color:"#ff6644",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=30;
+
+                // ═══════════════════════════════════════════════════════
+                // TUM URUN HAVUZU — kostumler + silahlar + sandiklar + paketler
+                // ═══════════════════════════════════════════════════════
+                const _ALL=[
+                    // ─── KARAKTER KOSTUMLERI — KOMIK ISIMLER ───────────
+                    { id:"fs_piramit_bozguncusu",
+                      name:"PYRAMID DESTROYER",    nameTR:"PIRAMIT BOZGUNCUSU",
+                      desc:"Triangle's worst nightmare",   descTR:"Ucgenlerin korkulu ruyasi",
+                      type:"skin", rarity:"EXOTIC",  col:0xff6600,
+                      price:"$2.99", invoiceId:"flash_piramit_bozg", emoji:"💥" },
+
+                    { id:"fs_kac_kurtul",
+                      name:"HIT AND RUN KING",     nameTR:"KAC KURTUL KRALI",
+                      desc:"Looks fast. Is fast. Gone.",   descTR:"Hizli gorunur. Hizlidir. Gitti.",
+                      type:"skin", rarity:"EXOTIC",  col:0x00ddff,
+                      price:"$2.99", invoiceId:"flash_kac_kurtul", emoji:"💨" },
+
+                    { id:"fs_sandik_avcisi",
+                      name:"CHEST HUNTER PRIME",   nameTR:"SANDIK AVCISI PRIME",
+                      desc:"Opens chests in his sleep",    descTR:"Uykusunda sandik acar",
+                      type:"skin", rarity:"RARE",    col:0xffcc00,
+                      price:"$1.99", invoiceId:"flash_sandik_avci", emoji:"🎁" },
+
+                    { id:"fs_altin_fakir",
+                      name:"BROKE BUT SHINY",      nameTR:"METELIKSIZ AMA PARLAK",
+                      desc:"No gold, full style",          descTR:"Altini yok ama tarzı var",
+                      type:"skin", rarity:"RARE",    col:0xddcc44,
+                      price:"$1.99", invoiceId:"flash_altin_fakir", emoji:"✨" },
+
+                    { id:"fs_boss_korkar",
+                      name:"BOSS SLAPPER",         nameTR:"BOSS TOKATLAYICI",
+                      desc:"Bosses file complaints",       descTR:"Boss'lar sikayetci olur",
+                      type:"skin", rarity:"LEGENDARY", col:0xff2200,
+                      price:"$4.99", invoiceId:"flash_boss_korkar", emoji:"🤜" },
+
+                    { id:"fs_uyuyan_kahraman",
+                      name:"ASLEEP HERO",          nameTR:"UYUYAN KAHRAMAN",
+                      desc:"Still won somehow",            descTR:"Nasil kazandi anlasilmadi",
+                      type:"skin", rarity:"EXOTIC",  col:0x8866ff,
+                      price:"$2.99", invoiceId:"flash_uyuyan_kahr", emoji:"😴" },
+
+                    { id:"fs_kombo_ustasi",
+                      name:"COMBO OBSESSED",       nameTR:"KOMBO TAKINTILISI",
+                      desc:"20 combo or nothing",          descTR:"20 kombo ya da hic",
+                      type:"skin", rarity:"LEGENDARY", col:0xff8800,
+                      price:"$4.99", invoiceId:"flash_kombo_usta", emoji:"🔥" },
+
+                    { id:"fs_piramit_dostu",
+                      name:"TRIANGLE WHISPERER",   nameTR:"UCGEN FISILDAYICISI",
+                      desc:"Talks to triangles before killing them", descTR:"Oldurmeden once ucgenlerle konusur",
+                      type:"skin", rarity:"EXOTIC",  col:0x44ffaa,
+                      price:"$2.99", invoiceId:"flash_piramit_dostu", emoji:"🔺" },
+
+                    { id:"fs_kayip_patron",
+                      name:"MISSING BOSS",         nameTR:"KAYIP PATRON",
+                      desc:"No one knows where he was",    descTR:"Neredeydi kimse bilmez",
+                      type:"skin", rarity:"RARE",    col:0xaaaaaa,
+                      price:"$1.99", invoiceId:"flash_kayip_patron", emoji:"🕵️" },
+
+                    { id:"fs_alev_saclayan",
+                      name:"FIRE SPITTER",         nameTR:"ALEV SACLAYAN",
+                      desc:"Dramatic entry every time",    descTR:"Her giris dramatik olur",
+                      type:"skin", rarity:"LEGENDARY", col:0xff3300,
+                      price:"$5.99", invoiceId:"flash_alev_sac", emoji:"🐉" },
+
+                    { id:"fs_galaxy_bey",
+                      name:"GALAXY GUY",           nameTR:"GALAKSI BEYEFENDISI",
+                      desc:"Too busy staring at stars",    descTR:"Yildizlara bakip durur",
+                      type:"skin", rarity:"LEGENDARY", col:0x6633ff,
+                      price:"$4.99", invoiceId:"flash_galaxy_bey", emoji:"🌌" },
+
+                    { id:"fs_neon_tuhaf",
+                      name:"NEON WEIRDO",          nameTR:"NEON TUHAFI",
+                      desc:"Glows even when offline",      descTR:"Offline bile isik sacar",
+                      type:"skin", rarity:"EXOTIC",  col:0x00ffcc,
+                      price:"$2.99", invoiceId:"flash_neon_tuhaf", emoji:"🤖" },
+
+                    // ─── SILAH KOSTUMLERI ───────────────────────────────
+                    { id:"fs_wpn_kadin_isi",
+                      name:"FANCY STICK",          nameTR:"SIK CUBUK",
+                      desc:"Looks better than it shoots",  descTR:"Atisından iyi gorunur",
+                      type:"weapon", rarity:"RARE",    col:0xff88cc,
+                      price:"$1.99", invoiceId:"flash_wpn_fancy", emoji:"💅" },
+
+                    { id:"fs_wpn_civciv",
+                      name:"BABY CANNON",          nameTR:"BEBEK TOPU",
+                      desc:"Tiny but furious",             descTR:"Kucuk ama ofkeli",
+                      type:"weapon", rarity:"EXOTIC",  col:0xffee44,
+                      price:"$2.99", invoiceId:"flash_wpn_civciv", emoji:"🐣" },
+
+                    { id:"fs_wpn_yildirim",
+                      name:"THUNDER BISCUIT",      nameTR:"YILDIRIM BISKUVISI",
+                      desc:"Shocks and shocks again",      descTR:"Carpar ve tekrar carpar",
+                      type:"weapon", rarity:"EXOTIC",  col:0xffee00,
+                      price:"$2.99", invoiceId:"flash_wpn_yildirim", emoji:"⚡" },
+
+                    { id:"fs_wpn_karanlik",
+                      name:"SHADOW LAUNCHER",      nameTR:"GOLGE FIRLATICI",
+                      desc:"Triangles don't see it coming",descTR:"Ucgenler farketmez gelen",
+                      type:"weapon", rarity:"LEGENDARY", col:0x6600cc,
+                      price:"$3.99", invoiceId:"flash_wpn_karanlik", emoji:"🔮" },
+
+                    // ─── SANDIK PAKETLERi ───────────────────────────────
+                    { id:"fs_chest_siradan3",
+                      name:"3x COMMON CHEST",      nameTR:"3x SIRADAN SANDIK",
+                      desc:"3 common chests. Humble but fun", descTR:"Mütevazı ama tatli 3 sandik",
+                      type:"chestpack", rarity:"COMMON", col:0x888888,
+                      price:"$1.99", invoiceId:"flash_common_x3",
+                      emoji:"📦", chestIdx:0, count:3 },
+
+                    { id:"fs_chest_nadir3",
+                      name:"3x RARE CHEST",        nameTR:"3x NADIR SANDIK",
+                      desc:"Rare drops, rare happiness",   descTR:"Nadir drop, nadir mutluluk",
+                      type:"chestpack", rarity:"RARE",    col:0x3388ee,
+                      price:"$3.99", invoiceId:"flash_rare_x3",
+                      emoji:"📫", chestIdx:1, count:3 },
+
+                    { id:"fs_chest_egzotik2",
+                      name:"2x EXOTIC CHEST",      nameTR:"2x EGZOTIK SANDIK",
+                      desc:"Exotic skins await inside",    descTR:"Egzotik kostumler bekler",
+                      type:"chestpack", rarity:"EXOTIC",  col:0xaa44ff,
+                      price:"$4.99", invoiceId:"flash_exotic_x2",
+                      emoji:"💜", chestIdx:2, count:2 },
+
+                    { id:"fs_chest_efsane1",
+                      name:"1x LEGENDARY CHEST",   nameTR:"1x EFSANE SANDIK",
+                      desc:"Legendary guaranteed inside",  descTR:"Efsane garantili sandik",
+                      type:"chestpack", rarity:"LEGENDARY", col:0xffcc00,
+                      price:"$5.99", invoiceId:"flash_legendary_x1",
+                      emoji:"🟡", chestIdx:3, count:1 },
+
+                    { id:"fs_chest_karisik5",
+                      name:"5x MYSTERY CHEST",     nameTR:"5x GIZEM SANDIGI",
+                      desc:"Mix of all rarities — surprise!", descTR:"Tum nadirlik karisimi suprizi",
+                      type:"chestpack", rarity:"EXOTIC",  col:0xff88ff,
+                      price:"$6.99", invoiceId:"flash_mystery_x5",
+                      emoji:"🎰", chestIdx:Math.floor(_rngD(99)*4), count:5 },
+
+                    // ─── PAKETLER ───────────────────────────────────────
+                    { id:"fs_bundle_kahraman",
+                      name:"HERO BUNDLE",          nameTR:"KAHRAMAN PAKETI",
+                      desc:"3 char skins + 150 Gems",      descTR:"3 kostum + 150 Elmas",
+                      type:"bundle", rarity:"LEGENDARY", col:0xff4400,
+                      price:"$7.99", invoiceId:"flash_bundle_hero",
+                      emoji:"🦸", gems:150 },
+
+                    { id:"fs_bundle_ucgen_kabusu",
+                      name:"TRIANGLE NIGHTMARE",   nameTR:"UCGEN KABUSU PAKETI",
+                      desc:"2 skins + 3 Exotic chests + 200 Gems",
+                      descTR:"2 kostum + 3 Egzotik sandik + 200 Elmas",
+                      type:"bundle", rarity:"LEGENDARY", col:0xffaa00,
+                      price:"$12.99", invoiceId:"flash_bundle_tri_night",
+                      emoji:"💀", gems:200, chestIdx:2, count:3 },
+                ];
+
+                // Gunluk 4 urun sec — deterministik (gun = seed)
+                // Zorunlu: en az 1 sandik, en az 1 kostum, en az 1 silah garantisi
+                const _kostumPool = _ALL.filter(x=>x.type==="skin");
+                const _silahPool  = _ALL.filter(x=>x.type==="weapon");
+                const _sandikPool = _ALL.filter(x=>x.type==="chestpack");
+                const _bundlePool = _ALL.filter(x=>x.type==="bundle");
+
+                const _pickFrom=(pool,n,off)=>{
+                    const out=[]; const p=[...pool];
+                    for(let i=0;i<n&&p.length>0;i++){
+                        const ri=Math.floor(_rngD(off+i*7)*p.length);
+                        out.push(p.splice(ri,1)[0]);
+                    }
+                    return out;
+                };
+
+                // Her gun: 1 kostum + 1 silah + 1 sandik + 1 (kostum veya bundle)
+                const _pickedFlash=[
+                    ..._pickFrom(_kostumPool,  1, 0),
+                    ..._pickFrom(_silahPool,   1, 20),
+                    ..._pickFrom(_sandikPool,  1, 40),
+                    ...(_rngD(60)>0.4 ? _pickFrom(_bundlePool,1,60) : _pickFrom(_kostumPool,1,80)),
+                ];
+
+                // ── URUN SATIRLARI ──────────────────────────────────────
+                const rarCols2={LEGENDARY:"#ffaa00",EXOTIC:"#cc55ff",RARE:"#4499ff",COMMON:"#aaaaaa"};
+                const rarTR2  ={LEGENDARY:"EFSANE",EXOTIC:"EGZOTIK",RARE:"NADIR",COMMON:"SIRADAN"};
+
+                _pickedFlash.forEach((it)=>{
+                    const rowH=82;
+                    const itG=G();
+                    itG.fillStyle(0x0e0000,0.98);itG.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    itG.lineStyle(1.8,it.col,0.65);itG.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    itG.fillStyle(it.col,0.09);itG.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,rowH,8);
+                    itG.fillStyle(it.col,0.85);itG.fillRoundedRect(cx-PW/2+10,SY0+y,5,rowH,{tl:8,bl:8,tr:0,br:0});
+                    // OZEL rozeti
+                    itG.fillStyle(0x990000,1);itG.fillRoundedRect(cx-PW/2+18,SY0+y,54,14,{tl:0,tr:0,bl:5,br:5});
+                    _add(itG);
+                    _add(T(cx-PW/2+45,SY0+y+7,CURRENT_LANG==="tr"?"OZEL":"EXCLUSIVE",{fontFamily:_F,fontSize:"7px",color:"#ffcccc",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+
+                    // Emoji
+                    _add(T(cx-PW/2+30,SY0+y+rowH/2+4,it.emoji,{fontSize:"20px"}).setOrigin(0.5,0.5));
+
+                    // Isim + aciklama
+                    const _dispName=CURRENT_LANG==="tr"?it.nameTR:it.name;
+                    const _dispDesc=CURRENT_LANG==="tr"?it.descTR:it.desc;
+                    const _fSzName = _dispName.length>18 ? "11px" : "13px";
+                    _add(T(cx-PW/2+46,SY0+y+22,_dispName,{fontFamily:_F,fontSize:_fSzName,color:"#fff",stroke:"#000",strokeThickness:2,wordWrap:{width:PW-140}}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+46,SY0+y+42,_dispDesc,{fontFamily:_F,fontSize:"8px",color:"#cc9988",stroke:"#000",strokeThickness:1,wordWrap:{width:PW-140}}).setOrigin(0,0.5));
+
+                    // Nadirlik
+                    const _rarCol=rarCols2[it.rarity]||"#fff";
+                    const _typeLbl=CURRENT_LANG==="tr"
+                        ?(it.type==="weapon"?"SILAH SKiNI":it.type==="bundle"?"PAKET":it.type==="chestpack"?"SANDIK":"KOSTUM")
+                        :(it.type==="weapon"?"WEAPON SKIN":it.type==="bundle"?"BUNDLE":it.type==="chestpack"?"CHEST":"SKIN");
+                    _add(T(cx-PW/2+46,SY0+y+58,(CURRENT_LANG==="tr"?(rarTR2[it.rarity]||it.rarity):it.rarity)+" "+_typeLbl,
+                        {fontFamily:_F,fontSize:"7.5px",color:_rarCol,stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+
+                    // Fiyat + buton
+                    const bx=cx+PW/2-48, bw=74, bh=34;
+                    const bG=G();
+                    bG.fillStyle(0x000000,0.45);bG.fillRoundedRect(bx-bw/2+1,SY0+y+rowH/2-bh/2+2,bw,bh,8);
+                    bG.fillStyle(0x7a0000,1);bG.fillRoundedRect(bx-bw/2,SY0+y+rowH/2-bh/2,bw,bh,8);
+                    bG.fillStyle(0xcc0000,1);bG.fillRoundedRect(bx-bw/2,SY0+y+rowH/2-bh/2,bw,bh*0.48,{tl:8,tr:8,bl:0,br:0});
+                    bG.fillStyle(0xffffff,0.10);bG.fillRoundedRect(bx-bw/2+3,SY0+y+rowH/2-bh/2+3,bw-6,bh*0.26,5);
+                    bG.lineStyle(1.5,0xff4422,0.9);bG.strokeRoundedRect(bx-bw/2,SY0+y+rowH/2-bh/2,bw,bh,8);
+                    _add(bG);
+                    _add(T(bx,SY0+y+rowH/2-7,it.price,{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:3}).setOrigin(0.5));
+                    _add(T(bx,SY0+y+rowH/2+9,CURRENT_LANG==="tr"?"SATIN AL":"BUY NOW",{fontFamily:_F,fontSize:"9px",color:"#ffaa88",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+
+                    // Tiklama — Telegram invoice
+                    const _it=it;
+                    _zone(PW-20-bw,y,PW-10,y+rowH,()=>{
+                        if(window.Telegram?.WebApp?.openInvoice){
+                            window.Telegram.WebApp.openInvoice(_it.invoiceId,(status)=>{
+                                if(status==="paid"){
+                                    if(_it.gems){ addGems(_it.gems); }
+                                    if(_it.chestIdx!=null&&_it.count){
+                                        for(let ci=0;ci<_it.count;ci++){
+                                            const skin=_rollChestSkin(_it.chestIdx);
+                                            _unlockSkin(skin.id);
+                                        }
+                                    }
+                                    NT_SFX.play("chest_legendary");
+                                    scene.cameras.main.flash(400,255,100,0,false);
+                                    const popT=scene.add.text(cx,SY0+y+rowH/2,
+                                        "✓ "+(_it.gems?"+"+_it.gems+"💎 ":"")+"UNLOCKED!",
+                                        {fontFamily:_F,fontSize:"15px",color:"#ffee44",stroke:"#000",strokeThickness:4}
+                                    ).setOrigin(0.5).setDepth(D+30).setAlpha(0);
+                                    scene.tweens.add({targets:popT,alpha:1,y:SY0+y+rowH/2-22,duration:350,ease:"Back.easeOut"});
+                                    scene.time.delayedCall(1400,()=>scene.tweens.add({targets:popT,alpha:0,duration:250,onComplete:()=>popT.destroy()}));
+                                    scene.time.delayedCall(900,()=>_sh());
+                                }
+                            });
+                        } else {
+                            // Test modu
+                            if(_it.gems){ addGems(_it.gems); }
+                            NT_SFX.play("upgrade_select");
+                            scene.time.delayedCall(300,()=>_sh());
+                        }
+                    });
+                    y+=rowH+6;
+                });
+
+                // Alt bilgi
+                const _infG=G();
+                _infG.fillStyle(0x0a0000,0.80);_infG.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,26,6);
+                _infG.lineStyle(1,0x551100,0.4);_infG.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,26,6);
+                _add(_infG);
+                _add(T(cx,SY0+y+13,CURRENT_LANG==="tr"?"🔒  Her gun gece yarisi sifirlanir — kagit gibi gider":"🔒  Resets daily at midnight — gone like smoke",
+                    {fontFamily:_F,fontSize:"8px",color:"#884444",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                y+=34;
+
+                totalH=y+10;
+                break;
+            }
+
             // ───────────────── GEMS ──────────────────────
             case "gems":{
                 let y=6;
@@ -3392,7 +3702,7 @@ function showShop(scene){
                     const spH=62;
                     const sg=G();sg.fillStyle(0x180828,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.lineStyle(2.5,0xff4488,0.9);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.fillStyle(0xff4488,0.06);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);_add(sg);
                     _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"BASLANGIC PAKETI  -":"STARTER PACK  -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" ELMAS + ":" GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#cc99bb",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" ELMAS + ":" GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=72,bh=30;
                     _btn(bx,SY0+y+spH/2,bw,bh,"⭐ "+STARTER.stars,0x88002a,0xff4488,null);
                     _zone(10,y,PW-10,y+spH,()=>{
@@ -3446,10 +3756,10 @@ function showShop(scene){
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#ffcc44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
                 const GOLD_PACKS=[
-                    {gold:5000,   price:"$0.99",  bonus:0,     tag:null,     popular:false},
-                    {gold:12000,  price:"$1.99",  bonus:2000,  tag:"popular",popular:true},
-                    {gold:30000,  price:"$3.99",  bonus:8000,  tag:null,     popular:false},
-                    {gold:80000,  price:"$7.99",  bonus:25000, tag:"best",   popular:false},
+                    {gold:6000,   price:"$1.99",  bonus:0,     tag:null,     popular:false},
+                    {gold:15000,  price:"$4.99",  bonus:3000,  tag:"popular",popular:true},
+                    {gold:40000,  price:"$9.99",  bonus:12000, tag:null,     popular:false},
+                    {gold:100000, price:"$19.99", bonus:35000, tag:"best",   popular:false},
                 ];
                 GOLD_PACKS.forEach((gp,i)=>{
                     const rowH=58;
@@ -11104,20 +11414,20 @@ class SceneMainMenu extends Phaser.Scene {
 
                     const _greetTR = [
                         "Nihayet geldin, NOT seni bekliyordu.",
-                        "Geri döndün mü? NOT şaşırdı.",
-                        "Eksikliğini NOT hissetti. (Biraz.)",
-                        "Kaybolmuştun. Piramitler özlemişti.",
-                        "Geri dönmesini beklemiyorduk. — NOT",
-                        "NOT sana kızmadı. Sormayacak bile.",
-                        "Bu bir geri dönüş. NOT bir zafer.",
-                        "NOT olmadan oyun oynayan var mıydı? Olmaz.",
+                        "Geri dondum mu? NOT sasirdi.",
+                        "Eksikligini NOT hissetti. (Biraz.)",
+                        "Kaybolmuştun. Piramitler ozlemisti.",
+                        "Geri donmesini beklemiyorduk. — NOT",
+                        "NOT sana kizmadi. Sormayacak bile.",
+                        "Bu bir geri donus. NOT bir zafer.",
+                        "NOT olmadan oyun oynayan var miydi? Olmaz.",
                         "Sabret dedik. Sabrettin. Aferin. — NOT",
-                        "Gitmiştin. NOT hayatına devam etti. Zordu.",
-                        "Üçgenler seni bekliyordu. NOT de.",
-                        "Kapı her zaman açıktı. Ama NOT kızmıştı.",
-                        "Dön dememiştik. Ama iyi ki döndün. — NOT",
-                        "NOT bu oyunu adil yapmak istemedi. Hâlâ istemiyor.",
-                        "Geri döndüğüne değdi mi? NOT merak etti.",
+                        "Gitmistin. NOT hayatina devam etti. Zordu.",
+                        "Ucgenler seni bekliyordu. NOT de.",
+                        "Kapi her zaman acikti. Ama NOT kizmisti.",
+                        "Don demeye mecbur degiliz. Iyi ki dondin. — NOT",
+                        "NOT bu oyunu adil yapmak istemedi. Hala istemiyor.",
+                        "Geri donduğune deger miydi? NOT merak etti.",
                     ];
                     const _greetEN = [
                         "Finally! NOT was waiting for you.",
@@ -11141,7 +11451,7 @@ class SceneMainMenu extends Phaser.Scene {
 
                     const isTR = CURRENT_LANG==="tr";
                     const _timeStr = isTR
-                        ? `${_hours} saat${_hours>1?"":""} sonra geri dondum`
+                        ? `${_hours} saat sonra geri dondum`
                         : `Away for ${_hours} hour${_hours!==1?"s":""}`;
 
                     // ── TUM NESNELER ──────────────────────────────────────
@@ -11224,15 +11534,15 @@ class SceneMainMenu extends Phaser.Scene {
                     ).setOrigin(0.5,0).setDepth(_D+2).setAlpha(0));
 
                     // ── GOLD ODULU — ikon ve rakam yan yana, ortalanmis ──
-                    const _goldNumTxt = _A(_S.add.text(_CX - 6, _PY+_STRIP+106,
+                    const _goldNumTxt = _A(_S.add.text(_CX - 4, _PY+_STRIP+106,
                         "+"+_goldReward,
                         { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"30px",
                           color:"#ffdd00", stroke:"#1a0a00", strokeThickness:5 }
                     ).setOrigin(1,0.5).setDepth(_D+2).setAlpha(0).setScale(0.5));
 
                     if(_S.textures.exists("icon_gold")){
-                        _A(_S.add.image(_CX, _PY+_STRIP+106, "icon_gold")
-                            .setDisplaySize(34,34).setOrigin(0,0.5).setDepth(_D+2).setAlpha(0));
+                        _A(_S.add.image(_CX + 2, _PY+_STRIP+106, "icon_gold")
+                            .setDisplaySize(32,32).setOrigin(0,0.5).setDepth(_D+2).setAlpha(0));
                     }
 
                     // ── TAMAM BUTONU ──────────────────────────────────────
@@ -11643,6 +11953,80 @@ class SceneMainMenu extends Phaser.Scene {
             }});
         }
 
+        // ── FLASH SALE BUTONU — gem pillinin tam altinda, sag kosede ──
+        {
+            const _fs   = this;
+            // Gem pill koordinatlari (top bar ile ayni hardcoded degerler)
+            const _PW   = 90, _PH = 28, _TY = 8;
+            const _GX   = W - 8 - _PW;          // gem pill sol kenari = 262
+            const _BW   = 54, _BH = 20;
+            const _BX   = _GX + _PW - _BW;      // sag kenari gem pillina hizali = 352-54=298
+            const _BY   = _TY + _PH + 5;        // gem pillinin 5px altinda = 41
+            const _FCX  = _BX + _BW / 2;        // merkez x = 325
+
+            const _fsBg = _fs.add.graphics().setDepth(12).setAlpha(0);
+            const _drawFsBg = (pressed) => {
+                _fsBg.clear();
+                // Golge
+                _fsBg.fillStyle(0x000000, 0.35);
+                _fsBg.fillRoundedRect(_BX+1, _BY+2, _BW, _BH, 6);
+                // Ana — koyu lacivert, kirmizidan uzak
+                _fsBg.fillStyle(pressed ? 0x0a0f1a : 0x0c1220, 1);
+                _fsBg.fillRoundedRect(_BX, _BY, _BW, _BH, 6);
+                // Ust parlama serit
+                _fsBg.fillStyle(0xffffff, pressed ? 0.03 : 0.07);
+                _fsBg.fillRoundedRect(_BX+2, _BY+2, _BW-4, _BH*0.38, 4);
+                // Cerceve — turuncu/amber (kirmizi degil)
+                _fsBg.lineStyle(1.5, pressed ? 0xaa6600 : 0xff8800, pressed ? 0.7 : 1.0);
+                _fsBg.strokeRoundedRect(_BX, _BY, _BW, _BH, 6);
+            };
+            _drawFsBg(false);
+
+            // ⚡ emoji
+            const _fsEmoji = _fs.add.text(_FCX - 8, _BY + _BH/2, "⚡",
+                { fontSize:"12px" }
+            ).setOrigin(0.5, 0.5).setDepth(13).setAlpha(0);
+
+            // "SALE" yazisi
+            const _fsTxt = _fs.add.text(_FCX + 5, _BY + _BH/2,
+                "SALE",
+                { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
+                  color:"#ffaa44", stroke:"#000", strokeThickness:2 }
+            ).setOrigin(0.5, 0.5).setDepth(13).setAlpha(0);
+
+            // Ünlem badge — sabit daire, sadece ! nefes alir
+            const _fsBadgeBg = _fs.add.graphics().setDepth(14).setAlpha(0);
+            _fsBadgeBg.fillStyle(0xff4400, 1);
+            _fsBadgeBg.fillCircle(_BX + _BW + 1, _BY - 1, 7);
+            _fsBadgeBg.fillStyle(0xffffff, 0.25);
+            _fsBadgeBg.fillCircle(_BX + _BW - 0.5, _BY - 2.5, 3);
+
+            // SADECE ! yazisi nefes alir
+            const _fsBadgeTxt = _fs.add.text(_BX + _BW + 1, _BY - 1, "!",
+                { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"10px",
+                  color:"#ffffff", stroke:"#220000", strokeThickness:2 }
+            ).setOrigin(0.5, 0.5).setDepth(15).setAlpha(0);
+
+            // Fade in
+            _fs.tweens.add({ targets:[_fsBg, _fsEmoji, _fsTxt, _fsBadgeBg, _fsBadgeTxt],
+                alpha:1, duration:380, delay:650, ease:"Quad.easeOut" });
+
+            // SADECE ! nefes alir — badge dairesi sabit
+            _fs.tweens.add({
+                targets: _fsBadgeTxt,
+                scaleX: 1.35, scaleY: 1.35,
+                duration: 650, ease: "Sine.easeInOut",
+                yoyo: true, repeat: -1
+            });
+
+            // Tiklama alani
+            const _fsHit = _fs.add.rectangle(_FCX, _BY + _BH/2, _BW + 16, _BH + 12, 0xffffff, 0.001)
+                .setDepth(16).setInteractive({useHandCursor:true});
+            _fsHit.on("pointerdown", ()=>{ try{NT_SFX.play("menu_click");}catch(_){} _drawFsBg(true); });
+            _fsHit.on("pointerup",   ()=>{ _drawFsBg(false); _fs._showShop("flash"); });
+            _fsHit.on("pointerout",  ()=>{ _drawFsBg(false); });
+        }
+
         // ── PLAYER LEVEL — sol ust, dairesel XP dolum halkasi ──
         {
             const CIR_R   = 22;
@@ -11728,6 +12112,7 @@ class SceneMainMenu extends Phaser.Scene {
             const _lvItems = [lvG, lvNumTxt, lvLabelTxt];
             if(lvPrestigeTxt) _lvItems.push(lvPrestigeTxt);
             this.tweens.add({ targets: _lvItems, alpha: 1, duration: 420, delay: 520, ease: 'Quad.easeOut' });
+
             // ── LEVEL UP MENU BILDIRIMI ─────────────────────────────────
             const _pendingLvUp = parseInt(secureGet("nt_lvup_pending", "0", "0"));
             if(_pendingLvUp > 0){
@@ -12056,7 +12441,7 @@ class SceneMainMenu extends Phaser.Scene {
     }
 
     // ── Shop ─────────────────────────────────────────────────────────
-    _showShop() { NT_Monetization.showShop(this); }
+    _showShop(tab) { NT_Monetization.showShop(this, tab); }
     _showSettings(){
         // Use mm_panel (340px wide) centered slightly higher to leave room
         const {A,close,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW,CX,depth}
