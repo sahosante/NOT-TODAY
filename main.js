@@ -1679,6 +1679,7 @@ const NT_SFX = (function(){
         sfx_lightning(){
             // Crackling electric snap — short, sharp, high-frequency
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
+            if(!_acquireVoice()) return; // [FIX] Guard BEFORE any node creation
             const t=ctx.currentTime, pan=_vary(0,0.55);
             // Main snap — fast rising then falling freq
             const o=ctx.createOscillator(), g=ctx.createGain();
@@ -13614,7 +13615,7 @@ class SceneGame extends Phaser.Scene {
                 const _visited=new Set([enemy]);
                 const doBounce=()=>{
                     if(!GS||GS.gameOver) return;
-                    if(b._chainCount>=6) return;  // BUFF: 3→6 sekme
+                    if(b._chainCount>=4) return;  // BALANCE: 6→4 sekme (chain lightning ile kombinasyonda aşırı güçlüydü)
                     b._chainCount++;
                     const allE=_S._activeEnemies&&_S._activeEnemies.length>0?_S._activeEnemies:_S.pyramids.getMatching("active",true);
                     let nearest=null; let nearD=9999;
@@ -13623,7 +13624,7 @@ class SceneGame extends Phaser.Scene {
                         if(!ce.active||_visited.has(ce)||ce.spawnProtected) continue;
                         const _dx=ce.x-lastX, _dy=ce.y-lastY;
                         const _d=Math.sqrt(_dx*_dx+_dy*_dy);
-                        if(_d<420&&_d<nearD){nearD=_d;nearest=ce;}  // BUFF: 280→420 menzil
+                        if(_d<320&&_d<nearD){nearD=_d;nearest=ce;}  // BALANCE: 420→320 menzil
                     }
                     if(!nearest) return;
                     // Chain VFX — segmented electric lightning arc
@@ -13668,10 +13669,12 @@ class SceneGame extends Phaser.Scene {
                     _S.tweens.add({targets:flash,alpha:0,scaleX:2.5,scaleY:2.5,duration:150,onComplete:()=>{try{flash.destroy();}catch(e){}}});
                     _S.tweens.add({targets:lg,alpha:0,duration:280,onComplete:()=>{try{lg.destroy();}catch(e){console.warn("[NT] Hata yutuldu:",e)}}});
                     // BUFF: hasar artirildi — falloff azaltildi
-                    const falloff=Math.pow(0.92,b._chainCount); // BUFF: 0.88→0.92 daha az falloff
-                    applyDmg(_S,nearest,GS.damage*1.15*falloff,false); // BUFF: 0.95→1.15 daha guclu
-                    NT_SFX.play("shoot_chain");
-                    if(GS._synergyChainLightning) doLightning(_S);
+                    const falloff=Math.pow(0.82,b._chainCount); // BALANCE: 0.92→0.82 daha fazla falloff (chain lightning ile kombinasyonda dengeli)
+                    applyDmg(_S,nearest,GS.damage*0.85*falloff,false); // BALANCE: 1.15→0.85 zincir hasarı dengelendi
+                    // [SES FIX] Sadece 1. ve son sekmede ses çal — her sekmede 9 voice yerine max 2 kez
+                    if(b._chainCount===1 || b._chainCount>=4) NT_SFX.play("shoot_chain");
+                    // [BALANCE FIX] Chain Lightning: tüm sekme zincirinde sadece 1 kez tetikle
+                    if(GS._synergyChainLightning && b._chainCount===1) doLightning(_S);
                     _visited.add(nearest);
                     lastX=nearest.x; lastY=nearest.y;
                     _S.time.delayedCall(70,doBounce); // BUFF: 80→70ms daha hizli sekme
