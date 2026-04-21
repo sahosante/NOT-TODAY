@@ -11193,16 +11193,16 @@ class SceneMainMenu extends Phaser.Scene {
                           color:"#5566aa", stroke:"#000", strokeThickness:1 }
                     ).setOrigin(0.5,0).setDepth(_D+2).setAlpha(0));
 
-                    // ── GOLD ODULU ────────────────────────────────────────
-                    const _goldNumTxt = _A(_S.add.text(_CX-14, _PY+_STRIP+106,
+                    // ── GOLD ODULU — ikon ve rakam yan yana, ortalanmis ──
+                    const _goldNumTxt = _A(_S.add.text(_CX - 6, _PY+_STRIP+106,
                         "+"+_goldReward,
                         { fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"30px",
                           color:"#ffdd00", stroke:"#1a0a00", strokeThickness:5 }
                     ).setOrigin(1,0.5).setDepth(_D+2).setAlpha(0).setScale(0.5));
 
                     if(_S.textures.exists("icon_gold")){
-                        _A(_S.add.image(_CX+12, _PY+_STRIP+106, "icon_gold")
-                            .setDisplaySize(28,28).setOrigin(0,0.5).setDepth(_D+2).setAlpha(0));
+                        _A(_S.add.image(_CX, _PY+_STRIP+106, "icon_gold")
+                            .setDisplaySize(34,34).setOrigin(0,0.5).setDepth(_D+2).setAlpha(0));
                     }
 
                     // ── TAMAM BUTONU ──────────────────────────────────────
@@ -11259,6 +11259,9 @@ class SceneMainMenu extends Phaser.Scene {
                     // ── GIRIS ANiMASYONU ──────────────────────────────────
                     // Overlay fade
                     _S.tweens.add({targets:_ov,alpha:1,duration:250});
+
+                    // Acilis sesi
+                    try{ NT_SFX.play("panel_open_shop"); }catch(_){}
 
                     // Panel scale-bounce giris
                     _pg.setScale(0.88).setAlpha(0);
