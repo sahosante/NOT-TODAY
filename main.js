@@ -2337,20 +2337,20 @@ function showBigReward(scene, x, y, type, amount, depth){
         }
     });
 
-    // 6) Secondary label
-    const label = isGem ? "GEMS" : "GOLD";
-    const sub = scene.add.text(x, y-10, label, {
-        fontFamily: _F, fontSize: "11px", color: colStr,
-        stroke: "#000000", strokeThickness: 2
-    }).setOrigin(0.5).setDepth(D+32).setAlpha(0);
-    scene.tweens.add({
-        targets: sub, alpha: 0.7, y: y-30, duration: 500, delay: 200, ease: "Quad.easeOut",
-        onComplete: ()=>{
-            scene.time.delayedCall(1200, ()=>{
-                scene.tweens.add({targets:sub, alpha:0, duration:300, onComplete:()=>sub.destroy()});
-            });
-        }
-    });
+    // 6) Secondary label — ikon ile
+    const _subIcKey = isGem ? "icon_gem" : "icon_gold";
+    if(scene.textures.exists(_subIcKey)){
+        const sub = scene.add.image(x, y-10, _subIcKey)
+            .setDisplaySize(22,22).setOrigin(0.5).setDepth(D+32).setAlpha(0);
+        scene.tweens.add({
+            targets: sub, alpha: 0.75, y: y-30, duration: 500, delay: 200, ease: "Quad.easeOut",
+            onComplete: ()=>{
+                scene.time.delayedCall(1200, ()=>{
+                    scene.tweens.add({targets:sub, alpha:0, duration:300, onComplete:()=>sub.destroy()});
+                });
+            }
+        });
+    }
 
     // 7) Actually give the reward
     if(isGem) addGems(amount);
@@ -3428,7 +3428,7 @@ function showShop(scene){
                 _add(goldSecHdr);
                 _addCurrIcon(cx-50,SY0+y+15,"gold",22);
                 _add(T(cx-28,SY0+y+15,PLAYER_GOLD.toLocaleString(),{fontFamily:_F,fontSize:"17px",color:"#ffcc00",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                _add(T(cx+PW/2-24,SY0+y+15,CURRENT_LANG==="tr"?"ALTIN":"GOLD",{fontFamily:_F,fontSize:"11px",color:"#aa8800",stroke:"#000",strokeThickness:1}).setOrigin(1,0.5));
+                _addCurrIcon(cx+PW/2-24,SY0+y+15,"gold",18);
                 y+=38;
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ALTIN PAKETLERi":"GOLD PACKS",{fontFamily:_F,fontSize:"13px",color:"#ffcc44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
@@ -4187,8 +4187,9 @@ function showIAPStore(scene){
     const subStr=CURRENT_LANG==="ru"?"Покупай гемы · используй для контента":CURRENT_LANG==="en"?"Buy gems · use for exclusive content":"Elmas al · ozel icerikler icin kullan";
     addO(scene.add.text(W/2,46,subStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc"}).setOrigin(0.5).setDepth(12));
 
-    // Mevcut bakiye
-    const gemTxt=addO(scene.add.text(80,65,"GEM "+PLAYER_GEMS,{font:"bold 15px LilitaOne, Arial, sans-serif",color:"#cc44ff"}).setOrigin(0,0.5).setDepth(12));
+    // Mevcut bakiye — ikon + rakam
+    if(scene.textures.exists("icon_gem")) addO(scene.add.image(56,65,"icon_gem").setDisplaySize(20,20).setOrigin(0,0.5).setDepth(12));
+    const gemTxt=addO(scene.add.text(80,65,PLAYER_GEMS.toLocaleString(),{font:"bold 15px LilitaOne, Arial, sans-serif",color:"#cc44ff"}).setOrigin(0,0.5).setDepth(12));
 
 
     // Gem paketleri
@@ -4271,7 +4272,7 @@ function showIAPStore(scene){
             // — ucretsiz gem verilmez.
             if(window.Telegram?.WebApp?.openInvoice){
                 window.Telegram.WebApp.openInvoice("gem_"+i,(status)=>{
-                    if(status==="paid"){addGems(pack.gems+pack.bonus);gemTxt.setText("GEM "+PLAYER_GEMS);showPurchaseEffect(scene,CX+CW/2,cy+CARD_H/2,tagCol,pack.gems+pack.bonus,"GEM");}
+                    if(status==="paid"){addGems(pack.gems+pack.bonus);gemTxt.setText(PLAYER_GEMS.toLocaleString());showPurchaseEffect(scene,CX+CW/2,cy+CARD_H/2,tagCol,pack.gems+pack.bonus,"GEM");}
                 });
             } else {
                 // Prod guvenligi: Telegram disi ortamda satin alma devre disi.
@@ -18121,11 +18122,12 @@ function gameOver(S){
         S.tweens.add({targets:costT,alpha:1,duration:220,delay:160});
 
         // Mevcut gem sayisi
-        const gemBalStr = (CURRENT_LANG==="tr"?"MEVCUT: ":"HAVE: ")+PLAYER_GEMS+" 💎";
+        const gemBalStr = (CURRENT_LANG==="tr"?"MEVCUT: ":"HAVE: ")+PLAYER_GEMS;
         A2(S.add.text(CX2,PY+98,gemBalStr,{
             fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"11px",
             color:canAfford?"#cc9944":"#885533",stroke:"#000",strokeThickness:2
         }).setOrigin(0.5).setDepth(D2+2).setAlpha(0));
+        if(S.textures.exists("icon_gem")) A2(S.add.image(CX2+gemBalStr.length*4.5,PY+98,"icon_gem").setDisplaySize(13,13).setOrigin(0,0.5).setDepth(D2+2).setAlpha(0));
 
         if(!canAfford){
             A2(S.add.text(CX2,PY+114,L("notEnoughGems"),{
@@ -18382,10 +18384,11 @@ function showDiamondReviveScreen(S, bgOv){
     }).setOrigin(0.5).setDepth(952);
 
     // Elmas bakiyesi
-    S.add.text(W/2,298,L("goGemsStatus")+" "+PLAYER_GEMS+" 💎",{
+    S.add.text(W/2,298,L("goGemsStatus")+" "+PLAYER_GEMS,{
         font:"bold 14px LilitaOne, Arial, sans-serif",
         color:PLAYER_GEMS>=5?"#cc99ff":"#ff4444"
     }).setOrigin(0.5).setDepth(952);
+    if(S.textures.exists("icon_gem")) S.add.image(W/2+42,298,"icon_gem").setDisplaySize(16,16).setOrigin(0,0.5).setDepth(952);
 
     // ── GERI SAYIM DAIRESI ──
     let countdown=3;
