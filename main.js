@@ -4749,7 +4749,7 @@ const LANG_DATA = {
         goGemsStatus:"💎 Mevcut:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
         goRevivePrompt:"DIRILMEK ISTER MISIN?",goReviveCrystalCost:"Mevcut:",
         goReviveBtn:"✦ DIRIL  (3 💎)",
-        leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"Henuz skor yok!",lbYou:"(Sen)",lbSubmit:"Skoru Gonder",lbError:"Baglanti hatasi",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
+        leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"NOThing yok burada. Henüz.",lbYou:"(Sen)",lbSubmit:"Skoru Gonder",lbError:"NOT bağlandı. Tahmin et neden.",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
         menuPlay:"OYNA",menuShop:"MAGAZA",menuSettings:"AYARLAR",menuLeaderboard:"SKOR TABLOSU",
         playAgain:"TEKRAR OYNA",mainMenu:"ANA MENU",gameOver:"OYUN BITTI",
         eventGoldRush:"ALTIN AKINI",eventGoldRushMsg:"ALTIN AKINI! +150 Altin Aninda / +40% Altin (35sn)",
@@ -4875,7 +4875,7 @@ const LANG_DATA = {
         goGemsStatus:"💎 Gems:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
         goRevivePrompt:"WANT TO REVIVE?",goReviveCrystalCost:"Current:",
         goReviveBtn:"✦ REVIVE  (3 💎)",
-        leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"No scores yet!",lbYou:"(You)",lbSubmit:"Submit Score",lbError:"Connection error",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
+        leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"NOThing here yet.",lbYou:"(You)",lbSubmit:"Submit Score",lbError:"NOT connected. Shocking.",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
         menuPlay:"PLAY",menuShop:"SHOP",menuSettings:"SETTINGS",menuLeaderboard:"LEADERBOARD",
         playAgain:"PLAY AGAIN",mainMenu:"MAIN MENU",gameOver:"GAME OVER",
         revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"No thanks",notEnoughGems:"Not enough gems!",revived:"✦ REVIVED!",
@@ -9943,7 +9943,7 @@ function spawnKillText(S, x, y){
         // chain 3 — triple
         ["TRIPLE!", "NOT DONE YET!", "ÜÇLÜ FIRTINA!", "NOT STOPPING!", "ÜÇ BİRDEN!", "NOT A TRIANGLE FAN", "NOT EVEN CLOSE TO DONE", "ÜÇLÜ NOT!"],
         // chain 4 — quad
-        ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOT POSSIBLE?!", "OH. THAT WAS NOT IT.", "DÖRT! NOT BITTI!"],
+        ["QUAD KILL!", "NOT HUMAN!", "DÖRTLÜ KIYIM!", "NOT EVEN TRYING!", "4X NOT FAIR", "NOThing can stop you.", "OH. THAT WAS NOT IT.", "DÖRT! NOT BITTI!", "NOThing left here."],
         // chain 5 — penta / max
         ["NOT FAIR!!!", "N-O-T FAIR!", "BEŞ! BEŞ! BEŞ!", "TAMAMEN NOT!", "FULL NOT MODE!", "5X NOT FAIR 💀", "NOT THE HERO WE NEEDED.", "BU NOT OLMALI!"]
     ];
@@ -11333,7 +11333,7 @@ function NT_CheckAchievements(scene, gs){
     if(!_NT_ACH_DONE.has("first_death"))
         NT_ShowAchievement(scene,"first_death",
             "Ilk Olum","First Blood",
-            "NOT Corp tescilledi. Hos geldin!","Registered by NOT Corp. Welcome!","💀");
+            "NOT Corp tescilledi. Hos geldin!","NOThing to be ashamed of. (A lot, actually.)","💀");
     // 1000+ skor
     if(gs.score>=1000&&!_NT_ACH_DONE.has("score_1k"))
         NT_ShowAchievement(scene,"score_1k",
@@ -11363,7 +11363,7 @@ function NT_CheckAchievements(scene, gs){
     if(gs.level>=10&&!_NT_ACH_DONE.has("level_10"))
         NT_ShowAchievement(scene,"level_10",
             "Seviye 10","Level 10",
-            "10 seviye hayatta kaldin. Tesaduf.","Survived 10 levels. Coincidence.","⬆️");
+            "10 seviye hayatta kaldin. Tesaduf.","NOThing but luck. And we mean it.","⬆️");
 }
 
 class SceneMainMenu extends Phaser.Scene {
@@ -18259,6 +18259,8 @@ function gameOver(S){
             "NOT the hero we needed.",
             "Error 404: Victory NOT found. Again.",
             "Surprisingly NOT alive.",
+            "NOThing went wrong. Everything did.",
+            "NOThing to see here. Move along.",
         ];
         const _goFunnyTR = [
             "Tamamen adil. Söz veriyoruz. 🤞",
@@ -18284,6 +18286,8 @@ function gameOver(S){
             "NOT gereken kahraman değildin.",
             "Hata 404: Zafer NOT bulundu. Yine.",
             "Şaşırtıcı biçimde NOT hayatta.",
+            "NOThing kalmadı. Her şey gitti.",
+            "NOThing yanlış gitmedi. Her şey gitti.",
         ];
         const _goFunnyRU = [
             "Честно? Нет. Именно так задумано.",
