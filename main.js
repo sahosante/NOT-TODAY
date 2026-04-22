@@ -33,7 +33,10 @@
     }
 
     // ── TELEGRAM'A MESAJ GONDER ───────────────────────────────
+    // CORS fix: only send when running inside Telegram WebApp
+    const _inTelegram = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
     async function _send(text) {
+        if (!_inTelegram) return; // skip on localhost / non-Telegram env
         try {
             await fetch(TG_URL, {
                 method:  "POST",
@@ -51,6 +54,7 @@
 
     // ── BEACON ILE GONDER (sayfa kapanirken) ──────────────────
     function _sendBeacon(text) {
+        if (!_inTelegram) return; // skip on localhost / non-Telegram env
         try {
             const payload = JSON.stringify({
                 chat_id:    CHAT_ID,
@@ -274,9 +278,9 @@ const NT_SFX = (function(){
         const dest=bus||_sfxBus;
         const o=ctx.createOscillator(), g=ctx.createGain();
         o.type=type;
-        o.frequency.setValueAtTime(Math.max(freq,1),t0);
+        o.frequency.setValueAtTime(Math.min(Math.max(freq,1),22000),t0);
         if(detuneC) o.detune.setValueAtTime(detuneC,t0);
-        if(freqEnd!=null) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,1),t0+dur);
+        if(freqEnd!=null) o.frequency.exponentialRampToValueAtTime(Math.min(Math.max(freqEnd,1),22000),t0+dur);
         g.gain.setValueAtTime(gain,t0);
         g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
         if(panVal!==0){ const p=_mkPan(ctx,panVal); if(p){ o.connect(g); g.connect(p); p.connect(dest); o.start(t0); o.stop(t0+dur+0.02); try{o.onended=()=>_releaseVoice();}catch(e){setTimeout(()=>_releaseVoice(),(dur+0.1)*1000);} return o; } }
@@ -1348,15 +1352,15 @@ const NT_SFX = (function(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
             const o=ctx.createOscillator(), g=ctx.createGain(), p=_mkPan(ctx,_vary(0,0.15));
-            o.type="sine"; o.frequency.setValueAtTime(_vary(1100,60),t);
-            o.frequency.exponentialRampToValueAtTime(_vary(780,40),t+0.040);
+            o.type="sine"; o.frequency.setValueAtTime(_vary(1100,0.055),t);
+            o.frequency.exponentialRampToValueAtTime(_vary(780,0.051),t+0.040);
             g.gain.setValueAtTime(0,t);
             g.gain.linearRampToValueAtTime(_vol(0.72),t+0.005);
             g.gain.exponentialRampToValueAtTime(0.0001,t+0.055);
             o.connect(p); p.connect(g); g.connect(_uiBus);
             o.start(t); o.stop(t+0.065);
             // Second harmonic tail
-            _osc("sine",_vary(550,30), t+0.018, 0.045, _vol(0.42), null, _uiBus);
+            _osc("sine",_vary(550,0.055), t+0.018, 0.045, _vol(0.42), null, _uiBus);
             // Crisp click noise
             _noise(t, 0.010, _vol(0.38), 4500, 14000, _uiBus);
         },
@@ -4610,7 +4614,7 @@ function showIAPStore(scene){
     });
 
     // _closeBtn was never implemented on the scene — use NT_YellowBtn directly
-    objs.push(...NT_YellowBtn(scene,W/2,H-16,190,42,CURRENT_LANG==="tr"?"✕  KAPAT":"✕  CLOSE",12,()=>close()));
+    objs.push(...NT_YellowBtn(scene,W/2,H-16,190,42,CURRENT_LANG==="tr"?"✕  CLOSE":"✕  CLOSE",12,()=>close()));
     scene._openPanel=objs;
 }
 
@@ -10994,7 +10998,7 @@ function NT_OpenPopup(scene, texKey, targetW, titleStr, panelCY, depth, onClose,
 
     // Close button — always at bottom of panel, 30px from edge
     const closeY=pBot-32;
-    const [cb,ct,ch]=NT_YellowBtn(scene,CX,closeY,190,42,CURRENT_LANG==="tr"?"✕  KAPAT":"✕  CLOSE",depth+3,()=>close());
+    const [cb,ct,ch]=NT_YellowBtn(scene,CX,closeY,190,42,CURRENT_LANG==="tr"?"✕  CLOSE":"✕  CLOSE",depth+3,()=>close());
     A(cb);A(ct);A(ch);
 
     // ── AÇILIŞ ANİMASYONU — her animType için farklı + komik ──────────────
@@ -11373,6 +11377,723 @@ function NT_CheckAchievements(scene, gs){
             "Seviye 10","Level 10",
             "10 seviye hayatta kaldin. Tesaduf.","NOThing but luck. And we mean it.","⬆️");
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// NOT CORP KELIME BULMACA (WORDLE) — v2.0
+// 5 harfli günlük kelime tahmin oyunu
+// ═══════════════════════════════════════════════════════════════
+
+function showNotGame(scene){
+    // ════════════════════════════════════════════════════════════
+    // CONFIG
+    // ════════════════════════════════════════════════════════════
+    const _F   = "LilitaOne, Arial, sans-serif";
+    const CX   = 180, W = 360, H = 640;
+    const D    = 30; // base depth
+    const COLS = 4, ROWS = 4, CELLS = 16;
+    const MAX_LIVES = 5;
+    const CD_MS     = 12 * 3600 * 1000;
+    const SEQ  = ["N","O","T"];
+    const getL = t => SEQ[t % 3];
+    const LC   = {N:"#FFD700", O:"#7eb8ff", T:"#FF8C00"};
+    const LC_H = {N:0xFFD700,  O:0x7eb8ff,  T:0xFF8C00};
+
+    // ── Win lines ────────────────────────────────────────────────
+    const LINES=(()=>{
+        const L=[];
+        for(let r=0;r<ROWS;r++) for(let c=0;c<=COLS-3;c++) L.push([r*COLS+c,r*COLS+c+1,r*COLS+c+2]);
+        for(let c=0;c<COLS;c++) for(let r=0;r<=ROWS-3;r++) L.push([r*COLS+c,(r+1)*COLS+c,(r+2)*COLS+c]);
+        for(let r=0;r<=ROWS-3;r++) for(let c=0;c<=COLS-3;c++) L.push([r*COLS+c,(r+1)*COLS+c+1,(r+2)*COLS+c+2]);
+        for(let r=2;r<ROWS;r++) for(let c=0;c<=COLS-3;c++) L.push([r*COLS+c,(r-1)*COLS+c+1,(r-2)*COLS+c+2]);
+        return L;
+    })();
+
+    function checkWin(b){
+        for(const [a,o,t] of LINES) if(b[a]==="N"&&b[o]==="O"&&b[t]==="T") return [a,o,t];
+        return null;
+    }
+    function heuristic(b){
+        let s=0;
+        for(const [a,o,t] of LINES){
+            const [va,vo,vt]=[b[a],b[o],b[t]];
+            if(va==="N"&&vo==="O"&&!vt)s+=36; else if(!va&&vo==="O"&&vt==="T")s+=26;
+            else if(va==="N"&&!vo&&vt==="T")s+=14; else if(va==="N"&&!vo&&!vt)s+=5;
+            else if(!va&&vo==="O"&&!vt)s+=4; else if(!va&&!vo&&vt==="T")s+=4;
+        }
+        return s;
+    }
+    function minimax(b,t,al,be,d){
+        const w=checkWin(b); if(w) return (t-1)%2===1?(620-d):-(620-d);
+        if(b.every(c=>c!==null)||d===0) return heuristic(b);
+        const letter=getL(t),ai=t%2===1; let best=ai?-9999:9999;
+        for(let i=0;i<CELLS;i++){
+            if(b[i]!==null) continue;
+            b[i]=letter; const s=minimax(b,t+1,al,be,d-1); b[i]=null;
+            if(ai){best=Math.max(best,s);al=Math.max(al,s);}else{best=Math.min(best,s);be=Math.min(be,s);}
+            if(be<=al) break;
+        }
+        return best;
+    }
+    function botPick(board,t){
+        const letter=getL(t);
+        for(let i=0;i<CELLS;i++){if(board[i]!==null)continue;board[i]=letter;const w=checkWin(board);board[i]=null;if(w)return i;}
+        let best=-9999,move=board.findIndex(c=>c===null);
+        for(let i=0;i<CELLS;i++){if(board[i]!==null)continue;board[i]=letter;const s=minimax(board,t+1,-9999,9999,5);board[i]=null;if(s>best){best=s;move=i;}}
+        return move;
+    }
+
+    // ── Storage ──────────────────────────────────────────────────
+    const SK="nt_notgame_v4";
+    function _load(){
+        try{
+            const raw=secureGet(SK,"","");
+            if(!raw) return {lives:MAX_LIVES,lastOut:0,stats:{w:0,l:0,d:0},streak:0,seen:false};
+            const d={lives:MAX_LIVES,lastOut:0,stats:{w:0,l:0,d:0},streak:0,seen:false,...JSON.parse(raw)};
+            if(d.lives===0&&d.lastOut&&Date.now()-d.lastOut>=CD_MS){d.lives=MAX_LIVES;d.lastOut=0;}
+            return d;
+        }catch(e){return {lives:MAX_LIVES,lastOut:0,stats:{w:0,l:0,d:0},streak:0,seen:false};}
+    }
+    function _save(d){try{secureSet(SK,JSON.stringify(d));}catch(e){}}
+    function _fmtMs(ms){const t=Math.max(0,ms);return [Math.floor(t/3600000),Math.floor((t%3600000)/60000),Math.floor((t%60000)/1000)].map(v=>String(v).padStart(2,"0")).join(":");}
+    function _calcG(turns,stk){return(turns<=8?300:turns<=12?200:turns<=14?100:50)+Math.min((stk||0)*50,200);}
+
+    // ════════════════════════════════════════════════════════════
+    // OBJECT TRACKING + CLOSE
+    // ════════════════════════════════════════════════════════════
+    const objs=[]; const A=o=>{objs.push(o);return o;};
+    let _cdEv=null;
+    let _closed=false;
+
+    // Block menu hit zones with our full-screen rectangle (depth D=30, Phaser topOnly=true)
+    // No need to disable/enable - just destroy the rectangle on close
+
+    function _close(){
+        if(_closed) return;
+        _closed=true;
+        // Stop countdown timer
+        if(_cdEv){try{_cdEv.remove();}catch(_){} _cdEv=null;}
+        // Kill all tweens targeting our objects to prevent callbacks on destroyed objects
+        try{ objs.forEach(o=>{ try{scene.tweens.killTweensOf(o);}catch(_){} }); }catch(_){}
+        // Destroy all tracked objects (full-screen block rect is first → menu clickable instantly)
+        objs.forEach(o=>{try{if(o&&o.destroy)o.destroy();}catch(_){}});
+        objs.length=0;
+        // Force re-enable menu zones in case any prior disable call affected them
+        if(scene._menuHitZones) scene._menuHitZones.forEach(h=>{
+            try{if(h&&h.setInteractive)h.setInteractive({useHandCursor:true});}catch(_){}
+        });
+    }
+
+    // ── Game state ───────────────────────────────────────────────
+    let gd=_load();
+    let board=Array(CELLS).fill(null),turn=0,over=false,wLine=null,botOn=false,active=false,earned=0;
+
+    // ════════════════════════════════════════════════════════════
+    // FULL SCREEN BACKGROUND
+    // ════════════════════════════════════════════════════════════
+    A(scene.add.rectangle(CX,320,W,H,0x050505,1).setDepth(D).setInteractive());
+
+    // Subtle dot grid
+    const dotG=A(scene.add.graphics().setDepth(D+1));
+    for(let dx=15;dx<W;dx+=30)for(let dy=15;dy<H;dy+=30){
+        dotG.fillStyle(0xFFD700,0.018);dotG.fillCircle(dx,dy,1);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TITLE
+    // ════════════════════════════════════════════════════════════
+    A(scene.add.text(CX,22,"N · O · T",{fontFamily:_F,fontSize:"30px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+3));
+    A(scene.add.text(CX,50,"4×4 PUZZLE vs OPPONENT",{fontFamily:_F,fontSize:"9px",color:"#3a5a72",stroke:"#000",strokeThickness:0}).setOrigin(0.5).setDepth(D+3));
+
+    // ════════════════════════════════════════════════════════════
+    // STATS + LIVES ROW  (y=132)
+    // ════════════════════════════════════════════════════════════
+    const LR=66;
+    // Lives
+    A(scene.add.text(40,LR,"LIVES:",{fontFamily:_F,fontSize:"9px",color:"#4a6a88",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+    const liveDots=[];
+    for(let i=0;i<MAX_LIVES;i++){
+        const g=A(scene.add.graphics().setDepth(D+4));
+        g._px=72+i*14;g._py=LR;liveDots.push(g);
+    }
+    function _drawLives(){
+        for(let i=0;i<MAX_LIVES;i++){
+            const on=i<gd.lives;
+            liveDots[i].clear();
+            liveDots[i].fillStyle(on?0xFFD700:0x111820,1);liveDots[i].fillCircle(liveDots[i]._px,liveDots[i]._py,6);
+            liveDots[i].lineStyle(1.5,on?0xFFAA00:0x253545,1);liveDots[i].strokeCircle(liveDots[i]._px,liveDots[i]._py,6);
+        }
+    }
+    _drawLives();
+    // Separator
+    A(scene.add.text(148,LR,"·",{fontFamily:_F,fontSize:"12px",color:"#1a2a3a"}).setOrigin(0.5,0.5).setDepth(D+3));
+    // Gold icon + amount
+    A(scene.add.image(160,LR,"icon_gold").setDisplaySize(16,16).setDepth(D+4));
+    const goldTxt=A(scene.add.text(171,LR,"0",{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
+    function _drawGold(){if(goldTxt&&goldTxt.active)goldTxt.setText(PLAYER_GOLD.toLocaleString());}
+    _drawGold();
+    // Stats
+    const statsTxt=A(scene.add.text(224,LR,"W:0 L:0 D:0",{fontFamily:_F,fontSize:"9px",color:"#2a3c4e",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+4));
+    function _drawStats(){
+        const{w,l,d}=gd.stats;const ex=gd.streak>1?" 🔥"+gd.streak+"x":"";
+        if(statsTxt&&statsTxt.active)statsTxt.setText("W:"+w+" L:"+l+" D:"+d+ex).setColor(gd.streak>1?"#FF8C00":"#2a3c4e");
+    }
+    _drawStats();
+    // ? button
+    const QX=340,QY=LR;
+    const qG=A(scene.add.graphics().setDepth(D+4));
+    qG.fillStyle(0x0a1624,1).fillCircle(QX,QY,11);qG.lineStyle(1.5,0x2a4a6a,1).strokeCircle(QX,QY,11);
+    A(scene.add.text(QX,QY,"?",{fontFamily:_F,fontSize:"12px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+5));
+    A(scene.add.circle(QX,QY,11,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
+        .on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_showTut();});
+
+    // Countdown label
+    const cdLabel=A(scene.add.text(CX,LR+26,"",{fontFamily:_F,fontSize:"11px",color:"#FF8C00",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4).setVisible(false));
+
+    // ════════════════════════════════════════════════════════════
+    // DIVIDER + STATUS BAR
+    // ════════════════════════════════════════════════════════════
+    A(scene.add.graphics().setDepth(D+2)).lineStyle(1,0x1a3040,1).lineBetween(40,LR+14,320,LR+14);
+    const SR=LR+46; // y=112 — shifted down to clear orange timer
+    const statusTxt=A(scene.add.text(CX-14,SR,"PRESS PLAY TO START",{fontFamily:_F,fontSize:"11px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+    const curLetTxt=A(scene.add.text(CX+74,SR,"",{fontFamily:_F,fontSize:"26px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+5).setVisible(false));
+
+    // ════════════════════════════════════════════════════════════
+    // 4×4 GRID  (CS=64, CG=8 → GW=280, starts at GY0=180)
+    // ════════════════════════════════════════════════════════════
+    const CS=62,CG=10,GW=4*CS+3*CG; // 278 — increased gap to 10
+    const GX0=Math.round((W-GW)/2); // 40
+    const GY0=SR+18;                // 180 — ends at 460
+
+    // Dark plate
+    const plateBg=A(scene.add.graphics().setDepth(D+2));
+    plateBg.fillStyle(0x060e18,1).fillRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
+    plateBg.lineStyle(1.5,0x0c1e30,1).strokeRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
+
+    const cellGfx=[],cellTxt=[],cellHz=[];
+    for(let i=0;i<CELLS;i++){
+        const r=Math.floor(i/COLS),c=i%COLS;
+        const x=GX0+c*(CS+CG),y=GY0+r*(CS+CG);
+        const gfx=A(scene.add.graphics().setDepth(D+3)); gfx._x=x;gfx._y=y;
+        const txt=A(scene.add.text(x+CS/2,y+CS/2,"",{fontFamily:_F,fontSize:"30px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+5).setVisible(false));
+        const hz=A(scene.add.rectangle(x+CS/2,y+CS/2,CS,CS,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}));
+        hz.on("pointerdown",()=>_click(i));
+        hz.on("pointerover",()=>{if(!board[i]&&!over&&turn%2===0&&!botOn&&active)_drawCell(i,true);});
+        hz.on("pointerout", ()=>{if(!board[i])_drawCell(i,false);});
+        cellGfx.push(gfx);cellTxt.push(txt);cellHz.push(hz);
+    }
+    function _drawCell(i,hov){
+        const val=board[i],isW=wLine&&wLine.includes(i),g=cellGfx[i],x=g._x,y=g._y;
+        g.clear();
+        let bg=0x0c1e2e,bdC=0x162840,bdW=1.5;
+        if(isW){bg=0x1e1800;bdC=0xFFD700;bdW=3;}
+        else if(val==="N"){bg=0x181400;bdC=0xFFD700;}
+        else if(val==="O"){bg=0x0c1830;bdC=0x7eb8ff;}
+        else if(val==="T"){bg=0x1a1000;bdC=0xFF8C00;}
+        else if(hov){bg=0x112030;bdC=0x2a5a7a;}
+        g.fillStyle(bg,1);g.fillRoundedRect(x,y,CS,CS,10);
+        g.lineStyle(bdW,bdC,1);g.strokeRoundedRect(x,y,CS,CS,10);
+        if(!val&&!isW&&active&&!over&&turn%2===0&&!botOn)
+            g.fillStyle(0xffffff,hov?0.07:0.02).fillRoundedRect(x+3,y+3,CS-6,CS*0.35,5);
+        if(isW)g.fillStyle(LC_H[val],0.10).fillRoundedRect(x,y,CS,CS,10);
+        if(val)cellTxt[i].setText(val).setColor(LC[val]).setAlpha(1).setVisible(true);
+        else if(hov&&active&&!over&&turn%2===0&&!botOn)cellTxt[i].setText(getL(turn)).setColor(LC[getL(turn)]).setAlpha(0.18).setVisible(true);
+        else cellTxt[i].setVisible(false);
+    }
+    function _redrawAll(){for(let i=0;i<CELLS;i++)_drawCell(i,false);}
+    _redrawAll();
+
+    // ════════════════════════════════════════════════════════════
+    // UPCOMING TURNS  (below grid, y≈468)
+    // ════════════════════════════════════════════════════════════
+    const ULY=GY0+GW+32; // clear of grid plate bottom
+    A(scene.add.text(CX,ULY,"UPCOMING TURNS",{fontFamily:_F,fontSize:"8px",color:"#5a8aaa"}).setOrigin(0.5).setDepth(D+3));
+    const UPY=ULY+14;
+    const UP_SZ=[42,32,26,21,17,14],UP_GP=8;
+    const UP_TW=UP_SZ.reduce((a,v)=>a+v,0)+(UP_SZ.length-1)*UP_GP;
+    let ux=CX-UP_TW/2;
+    const UP_LABEL_Y = UPY + UP_SZ[0]/2 + 9; // fixed label row — below the tallest box
+    const upBoxes=[];
+    for(let i=0;i<6;i++){
+        const sz=UP_SZ[i],bx=Math.round(ux+sz/2);
+        const ug=A(scene.add.graphics().setDepth(D+3));
+        const ut=A(scene.add.text(bx,UPY,"",{fontFamily:_F,fontSize:Math.max(10,sz-12)+"px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+        const uw=A(scene.add.text(bx,UP_LABEL_Y,"",{fontFamily:_F,fontSize:"7px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+        upBoxes.push({ug,ut,uw,bx,sz});ux+=sz+UP_GP;
+    }
+    function _drawUpcoming(){
+        for(let i=0;i<6;i++){
+            const{ug,ut,uw,bx,sz}=upBoxes[i];
+            const t2=turn+i,l=getL(t2),isP=t2%2===0,cur=i===0;
+            const op=[1,.56,.33,.18,.09,.04][i],hx=LC_H[l],r=Math.max(4,sz*0.13);
+            ug.clear().setAlpha(op);
+            if(cur){
+                ug.fillStyle(0x0a1828,1).fillRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
+                ug.lineStyle(2.5,hx,1).strokeRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
+                ug.fillStyle(hx,0.08).fillRoundedRect(bx-sz/2,UPY-sz/2,sz,sz*0.4,r);
+            }else{
+                ug.fillStyle(0x080f18,1).fillRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
+                ug.lineStyle(1,0x131e28,1).strokeRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
+            }
+            ut.setAlpha(op).setText(l).setColor(LC[l]).setPosition(bx,UPY).setFontSize(Math.max(10,sz-12)+"px");
+            uw.setAlpha(op).setText(isP?"YOU":"OPP").setColor(isP?"#FFD700":"#446677").setPosition(bx,UP_LABEL_Y);
+        }
+    }
+    _drawUpcoming();
+
+    // ════════════════════════════════════════════════════════════
+    // GOLD HINTS BAR  (y≈532)
+    // ════════════════════════════════════════════════════════════
+    const GBY=UPY+56;
+    const gbBg=A(scene.add.graphics().setDepth(D+2));
+    gbBg.fillStyle(0x0a1200,1).fillRoundedRect(GX0,GBY-12,GW,26,6);
+    gbBg.lineStyle(1,0x1e2a00,1).strokeRoundedRect(GX0,GBY-12,GW,26,6);
+    A(scene.add.text(GX0+6,GBY,"EARN:",{fontFamily:_F,fontSize:"9px",color:"#7aaa48"}).setOrigin(0,0.5).setDepth(D+3));
+    [[GX0+36,"≤8t","300"],[GX0+104,"≤12t","200"],[GX0+170,"≤14t","100"]].forEach(([tx,label,amt])=>{
+        A(scene.add.text(tx,GBY,label,{fontFamily:_F,fontSize:"9px",color:"#88bb66"}).setOrigin(0,0.5).setDepth(D+3));
+        A(scene.add.image(tx+32,GBY,"icon_gold").setDisplaySize(13,13).setDepth(D+3));
+        A(scene.add.text(tx+41,GBY,amt,{fontFamily:_F,fontSize:"10px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // CLOSE BUTTON  (y=618)
+    // ════════════════════════════════════════════════════════════
+    const[closeBtnG,closeBtnT,closeBtnHz]=NT_YellowBtn(scene,CX,618,200,40,"✕  CLOSE",D+3,()=>{
+        try{NT_SFX.play("menu_click");}catch(_){}
+        _close();
+    });
+    A(closeBtnG);A(closeBtnT);A(closeBtnHz);
+
+    // ════════════════════════════════════════════════════════════
+    // CD TIMER
+    // ════════════════════════════════════════════════════════════
+    function _startCD(){
+        if(_cdEv) return;
+        function tick(){
+            const rem=Math.max(0,CD_MS-(Date.now()-gd.lastOut));
+            if(cdLabel&&cdLabel.active)cdLabel.setText("⏐ "+_fmtMs(rem)).setVisible(true);
+            if(rem<=0){if(_cdEv){_cdEv.remove();_cdEv=null;}gd.lives=MAX_LIVES;gd.lastOut=0;_save(gd);if(cdLabel&&cdLabel.active)cdLabel.setVisible(false);_drawLives();_hideStart();_showStart();}
+        }
+        tick();_cdEv=scene.time.addEvent({delay:1000,loop:true,callback:tick});
+    }
+    if(gd.lives===0&&gd.lastOut)_startCD();
+
+    // ════════════════════════════════════════════════════════════
+    // START SCREEN OVERLAY
+    // ════════════════════════════════════════════════════════════
+    const startObjs=[];
+    function _SA(o){startObjs.push(o);A(o);return o;}
+    function _hideStart(){startObjs.forEach(o=>{try{if(o&&o.active)o.destroy();}catch(_){}});startObjs.length=0;}
+
+    function _showStart(){
+        _hideStart();
+        const gMid=GY0+GW/2; // center of grid area ≈320
+
+        // Opaque overlay on grid plate
+        _SA(scene.add.graphics().setDepth(D+8))
+            .fillStyle(0x040c14,0.98).fillRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12)
+            .lineStyle(1.5,0x0c1e30,1).strokeRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
+
+        if(gd.lives>0){
+            // Gold card
+            const cH=90,cY=gMid-46;
+            const cG=_SA(scene.add.graphics().setDepth(D+9));
+            cG.fillStyle(0x07100a,1).fillRoundedRect(GX0,cY-cH/2,GW,cH,10);
+            cG.lineStyle(1.5,0x151e00,1).strokeRoundedRect(GX0,cY-cH/2,GW,cH,10);
+            cG.fillStyle(0xFFD700,0.04).fillRoundedRect(GX0,cY-cH/2,GW,18,{tl:10,tr:10,bl:0,br:0});
+
+            // Card header
+            _SA(scene.add.image(GX0+10,cY-cH/2+9,"icon_gold").setDisplaySize(13,13).setDepth(D+10));
+            _SA(scene.add.text(GX0+22,cY-cH/2+9,"THIS MODE EARNS YOU GOLD!",{fontFamily:_F,fontSize:"9px",color:"#7a6500"}).setOrigin(0,0.5).setDepth(D+10));
+            // Rows with icon+amount
+            [["≤ 8 turns","300"],["≤ 12 turns","200"],["≤ 14 turns","100"],["Streak bonus","+50"]].forEach(([a,b],ri)=>{
+                const ry=cY-cH/2+22+ri*13;
+                _SA(scene.add.text(GX0+8,ry,a,{fontFamily:_F,fontSize:"10px",color:"#384a28"}).setOrigin(0,0.5).setDepth(D+10));
+                _SA(scene.add.image(GX0+GW-30,ry,"icon_gold").setDisplaySize(12,12).setDepth(D+10));
+                _SA(scene.add.text(GX0+GW-20,ry,b,{fontFamily:_F,fontSize:"10px",color:"#8a7000"}).setOrigin(0,0.5).setDepth(D+10));
+            });
+            // Lives info
+            _SA(scene.add.text(CX,cY+cH/2-6,gd.lives+"/"+MAX_LIVES+" lives left  ·  resets every 12h",{fontFamily:_F,fontSize:"8px",color:"#253545"}).setOrigin(0.5).setDepth(D+10));
+
+            // OYNA button
+            const btnY=gMid+44;
+            const bG=_SA(scene.add.graphics().setDepth(D+9));
+            function _bD(h){
+                bG.clear();
+                bG.fillStyle(0xaa6600,1).fillRoundedRect(CX-72,btnY-18+5,144,40,{bl:12,br:12,tl:2,tr:2});
+                bG.fillStyle(h?0xffe84d:0xffdd00,1).fillRoundedRect(CX-72,btnY-18,144,40,12);
+                bG.fillStyle(0xffffff,h?0.22:0.10).fillRoundedRect(CX-66,btnY-14,132,15,7);
+                bG.lineStyle(2,0xcc8800,0.9).strokeRoundedRect(CX-72,btnY-18,144,40,12);
+            }
+            _bD(false);
+            _SA(scene.add.text(CX,btnY,"▶  PLAY",{fontFamily:_F,fontSize:"20px",color:"#3d1a00",stroke:"#fff3",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
+            const bHz=_SA(scene.add.rectangle(CX,btnY,144,40,0xffffff,0.001).setDepth(D+11).setInteractive({useHandCursor:true}));
+            bHz.on("pointerover",()=>_bD(true));bHz.on("pointerout",()=>_bD(false));
+            bHz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideStart();_startGame();});
+
+        }else{
+            // No lives
+            _SA(scene.add.text(CX,gMid-28,"OUT OF LIVES",{fontFamily:_F,fontSize:"16px",color:"#cc3333",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid-6,"NEXT SESSION IN:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
+            const bCD=_SA(scene.add.text(CX,gMid+22,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"32px",color:"#FFD700",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid+46,MAX_LIVES+" lives will reset",{fontFamily:_F,fontSize:"9px",color:"#253545"}).setOrigin(0.5).setDepth(D+9));
+            scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!bCD||!bCD.active)return;bCD.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // RESULT OVERLAY
+    // ════════════════════════════════════════════════════════════
+    const resObjs=[];
+    function _RA(o){resObjs.push(o);A(o);return o;}
+    function _hideRes(){resObjs.forEach(o=>{try{if(o&&o.active)o.destroy();}catch(_){}});resObjs.length=0;}
+
+    function _showResult(res){
+        _hideRes();
+        const gMid=GY0+GW/2;
+        _RA(scene.add.graphics().setDepth(D+8))
+            .fillStyle(0x040c14,0.97).fillRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12)
+            .lineStyle(2,res==="win"?0x443000:res==="lose"?0x330000:0x0e2030,1)
+            .strokeRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
+
+        const rStr=res==="win"?"🏆  YOU WIN!":res==="lose"?"💀  OPPONENT WINS!":"🤝  DRAW!";
+        const rCol=res==="win"?"#FFD700":res==="lose"?"#ff4444":"#7a9aaa";
+        const titleY=res==="win"&&earned>0?gMid-52:gMid-36;
+        _RA(scene.add.text(CX,titleY,rStr,{fontFamily:_F,fontSize:"24px",color:rCol,stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
+
+        if(res==="win"&&earned>0){
+            _RA(scene.add.text(CX-16,gMid-18,"+"+earned,{fontFamily:_F,fontSize:"30px",color:"#FFD700",stroke:"#000",strokeThickness:4}).setOrigin(1,0.5).setDepth(D+9));
+            _RA(scene.add.image(CX-8,gMid-18,"icon_gold").setDisplaySize(30,30).setDepth(D+9));
+        }
+        if(res==="win"&&gd.streak>1)
+            _RA(scene.add.text(CX,gMid+2,"🔥 "+gd.streak+"x STREAK BONUS!",{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+9));
+
+        const btnY=gMid+(res==="win"&&gd.streak>1?36:26);
+        if(gd.lives>0){
+            const rG=_RA(scene.add.graphics().setDepth(D+9));
+            const bC=res==="win"?0xffdd00:0x1a2a3a,bdC=res==="win"?0xcc8800:0x2a4a6a,tC=res==="win"?"#3d1a00":"#7ab8cc";
+            function _rD(h){rG.clear();rG.fillStyle(bdC,1).fillRoundedRect(CX-72,btnY-16+5,144,36,{bl:12,br:12,tl:2,tr:2});rG.fillStyle(h?(res==="win"?0xffe84d:0x253040):bC,1).fillRoundedRect(CX-72,btnY-16,144,36,12);rG.lineStyle(1.5,bdC,0.8).strokeRoundedRect(CX-72,btnY-16,144,36,12);}
+            _rD(false);
+            _RA(scene.add.text(CX,btnY,"PLAY AGAIN  ("+gd.lives+")",{fontFamily:_F,fontSize:"15px",color:tC,stroke:"#0002",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
+            const hz=_RA(scene.add.rectangle(CX,btnY,144,36,0xffffff,0.001).setDepth(D+11).setInteractive({useHandCursor:true}));
+            hz.on("pointerover",()=>_rD(true));hz.on("pointerout",()=>_rD(false));
+            hz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideRes();_startGame();});
+        }else{
+            _RA(scene.add.text(CX,btnY+8,"NEXT SESSION:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
+            const cT2=_RA(scene.add.text(CX,btnY+26,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"22px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
+            scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!cT2||!cT2.active)return;cT2.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TUTORIAL  (4 pages, full screen overlay)
+    // ════════════════════════════════════════════════════════════
+    const tutObjs=[];
+    function _TA(o){tutObjs.push(o);A(o);return o;}
+    function _hideTut(){tutObjs.forEach(o=>{try{if(o&&o.active)o.destroy();}catch(_){}});tutObjs.length=0;}
+
+    function _showTut(){
+        _hideTut();
+        let curPage=0; const TOTAL_PAGES=4;
+        const TW=320,TH=460,TX=CX-TW/2,TY=88; // card dimensions
+
+        // Full dim
+        _TA(scene.add.rectangle(CX,320,W,H,0x000000,0.95).setDepth(D+20).setInteractive());
+
+        // Card BG
+        const cardG=_TA(scene.add.graphics().setDepth(D+21));
+        cardG.fillStyle(0x000000,0.4).fillRoundedRect(TX+4,TY+4,TW,TH,14); // shadow
+        cardG.fillStyle(0x060d1a,1).fillRoundedRect(TX,TY,TW,TH,14);
+        cardG.lineStyle(2,0xFFD700,1).strokeRoundedRect(TX,TY,TW,TH,14);
+        // Orange header strip
+        cardG.fillStyle(0xcc5500,1).fillRoundedRect(TX,TY,TW,44,{tl:14,tr:14,bl:0,br:0});
+
+        // Header: "HOW TO PLAY"
+        _TA(scene.add.text(CX,TY+22,"HOW TO PLAY",{fontFamily:_F,fontSize:"18px",color:"#ffffff",stroke:"#5a0000",strokeThickness:3}).setOrigin(0.5).setDepth(D+22));
+
+        // Progress dots (persistent) — y = TY+50
+        const dotGfxArr=[];
+        const DOT_Y=TY+50;
+        for(let i=0;i<TOTAL_PAGES;i++){
+            const dg=_TA(scene.add.graphics().setDepth(D+22));
+            dotGfxArr.push({g:dg,x:CX-(TOTAL_PAGES*18)/2+i*18+9});
+        }
+        function _drawDots(page){
+            dotGfxArr.forEach(({g,x},i)=>{
+                g.clear();
+                const w=i===page?22:8;
+                g.fillStyle(i===page?0xFFD700:i<page?0x775500:0x1a1a1a,1);
+                g.fillRoundedRect(x-(w/2),DOT_Y,w,8,4);
+            });
+        }
+
+        // Page objects (cleared each page)
+        const pageObjs=[];
+        function _PO(o){pageObjs.push(o);_TA(o);return o;}
+        function _clearPage(){pageObjs.forEach(o=>{try{if(o&&o.active)o.destroy();}catch(_){}});pageObjs.length=0;}
+
+        // Prev button (persistent placeholder, shown/hidden)
+        let prevBtnG=null,prevBtnT=null,prevBtnHz=null;
+
+        function _showPage(page){
+            _clearPage();
+            _drawDots(page);
+            curPage=page;
+            const PAD=TX+14;
+            const RPAD=TX+TW-14;
+            const contentY=TY+82; // below header strip + dots (extra padding to avoid overlap)
+            let ly=contentY;
+
+            function _head(icon,txt,col){
+                _PO(scene.add.text(PAD,ly,icon+" "+txt,{fontFamily:_F,fontSize:"13px",color:col||"#FF8C00",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+23));
+                ly+=20;
+            }
+            function _body(txt,col){
+                _PO(scene.add.text(PAD+10,ly,txt,{fontFamily:_F,fontSize:"10px",color:col||"#8aabbf",stroke:"#000",strokeThickness:0}).setOrigin(0,0.5).setDepth(D+23));
+                ly+=15;
+            }
+            function _gap(n){ly+=n||6;}
+            function _cell(x,y,letter,size){
+                const cG=_PO(scene.add.graphics().setDepth(D+23));
+                cG.fillStyle(0x0c1e2e,1).fillRoundedRect(x,y,size,size,6);
+                cG.lineStyle(2,LC_H[letter],1).strokeRoundedRect(x,y,size,size,6);
+                _PO(scene.add.text(x+size/2,y+size/2,letter,{fontFamily:_F,fontSize:Math.round(size*0.56)+"px",color:LC[letter],stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+24));
+            }
+
+            if(page===0){
+                _head("🔄","LETTER ROTATION","#FF8C00");
+                _body("The letter rotates automatically each turn:");
+                _gap(8);
+                // N O T big cells with turn labels
+                const cellSz=56,gap=10,startX=CX-(3*cellSz+2*gap)/2;
+                ["N","O","T"].forEach((l,i)=>{
+                    const cx=startX+i*(cellSz+gap);
+                    _cell(cx,ly,l,cellSz);
+                    _PO(scene.add.text(cx+cellSz/2,ly+cellSz+8,"TUR "+(i*2+1),{fontFamily:_F,fontSize:"9px",color:LC[l]}).setOrigin(0.5).setDepth(D+24));
+                });
+                ly+=cellSz+22;
+                _body("You only choose WHERE to place — not which letter.");
+                _body("The letter is fixed by the turn number.");
+                _gap(6);
+                _head("👆","TURN ORDER","#7eb8ff");
+                // SEN / BOT row
+                [["YOU","#FFD700","Even turns: 1st, 3rd, 5th..."],["OPP","#ff6655","Odd turns: 2nd, 4th, 6th..."]].forEach(([who,col,desc])=>{
+                    const rowG=_PO(scene.add.graphics().setDepth(D+23));
+                    rowG.fillStyle(0x060e18,1).fillRoundedRect(PAD,ly-11,TW-28,24,6);
+                    rowG.lineStyle(1.2,parseInt(col.replace("#",""),16),0.25).strokeRoundedRect(PAD,ly-11,TW-28,24,6);
+                    _PO(scene.add.text(PAD+10,ly,who+": "+desc,{fontFamily:_F,fontSize:"10px",color:col}).setOrigin(0,0.5).setDepth(D+24));
+                    ly+=28;
+                });
+                _body("UPCOMING panel shows 6 moves ahead — plan wisely!");
+            }
+            else if(page===1){
+                _head("🏆","WIN CONDITION","#FFD700");
+                _body("Get N→O→T in any row, column, or diagonal.");
+                _body("Whoever places the LAST letter completing NOT wins!");
+                _gap(10);
+                // Example cells - row
+                _PO(scene.add.text(PAD,ly,"Example — row win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
+                const eW=52,eG=8,eX=CX-(3*eW+2*eG)/2;
+                ["N","O","T"].forEach((l,i)=>_cell(eX+i*(eW+eG),ly,l,eW));
+                _PO(scene.add.text(eX+3*eW+2*eG+10,ly+26,"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
+                ly+=eW+14;
+                // Example - col
+                _PO(scene.add.text(PAD,ly,"Example — column win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
+                const cW=44;
+                ["N","O","T"].forEach((l,i)=>{
+                    _cell(PAD+10,ly+i*(cW+6),l,cW);
+                    if(i<2){const lineG=_PO(scene.add.graphics().setDepth(D+23));lineG.lineStyle(1,0x334c5e,0.3).lineBetween(PAD+10+cW/2,ly+i*(cW+6)+cW,PAD+10+cW/2,ly+(i+1)*(cW+6));}
+                });
+                _PO(scene.add.text(PAD+10+cW+10,ly+cW,"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
+                ly+=3*(cW+6)+6;
+            }
+            else if(page===2){
+                _head("⏰",MAX_LIVES+" LIVES / 12 HOURS","#FF8C00");
+                _body("Every game (win/lose/draw) uses 1 life.");
+                _body("When all lives are used, wait 12h to reset.");
+                _gap(10);
+                // Lives visual
+                for(let i=0;i<MAX_LIVES;i++){
+                    const dg=_PO(scene.add.graphics().setDepth(D+23));
+                    dg.fillStyle(0xFFD700,1).fillCircle(CX-(MAX_LIVES*16)/2+i*16+8,ly,8);
+                    dg.lineStyle(2,0xFFAA00,1).strokeCircle(CX-(MAX_LIVES*16)/2+i*16+8,ly,8);
+                }
+                ly+=22;
+                _PO(scene.add.text(CX,ly,"5 LIVES",{fontFamily:_F,fontSize:"11px",color:"#FFD700"}).setOrigin(0.5).setDepth(D+23)); ly+=20;
+                _gap(6);
+                // Timer icon
+                const timerG=_PO(scene.add.graphics().setDepth(D+23));
+                timerG.fillStyle(0x0a1828,1).fillRoundedRect(CX-80,ly-14,160,32,8);
+                timerG.lineStyle(1.5,0x1e3040,1).strokeRoundedRect(CX-80,ly-14,160,32,8);
+                _PO(scene.add.text(CX,ly,"00:00:00  →  5 LIVES",{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+24));
+                ly+=36;
+                _body("Difficulty: HARD  (Depth-5 Minimax)","#446677");
+                _body("Fork attacks (two threats at once) win games!","#446677");
+            }
+            else if(page===3){
+                _head("💰","GOLD REWARDS","#FFD700");
+                _body("Win to earn gold — fewer moves = more gold:");
+                _gap(8);
+                // Reward rows
+                [["≤ 8 turns","300","🥇 Perfect",0xFFD700],["≤ 12 turns","200","🥈 Great",0xaaaaaa],["≤ 14 turns","100","🥉 Good",0xcd7f32],["15–16 turns","50","",0x334c5e]].forEach(([a,b,c,col])=>{
+                    const rowG=_PO(scene.add.graphics().setDepth(D+23));
+                    rowG.fillStyle(col,0.06).fillRoundedRect(PAD,ly-12,TW-28,26,7);
+                    rowG.lineStyle(1,col,0.15).strokeRoundedRect(PAD,ly-12,TW-28,26,7);
+                    _PO(scene.add.text(PAD+8,ly,a,{fontFamily:_F,fontSize:"10px",color:"#7a9aaa"}).setOrigin(0,0.5).setDepth(D+24));
+                    _PO(scene.add.image(RPAD-36,ly,"icon_gold").setDisplaySize(14,14).setDepth(D+24));
+                    _PO(scene.add.text(RPAD-24,ly,b,{fontFamily:_F,fontSize:"12px",color:"#FFD700"}).setOrigin(0,0.5).setDepth(D+24));
+                    if(c)_PO(scene.add.text(PAD+90,ly,c,{fontFamily:_F,fontSize:"9px",color:"#4a6070"}).setOrigin(0,0.5).setDepth(D+24));
+                    ly+=30;
+                });
+                _gap(4);
+                // Streak bonus
+                const sbG=_PO(scene.add.graphics().setDepth(D+23));
+                sbG.fillStyle(0xFF8C00,0.06).fillRoundedRect(PAD,ly-12,TW-28,28,7);
+                sbG.lineStyle(1.5,0xFF8C00,0.25).strokeRoundedRect(PAD,ly-12,TW-28,28,7);
+                _PO(scene.add.text(PAD+8,ly,"Win streak bonus:",{fontFamily:_F,fontSize:"10px",color:"#7a9aaa"}).setOrigin(0,0.5).setDepth(D+24));
+                _PO(scene.add.image(RPAD-36,ly,"icon_gold").setDisplaySize(14,14).setDepth(D+24));
+                _PO(scene.add.text(RPAD-24,ly,"+50",{fontFamily:_F,fontSize:"12px",color:"#FF8C00"}).setOrigin(0,0.5).setDepth(D+24));
+                ly+=34;
+                _body("Max streak bonus: +200","#446677");
+            }
+
+            // ── PREV button ──────────────────────────────────────
+            if(prevBtnG){try{prevBtnG.destroy();}catch(_){}}
+            if(prevBtnT){try{prevBtnT.destroy();}catch(_){}}
+            if(prevBtnHz){try{prevBtnHz.destroy();}catch(_){}}
+            prevBtnG=null;prevBtnT=null;prevBtnHz=null;
+
+            if(page>0){
+                const prevG=_PO(scene.add.graphics().setDepth(D+23));
+                prevG.fillStyle(0x0a1020,1).fillRoundedRect(TX+10,TY+TH-52,94,38,10);
+                prevG.lineStyle(1.5,0x2a3c50,1).strokeRoundedRect(TX+10,TY+TH-52,94,38,10);
+                _PO(scene.add.text(TX+57,TY+TH-33,"← BACK",{fontFamily:_F,fontSize:"12px",color:"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
+                _PO(scene.add.rectangle(TX+57,TY+TH-33,94,38,0xffffff,0.001).setDepth(D+25).setInteractive({useHandCursor:true}))
+                    .on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_showPage(page-1);});
+            }
+
+            // ── NEXT / ANLADIM button ─────────────────────────────
+            const isLast=page===TOTAL_PAGES-1;
+            const nextX=page>0?TX+TW-10-104:CX;
+            const nextW=page>0?104:160;
+            const nG=_PO(scene.add.graphics().setDepth(D+23));
+            function _nDraw(h){
+                nG.clear();
+                if(isLast){
+                    nG.fillStyle(0xaa6600,1).fillRoundedRect(nextX-nextW/2,TY+TH-52+5,nextW,38-5,{bl:10,br:10,tl:2,tr:2});
+                    nG.fillStyle(h?0xffe84d:0xffdd00,1).fillRoundedRect(nextX-nextW/2,TY+TH-52,nextW,38,10);
+                    nG.lineStyle(2,0xcc8800,0.9).strokeRoundedRect(nextX-nextW/2,TY+TH-52,nextW,38,10);
+                }else{
+                    nG.fillStyle(0x0a1828,1).fillRoundedRect(nextX-nextW/2,TY+TH-52,nextW,38,10);
+                    nG.lineStyle(1.5,h?0xFFD700:0x2a4a6a,1).strokeRoundedRect(nextX-nextW/2,TY+TH-52,nextW,38,10);
+                }
+            }
+            _nDraw(false);
+            _PO(scene.add.text(nextX,TY+TH-33,isLast?"GOT IT  ✓":"NEXT →",{fontFamily:_F,fontSize:"14px",color:isLast?"#3d1a00":"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
+            _PO(scene.add.rectangle(nextX,TY+TH-33,nextW,38,0xffffff,0.001).setDepth(D+25).setInteractive({useHandCursor:true}))
+                .on("pointerover",()=>_nDraw(true)).on("pointerout",()=>_nDraw(false))
+                .on("pointerdown",()=>{
+                    try{NT_SFX.play("menu_click");}catch(_){}
+                    if(isLast){gd.seen=true;_save(gd);_hideTut();}
+                    else _showPage(page+1);
+                });
+        }
+        _showPage(0);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // GAME LOGIC
+    // ════════════════════════════════════════════════════════════
+    function _startGame(){
+        if(gd.lives<=0) return;
+        board=Array(CELLS).fill(null);turn=0;over=false;wLine=null;botOn=false;active=true;earned=0;
+        _redrawAll();_drawUpcoming();_updateStatus();
+        curLetTxt.setVisible(true).setText(getL(0)).setColor(LC["N"]);
+        scene.tweens.add({targets:curLetTxt,scaleX:1.3,scaleY:1.3,duration:120,yoyo:true,ease:"Back.easeOut"});
+    }
+    function _updateStatus(){
+        if(over){curLetTxt.setVisible(false);return;}
+        const l=getL(turn);
+        if(turn%2===0){statusTxt.setText("YOUR TURN — PLACE:").setColor("#4488aa");curLetTxt.setVisible(true).setText(l).setColor(LC[l]);}
+        else{statusTxt.setText("OPPONENT THINKING...").setColor("#2a4050");curLetTxt.setVisible(false);}
+    }
+    function _click(i){
+        if(!active||over||board[i]||turn%2!==0||botOn) return;
+        const l=getL(turn);board[i]=l;turn++;
+        try{NT_SFX.play("menu_click");}catch(_){}
+        _drawCell(i,false);
+
+        // ── CELL PLACEMENT ANIMATION ──────────────────────────
+        // Letter pops in from 0 scale
+        cellTxt[i].setScale(0.2);
+        scene.tweens.add({targets:cellTxt[i],scaleX:1,scaleY:1,duration:180,ease:"Back.easeOut"});
+
+        _drawUpcoming();
+        if(_resolve(turn)) return;
+        botOn=true;_updateStatus();
+        scene.time.delayedCall(920,()=>{ if(!_closed) _doBot(); });
+    }
+    function _doBot(){
+        if(!active||over||turn%2!==1){botOn=false;_updateStatus();return;}
+        const nb=[...board],m=botPick(nb,turn);
+        if(m==null||m===-1){botOn=false;_updateStatus();return;}
+        board[m]=getL(turn);turn++;
+        _drawCell(m,false);
+        // Opponent placement — sound only, no animation
+        try{NT_SFX.play("menu_click");}catch(_){}
+        botOn=false;_drawUpcoming();
+        if(!_resolve(turn))_updateStatus();
+    }
+    function _resolve(nt){
+        const w=checkWin(board);
+        if(w){
+            wLine=w;over=true;const botWon=(nt-1)%2===1;
+            w.forEach((ci,wi)=>scene.time.delayedCall(wi*160,()=>{
+                if(_closed) return;
+                _drawCell(ci,false);
+                if(cellTxt[ci]&&cellTxt[ci].active) scene.tweens.add({targets:cellTxt[ci],scaleX:1.5,scaleY:1.5,duration:100,yoyo:true,ease:"Back.easeOut"});
+                if(cellGfx[ci]&&cellGfx[ci].active) scene.tweens.add({targets:cellGfx[ci],alpha:0.5,duration:220,yoyo:true,repeat:2,ease:"Sine.easeInOut"});
+            }));
+            gd.lives=Math.max(0,gd.lives-1);
+            if(!botWon){earned=_calcG(nt,gd.streak);gd.streak=(gd.streak||0)+1;gd.stats.w++;PLAYER_GOLD+=earned;secureSet("nt_gold",PLAYER_GOLD);
+                try{if(scene.goldText&&scene.goldText.active)scene.goldText.setText(PLAYER_GOLD.toLocaleString());}catch(_){}}
+            else{gd.streak=0;gd.stats.l++;}
+            if(gd.lives===0)gd.lastOut=Date.now();
+            _save(gd);_drawLives();_drawStats();_drawGold();
+            scene.time.delayedCall(700,()=>{
+                if(_closed) return;
+                statusTxt.setText(botWon?"💀 OPPONENT WINS!":"🏆 YOU WIN!").setColor(botWon?"#cc3333":"#FFD700");
+                curLetTxt.setVisible(false);
+                if(!botWon&&earned>0)try{showBigReward(scene,CX,240,"gold",earned,D+15);}catch(_){}
+                try{NT_SFX.play(botWon?"hurt":"level_up");}catch(_){}
+                if(botWon)try{scene.cameras.main.shake(140,0.007);}catch(_){}
+                scene.time.delayedCall(botWon?400:900,()=>{ if(!_closed) _showResult(botWon?"lose":"win"); });
+                if(gd.lives===0)_startCD();
+            });
+            return true;
+        }
+        if(board.every(c=>c!==null)){
+            over=true;gd.lives=Math.max(0,gd.lives-1);gd.streak=0;gd.stats.d++;
+            if(gd.lives===0)gd.lastOut=Date.now();
+            _save(gd);_drawLives();_drawStats();
+            statusTxt.setText("🤝 DRAW!").setColor("#778899");curLetTxt.setVisible(false);
+            try{NT_SFX.play("hurt");}catch(_){}
+            scene.time.delayedCall(400,()=>{ if(!_closed) _showResult("draw"); });
+            if(gd.lives===0)_startCD();
+            return true;
+        }
+        return false;
+    }
+
+    // ── INIT ──────────────────────────────────────────────────────
+    if(!gd.seen)_showTut();
+    _showStart();
+}
+
+// ═══════════════════════════════════════════════════════════════
+
+
+// ═══════════════════════════════════════════════════════════════
 
 class SceneMainMenu extends Phaser.Scene {
     constructor(){ super({key:"SceneMainMenu"}); }
@@ -11821,14 +12542,15 @@ class SceneMainMenu extends Phaser.Scene {
                 this.tweens.add({targets: tagline, alpha: 0.85, duration: 600, ease: "Quad.easeOut"});
         });
 
-        // Buttons — divide teal content area into 4 equal slots
+        // Buttons — divide teal content area into 5 equal slots
         const aTop  = pTop + m.stripH + 8;
         const aBot  = pBot - 14;
-        const slot  = (aBot - aTop) / 4;
+        const slot  = (aBot - aTop) / 5;
         const DEFS  = [
             {icon:"mm_play",     label:L("menuPlay"),        cb:()=>this._goGame()},
             {icon:"mm_shop",     label:L("menuShop"),        cb:()=>this._showShop()},
             {icon:"mm_settings", label:L("menuSettings"),    cb:()=>this._showSettings()},
+            {icon:"mm_howto",    label:"MINIGAME", cb:()=>this._showPuzzle()},
             {icon:"mm_lb",       label:L("menuLeaderboard"), cb:()=>this._showLeaderboard()},
         ];
         // Phaser glyph warm-up: tum buton labellarini invisible text olarak render et
@@ -12451,6 +13173,7 @@ class SceneMainMenu extends Phaser.Scene {
 
     // ── Shop ─────────────────────────────────────────────────────────
     _showShop(tab) { NT_Monetization.showShop(this, tab); }
+    _showPuzzle(){ showNotGame(this); }
     _showSettings(){
         // Use mm_panel (340px wide) centered slightly higher to leave room
         const {A,close,pTop,pBot,stripCY,contentTop,contentBot,TX,VX,PW,CX,depth}
