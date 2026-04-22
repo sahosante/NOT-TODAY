@@ -11503,14 +11503,14 @@ function showNotGame(scene){
     // TITLE
     // ════════════════════════════════════════════════════════════
     A(scene.add.text(CX,22,"N · O · T",{fontFamily:_F,fontSize:"30px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+3));
-    A(scene.add.text(CX,50,"4×4 PUZZLE vs OPPONENT",{fontFamily:_F,fontSize:"9px",color:"#3a5a72",stroke:"#000",strokeThickness:0}).setOrigin(0.5).setDepth(D+3));
+    A(scene.add.text(CX,50,CURRENT_LANG==="tr"?"4×4 BULMACA vs RAKIP":"4×4 PUZZLE vs OPPONENT",{fontFamily:_F,fontSize:"9px",color:"#3a5a72",stroke:"#000",strokeThickness:0}).setOrigin(0.5).setDepth(D+3));
 
     // ════════════════════════════════════════════════════════════
     // STATS + LIVES ROW  (y=132)
     // ════════════════════════════════════════════════════════════
     const LR=66;
     // Lives
-    A(scene.add.text(40,LR,"LIVES:",{fontFamily:_F,fontSize:"9px",color:"#4a6a88",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+    A(scene.add.text(40,LR,CURRENT_LANG==="tr"?"CAN:":"LIVES:",{fontFamily:_F,fontSize:"9px",color:"#4a6a88",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
     const liveDots=[];
     for(let i=0;i<MAX_LIVES;i++){
         const g=A(scene.add.graphics().setDepth(D+4));
@@ -11555,7 +11555,7 @@ function showNotGame(scene){
     // ════════════════════════════════════════════════════════════
     A(scene.add.graphics().setDepth(D+2)).lineStyle(1,0x1a3040,1).lineBetween(40,LR+14,320,LR+14);
     const SR=LR+46; // y=112 — shifted down to clear orange timer
-    const statusTxt=A(scene.add.text(CX-14,SR,"PRESS PLAY TO START",{fontFamily:_F,fontSize:"11px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+    const statusTxt=A(scene.add.text(CX-14,SR,CURRENT_LANG==="tr"?"OYNAMAK ICIN BASLAT":"PRESS PLAY TO START",{fontFamily:_F,fontSize:"11px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
     const curLetTxt=A(scene.add.text(CX+74,SR,"",{fontFamily:_F,fontSize:"26px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+5).setVisible(false));
 
     // ════════════════════════════════════════════════════════════
@@ -11607,7 +11607,7 @@ function showNotGame(scene){
     // UPCOMING TURNS  (below grid, y≈468)
     // ════════════════════════════════════════════════════════════
     const ULY=GY0+GW+32; // clear of grid plate bottom
-    A(scene.add.text(CX,ULY,"UPCOMING TURNS",{fontFamily:_F,fontSize:"8px",color:"#5a8aaa"}).setOrigin(0.5).setDepth(D+3));
+    A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"SIRADAKI HAMLELER":"UPCOMING TURNS",{fontFamily:_F,fontSize:"8px",color:"#5a8aaa"}).setOrigin(0.5).setDepth(D+3));
     const UPY=ULY+14;
     const UP_SZ=[42,32,26,21,17,14],UP_GP=8;
     const UP_TW=UP_SZ.reduce((a,v)=>a+v,0)+(UP_SZ.length-1)*UP_GP;
@@ -11636,7 +11636,7 @@ function showNotGame(scene){
                 ug.lineStyle(1,0x131e28,1).strokeRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
             }
             ut.setAlpha(op).setText(l).setColor(LC[l]).setPosition(bx,UPY).setFontSize(Math.max(10,sz-12)+"px");
-            uw.setAlpha(op).setText(isP?"YOU":"OPP").setColor(isP?"#FFD700":"#446677").setPosition(bx,UP_LABEL_Y);
+            uw.setAlpha(op).setText(isP?(CURRENT_LANG==="tr"?"SEN":"YOU"):(CURRENT_LANG==="tr"?"RAK":"OPP")).setColor(isP?"#FFD700":"#446677").setPosition(bx,UP_LABEL_Y);
         }
     }
     _drawUpcoming();
@@ -11648,7 +11648,7 @@ function showNotGame(scene){
     const gbBg=A(scene.add.graphics().setDepth(D+2));
     gbBg.fillStyle(0x0a1200,1).fillRoundedRect(GX0,GBY-12,GW,26,6);
     gbBg.lineStyle(1,0x1e2a00,1).strokeRoundedRect(GX0,GBY-12,GW,26,6);
-    A(scene.add.text(GX0+6,GBY,"EARN:",{fontFamily:_F,fontSize:"9px",color:"#7aaa48"}).setOrigin(0,0.5).setDepth(D+3));
+    A(scene.add.text(GX0+6,GBY,CURRENT_LANG==="tr"?"KAZAN:":"EARN:",{fontFamily:_F,fontSize:"9px",color:"#7aaa48"}).setOrigin(0,0.5).setDepth(D+3));
     [[GX0+36,"≤8t","300"],[GX0+104,"≤12t","200"],[GX0+170,"≤14t","100"]].forEach(([tx,label,amt])=>{
         A(scene.add.text(tx,GBY,label,{fontFamily:_F,fontSize:"9px",color:"#88bb66"}).setOrigin(0,0.5).setDepth(D+3));
         A(scene.add.image(tx+32,GBY,"icon_gold").setDisplaySize(13,13).setDepth(D+3));
@@ -11658,7 +11658,7 @@ function showNotGame(scene){
     // ════════════════════════════════════════════════════════════
     // CLOSE BUTTON  (y=618)
     // ════════════════════════════════════════════════════════════
-    const[closeBtnG,closeBtnT,closeBtnHz]=NT_YellowBtn(scene,CX,618,200,40,"✕  CLOSE",D+3,()=>{
+    const[closeBtnG,closeBtnT,closeBtnHz]=NT_YellowBtn(scene,CX,618,200,40,CURRENT_LANG==="tr"?"✕  KAPAT":"✕  CLOSE",D+3,()=>{
         try{NT_SFX.play("menu_click");}catch(_){}
         _close();
     });
@@ -11704,7 +11704,7 @@ function showNotGame(scene){
 
             // Card header
             _SA(scene.add.image(GX0+10,cY-cH/2+9,"icon_gold").setDisplaySize(13,13).setDepth(D+10));
-            _SA(scene.add.text(GX0+22,cY-cH/2+9,"THIS MODE EARNS YOU GOLD!",{fontFamily:_F,fontSize:"9px",color:"#7a6500"}).setOrigin(0,0.5).setDepth(D+10));
+            _SA(scene.add.text(GX0+22,cY-cH/2+9,CURRENT_LANG==="tr"?"BU MOD ALTIN KAZANDIRIR!":"THIS MODE EARNS YOU GOLD!",{fontFamily:_F,fontSize:"9px",color:"#7a6500"}).setOrigin(0,0.5).setDepth(D+10));
             // Rows with icon+amount
             [["≤ 8 turns","300"],["≤ 12 turns","200"],["≤ 14 turns","100"],["Streak bonus","+50"]].forEach(([a,b],ri)=>{
                 const ry=cY-cH/2+22+ri*13;
@@ -11713,7 +11713,7 @@ function showNotGame(scene){
                 _SA(scene.add.text(GX0+GW-20,ry,b,{fontFamily:_F,fontSize:"10px",color:"#8a7000"}).setOrigin(0,0.5).setDepth(D+10));
             });
             // Lives info
-            _SA(scene.add.text(CX,cY+cH/2-6,gd.lives+"/"+MAX_LIVES+" lives left  ·  resets every 12h",{fontFamily:_F,fontSize:"8px",color:"#253545"}).setOrigin(0.5).setDepth(D+10));
+            _SA(scene.add.text(CX,cY+cH/2-6,gd.lives+"/"+MAX_LIVES+(CURRENT_LANG==="tr"?" can kaldi  ·  12 saatte sifirlanir":" lives left  ·  resets every 12h"),{fontFamily:_F,fontSize:"8px",color:"#253545"}).setOrigin(0.5).setDepth(D+10));
 
             // OYNA button
             const btnY=gMid+44;
@@ -11726,17 +11726,17 @@ function showNotGame(scene){
                 bG.lineStyle(2,0xcc8800,0.9).strokeRoundedRect(CX-72,btnY-18,144,40,12);
             }
             _bD(false);
-            _SA(scene.add.text(CX,btnY,"▶  PLAY",{fontFamily:_F,fontSize:"20px",color:"#3d1a00",stroke:"#fff3",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
+            _SA(scene.add.text(CX,btnY,CURRENT_LANG==="tr"?"▶  OYNA":"▶  PLAY",{fontFamily:_F,fontSize:"20px",color:"#3d1a00",stroke:"#fff3",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
             const bHz=_SA(scene.add.rectangle(CX,btnY,144,40,0xffffff,0.001).setDepth(D+11).setInteractive({useHandCursor:true}));
             bHz.on("pointerover",()=>_bD(true));bHz.on("pointerout",()=>_bD(false));
             bHz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideStart();_startGame();});
 
         }else{
             // No lives
-            _SA(scene.add.text(CX,gMid-28,"OUT OF LIVES",{fontFamily:_F,fontSize:"16px",color:"#cc3333",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
-            _SA(scene.add.text(CX,gMid-6,"NEXT SESSION IN:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid-28,CURRENT_LANG==="tr"?"CANIN BITTI":"OUT OF LIVES",{fontFamily:_F,fontSize:"16px",color:"#cc3333",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid-6,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION IN:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
             const bCD=_SA(scene.add.text(CX,gMid+22,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"32px",color:"#FFD700",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
-            _SA(scene.add.text(CX,gMid+46,MAX_LIVES+" lives will reset",{fontFamily:_F,fontSize:"9px",color:"#253545"}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid+46,MAX_LIVES+(CURRENT_LANG==="tr"?" can sifirlanacak":" lives will reset"),{fontFamily:_F,fontSize:"9px",color:"#253545"}).setOrigin(0.5).setDepth(D+9));
             scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!bCD||!bCD.active)return;bCD.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
         }
     }
@@ -11756,7 +11756,9 @@ function showNotGame(scene){
             .lineStyle(2,res==="win"?0x443000:res==="lose"?0x330000:0x0e2030,1)
             .strokeRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
 
-        const rStr=res==="win"?"🏆  YOU WIN!":res==="lose"?"💀  OPPONENT WINS!":"🤝  DRAW!";
+        const rStr=CURRENT_LANG==="tr"
+            ?(res==="win"?"🏆  KAZANDIN!":res==="lose"?"💀  RAKIP KAZANDI!":"🤝  BERABERE!")
+            :(res==="win"?"🏆  YOU WIN!":res==="lose"?"💀  OPPONENT WINS!":"🤝  DRAW!");
         const rCol=res==="win"?"#FFD700":res==="lose"?"#ff4444":"#7a9aaa";
         const titleY=res==="win"&&earned>0?gMid-52:gMid-36;
         _RA(scene.add.text(CX,titleY,rStr,{fontFamily:_F,fontSize:"24px",color:rCol,stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
@@ -11766,7 +11768,7 @@ function showNotGame(scene){
             _RA(scene.add.image(CX-8,gMid-18,"icon_gold").setDisplaySize(30,30).setDepth(D+9));
         }
         if(res==="win"&&gd.streak>1)
-            _RA(scene.add.text(CX,gMid+2,"🔥 "+gd.streak+"x STREAK BONUS!",{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+9));
+            _RA(scene.add.text(CX,gMid+2,"🔥 "+gd.streak+"x "+(CURRENT_LANG==="tr"?"SERI BONUS!":"STREAK BONUS!"),{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+9));
 
         const btnY=gMid+(res==="win"&&gd.streak>1?36:26);
         if(gd.lives>0){
@@ -11774,12 +11776,12 @@ function showNotGame(scene){
             const bC=res==="win"?0xffdd00:0x1a2a3a,bdC=res==="win"?0xcc8800:0x2a4a6a,tC=res==="win"?"#3d1a00":"#7ab8cc";
             function _rD(h){rG.clear();rG.fillStyle(bdC,1).fillRoundedRect(CX-72,btnY-16+5,144,36,{bl:12,br:12,tl:2,tr:2});rG.fillStyle(h?(res==="win"?0xffe84d:0x253040):bC,1).fillRoundedRect(CX-72,btnY-16,144,36,12);rG.lineStyle(1.5,bdC,0.8).strokeRoundedRect(CX-72,btnY-16,144,36,12);}
             _rD(false);
-            _RA(scene.add.text(CX,btnY,"PLAY AGAIN  ("+gd.lives+")",{fontFamily:_F,fontSize:"15px",color:tC,stroke:"#0002",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
+            _RA(scene.add.text(CX,btnY,(CURRENT_LANG==="tr"?"TEKRAR OYNA":"PLAY AGAIN")+"  ("+gd.lives+")",{fontFamily:_F,fontSize:"15px",color:tC,stroke:"#0002",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
             const hz=_RA(scene.add.rectangle(CX,btnY,144,36,0xffffff,0.001).setDepth(D+11).setInteractive({useHandCursor:true}));
             hz.on("pointerover",()=>_rD(true));hz.on("pointerout",()=>_rD(false));
             hz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideRes();_startGame();});
         }else{
-            _RA(scene.add.text(CX,btnY+8,"NEXT SESSION:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
+            _RA(scene.add.text(CX,btnY+8,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
             const cT2=_RA(scene.add.text(CX,btnY+26,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"22px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
             scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!cT2||!cT2.active)return;cT2.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
         }
@@ -11809,7 +11811,7 @@ function showNotGame(scene){
         cardG.fillStyle(0xcc5500,1).fillRoundedRect(TX,TY,TW,44,{tl:14,tr:14,bl:0,br:0});
 
         // Header: "HOW TO PLAY"
-        _TA(scene.add.text(CX,TY+22,"HOW TO PLAY",{fontFamily:_F,fontSize:"18px",color:"#ffffff",stroke:"#5a0000",strokeThickness:3}).setOrigin(0.5).setDepth(D+22));
+        _TA(scene.add.text(CX,TY+22,CURRENT_LANG==="tr"?"NASIL OYNANIR":"HOW TO PLAY",{fontFamily:_F,fontSize:"18px",color:"#ffffff",stroke:"#5a0000",strokeThickness:3}).setOrigin(0.5).setDepth(D+22));
 
         // Progress dots (persistent) — y = TY+50
         const dotGfxArr=[];
@@ -11861,8 +11863,8 @@ function showNotGame(scene){
             }
 
             if(page===0){
-                _head("🔄","LETTER ROTATION","#FF8C00");
-                _body("The letter rotates automatically each turn:");
+                _head("🔄",CURRENT_LANG==="tr"?"HARF DONGUSU":"LETTER ROTATION","#FF8C00");
+                _body(CURRENT_LANG==="tr"?"Harf her turda otomatik degisiyor:":"The letter rotates automatically each turn:");
                 _gap(8);
                 // N O T big cells with turn labels
                 const cellSz=56,gap=10,startX=CX-(3*cellSz+2*gap)/2;
@@ -11872,45 +11874,48 @@ function showNotGame(scene){
                     _PO(scene.add.text(cx+cellSz/2,ly+cellSz+8,"TUR "+(i*2+1),{fontFamily:_F,fontSize:"9px",color:LC[l]}).setOrigin(0.5).setDepth(D+24));
                 });
                 ly+=cellSz+22;
-                _body("You only choose WHERE to place — not which letter.");
-                _body("The letter is fixed by the turn number.");
+                _body(CURRENT_LANG==="tr"?"Sadece NEREYE koyacagini sec — harf sabittir.":"You only choose WHERE to place — not which letter.");
+                _body(CURRENT_LANG==="tr"?"Harf, tur numarasina gore belirlenir.":"The letter is fixed by the turn number.");
                 _gap(6);
-                _head("👆","TURN ORDER","#7eb8ff");
+                _head("👆",CURRENT_LANG==="tr"?"TUR SIRASI":"TURN ORDER","#7eb8ff");
                 // SEN / BOT row
-                [["YOU","#FFD700","Even turns: 1st, 3rd, 5th..."],["OPP","#ff6655","Odd turns: 2nd, 4th, 6th..."]].forEach(([who,col,desc])=>{
+                (CURRENT_LANG==="tr"
+                    ?[["SEN","#FFD700","Cift turlar: 1., 3., 5..."],["RAK","#ff6655","Tek turlar: 2., 4., 6..."]]
+                    :[["YOU","#FFD700","Even turns: 1st, 3rd, 5th..."],["OPP","#ff6655","Odd turns: 2nd, 4th, 6th..."]]
+                ).forEach(([who,col,desc])=>{
                     const rowG=_PO(scene.add.graphics().setDepth(D+23));
                     rowG.fillStyle(0x060e18,1).fillRoundedRect(PAD,ly-11,TW-28,24,6);
                     rowG.lineStyle(1.2,parseInt(col.replace("#",""),16),0.25).strokeRoundedRect(PAD,ly-11,TW-28,24,6);
                     _PO(scene.add.text(PAD+10,ly,who+": "+desc,{fontFamily:_F,fontSize:"10px",color:col}).setOrigin(0,0.5).setDepth(D+24));
                     ly+=28;
                 });
-                _body("UPCOMING panel shows 6 moves ahead — plan wisely!");
+                _body(CURRENT_LANG==="tr"?"SIRADAKI panel 6 hamle ilerisini gosteriyor — iyi planla!":"UPCOMING panel shows 6 moves ahead — plan wisely!");
             }
             else if(page===1){
-                _head("🏆","WIN CONDITION","#FFD700");
-                _body("Get N→O→T in any row, column, or diagonal.");
-                _body("Whoever places the LAST letter completing NOT wins!");
+                _head("🏆",CURRENT_LANG==="tr"?"KAZANMA KOSULU":"WIN CONDITION","#FFD700");
+                _body(CURRENT_LANG==="tr"?"Herhangi bir satir, sutun veya cosegendeki N→O→T'yi tamamla.":"Get N→O→T in any row, column, or diagonal.");
+                _body(CURRENT_LANG==="tr"?"NOT'u tamamlayan SON harfi koyan kazanir!":"Whoever places the LAST letter completing NOT wins!");
                 _gap(10);
                 // Example cells - row
-                _PO(scene.add.text(PAD,ly,"Example — row win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
+                _PO(scene.add.text(PAD,ly,CURRENT_LANG==="tr"?"Ornek — satir kazanma:":"Example — row win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
                 const eW=52,eG=8,eX=CX-(3*eW+2*eG)/2;
                 ["N","O","T"].forEach((l,i)=>_cell(eX+i*(eW+eG),ly,l,eW));
-                _PO(scene.add.text(eX+3*eW+2*eG+10,ly+26,"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
+                _PO(scene.add.text(eX+3*eW+2*eG+10,ly+26,CURRENT_LANG==="tr"?"✓ KAZANDI!":"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
                 ly+=eW+14;
                 // Example - col
-                _PO(scene.add.text(PAD,ly,"Example — column win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
+                _PO(scene.add.text(PAD,ly,CURRENT_LANG==="tr"?"Ornek — sutun kazanma:":"Example — column win:",{fontFamily:_F,fontSize:"9px",color:"#334c5e"}).setOrigin(0,0.5).setDepth(D+23)); ly+=14;
                 const cW=44;
                 ["N","O","T"].forEach((l,i)=>{
                     _cell(PAD+10,ly+i*(cW+6),l,cW);
                     if(i<2){const lineG=_PO(scene.add.graphics().setDepth(D+23));lineG.lineStyle(1,0x334c5e,0.3).lineBetween(PAD+10+cW/2,ly+i*(cW+6)+cW,PAD+10+cW/2,ly+(i+1)*(cW+6));}
                 });
-                _PO(scene.add.text(PAD+10+cW+10,ly+cW,"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
+                _PO(scene.add.text(PAD+10+cW+10,ly+cW,CURRENT_LANG==="tr"?"✓ KAZANDI!":"✓ WIN!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+23));
                 ly+=3*(cW+6)+6;
             }
             else if(page===2){
-                _head("⏰",MAX_LIVES+" LIVES / 12 HOURS","#FF8C00");
-                _body("Every game (win/lose/draw) uses 1 life.");
-                _body("When all lives are used, wait 12h to reset.");
+                _head("⏰",MAX_LIVES+(CURRENT_LANG==="tr"?" CAN / 12 SAAT":" LIVES / 12 HOURS"),"#FF8C00");
+                _body(CURRENT_LANG==="tr"?"Her oyun (kazan/kaybet/bera) 1 can harcar.":"Every game (win/lose/draw) uses 1 life.");
+                _body(CURRENT_LANG==="tr"?"Canlar bitince 12s bekle, sifirlanir.":"When all lives are used, wait 12h to reset.");
                 _gap(10);
                 // Lives visual
                 for(let i=0;i<MAX_LIVES;i++){
@@ -11919,23 +11924,26 @@ function showNotGame(scene){
                     dg.lineStyle(2,0xFFAA00,1).strokeCircle(CX-(MAX_LIVES*16)/2+i*16+8,ly,8);
                 }
                 ly+=22;
-                _PO(scene.add.text(CX,ly,"5 LIVES",{fontFamily:_F,fontSize:"11px",color:"#FFD700"}).setOrigin(0.5).setDepth(D+23)); ly+=20;
+                _PO(scene.add.text(CX,ly,CURRENT_LANG==="tr"?"5 CAN":"5 LIVES",{fontFamily:_F,fontSize:"11px",color:"#FFD700"}).setOrigin(0.5).setDepth(D+23)); ly+=20;
                 _gap(6);
                 // Timer icon
                 const timerG=_PO(scene.add.graphics().setDepth(D+23));
                 timerG.fillStyle(0x0a1828,1).fillRoundedRect(CX-80,ly-14,160,32,8);
                 timerG.lineStyle(1.5,0x1e3040,1).strokeRoundedRect(CX-80,ly-14,160,32,8);
-                _PO(scene.add.text(CX,ly,"00:00:00  →  5 LIVES",{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+24));
+                _PO(scene.add.text(CX,ly,CURRENT_LANG==="tr"?"00:00:00  →  5 CAN":"00:00:00  →  5 LIVES",{fontFamily:_F,fontSize:"13px",color:"#FF8C00",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+24));
                 ly+=36;
-                _body("Difficulty: HARD  (Depth-5 Minimax)","#446677");
-                _body("Fork attacks (two threats at once) win games!","#446677");
+                _body(CURRENT_LANG==="tr"?"Zorluk: ZOR  (Derinlik-5 Minimax)":"Difficulty: HARD  (Depth-5 Minimax)","#446677");
+                _body(CURRENT_LANG==="tr"?"Catal ataklar (iki tehdit birden) oyun kazandirir!":"Fork attacks (two threats at once) win games!","#446677");
             }
             else if(page===3){
-                _head("💰","GOLD REWARDS","#FFD700");
-                _body("Win to earn gold — fewer moves = more gold:");
+                _head("💰",CURRENT_LANG==="tr"?"ALTIN ODULLERI":"GOLD REWARDS","#FFD700");
+                _body(CURRENT_LANG==="tr"?"Kazan ve altin kazan — az hamle = cok altin:":"Win to earn gold — fewer moves = more gold:");
                 _gap(8);
                 // Reward rows
-                [["≤ 8 turns","300","🥇 Perfect",0xFFD700],["≤ 12 turns","200","🥈 Great",0xaaaaaa],["≤ 14 turns","100","🥉 Good",0xcd7f32],["15–16 turns","50","",0x334c5e]].forEach(([a,b,c,col])=>{
+                (CURRENT_LANG==="tr"
+                    ?[["≤ 8 tur","300","🥇 Mukemmel",0xFFD700],["≤ 12 tur","200","🥈 Harika",0xaaaaaa],["≤ 14 tur","100","🥉 Iyi",0xcd7f32],["15–16 tur","50","",0x334c5e]]
+                    :[["≤ 8 turns","300","🥇 Perfect",0xFFD700],["≤ 12 turns","200","🥈 Great",0xaaaaaa],["≤ 14 turns","100","🥉 Good",0xcd7f32],["15–16 turns","50","",0x334c5e]]
+                ).forEach(([a,b,c,col])=>{
                     const rowG=_PO(scene.add.graphics().setDepth(D+23));
                     rowG.fillStyle(col,0.06).fillRoundedRect(PAD,ly-12,TW-28,26,7);
                     rowG.lineStyle(1,col,0.15).strokeRoundedRect(PAD,ly-12,TW-28,26,7);
@@ -11950,11 +11958,11 @@ function showNotGame(scene){
                 const sbG=_PO(scene.add.graphics().setDepth(D+23));
                 sbG.fillStyle(0xFF8C00,0.06).fillRoundedRect(PAD,ly-12,TW-28,28,7);
                 sbG.lineStyle(1.5,0xFF8C00,0.25).strokeRoundedRect(PAD,ly-12,TW-28,28,7);
-                _PO(scene.add.text(PAD+8,ly,"Win streak bonus:",{fontFamily:_F,fontSize:"10px",color:"#7a9aaa"}).setOrigin(0,0.5).setDepth(D+24));
+                _PO(scene.add.text(PAD+8,ly,CURRENT_LANG==="tr"?"Seri bonusu:":"Win streak bonus:",{fontFamily:_F,fontSize:"10px",color:"#7a9aaa"}).setOrigin(0,0.5).setDepth(D+24));
                 _PO(scene.add.image(RPAD-36,ly,"icon_gold").setDisplaySize(14,14).setDepth(D+24));
                 _PO(scene.add.text(RPAD-24,ly,"+50",{fontFamily:_F,fontSize:"12px",color:"#FF8C00"}).setOrigin(0,0.5).setDepth(D+24));
                 ly+=34;
-                _body("Max streak bonus: +200","#446677");
+                _body(CURRENT_LANG==="tr"?"Maks seri bonusu: +200":"Max streak bonus: +200","#446677");
             }
 
             // ── PREV button ──────────────────────────────────────
@@ -11967,7 +11975,7 @@ function showNotGame(scene){
                 const prevG=_PO(scene.add.graphics().setDepth(D+23));
                 prevG.fillStyle(0x0a1020,1).fillRoundedRect(TX+10,TY+TH-52,94,38,10);
                 prevG.lineStyle(1.5,0x2a3c50,1).strokeRoundedRect(TX+10,TY+TH-52,94,38,10);
-                _PO(scene.add.text(TX+57,TY+TH-33,"← BACK",{fontFamily:_F,fontSize:"12px",color:"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
+                _PO(scene.add.text(TX+57,TY+TH-33,CURRENT_LANG==="tr"?"← GERI":"← BACK",{fontFamily:_F,fontSize:"12px",color:"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
                 _PO(scene.add.rectangle(TX+57,TY+TH-33,94,38,0xffffff,0.001).setDepth(D+25).setInteractive({useHandCursor:true}))
                     .on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_showPage(page-1);});
             }
@@ -11989,7 +11997,7 @@ function showNotGame(scene){
                 }
             }
             _nDraw(false);
-            _PO(scene.add.text(nextX,TY+TH-33,isLast?"GOT IT  ✓":"NEXT →",{fontFamily:_F,fontSize:"14px",color:isLast?"#3d1a00":"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
+            _PO(scene.add.text(nextX,TY+TH-33,isLast?(CURRENT_LANG==="tr"?"ANLADIM  ✓":"GOT IT  ✓"):(CURRENT_LANG==="tr"?"ILERI →":"NEXT →"),{fontFamily:_F,fontSize:"14px",color:isLast?"#3d1a00":"#7ab8cc"}).setOrigin(0.5).setDepth(D+24));
             _PO(scene.add.rectangle(nextX,TY+TH-33,nextW,38,0xffffff,0.001).setDepth(D+25).setInteractive({useHandCursor:true}))
                 .on("pointerover",()=>_nDraw(true)).on("pointerout",()=>_nDraw(false))
                 .on("pointerdown",()=>{
@@ -12014,8 +12022,8 @@ function showNotGame(scene){
     function _updateStatus(){
         if(over){curLetTxt.setVisible(false);return;}
         const l=getL(turn);
-        if(turn%2===0){statusTxt.setText("YOUR TURN — PLACE:").setColor("#4488aa");curLetTxt.setVisible(true).setText(l).setColor(LC[l]);}
-        else{statusTxt.setText("OPPONENT THINKING...").setColor("#2a4050");curLetTxt.setVisible(false);}
+        if(turn%2===0){statusTxt.setText(CURRENT_LANG==="tr"?"SENIN SIRAN — KOY:":"YOUR TURN — PLACE:").setColor("#4488aa");curLetTxt.setVisible(true).setText(l).setColor(LC[l]);}
+        else{statusTxt.setText(CURRENT_LANG==="tr"?"RAKIP DUSUNUYOR...":"OPPONENT THINKING...").setColor("#2a4050");curLetTxt.setVisible(false);}
     }
     function _click(i){
         if(!active||over||board[i]||turn%2!==0||botOn) return;
@@ -12062,7 +12070,7 @@ function showNotGame(scene){
             _save(gd);_drawLives();_drawStats();_drawGold();
             scene.time.delayedCall(700,()=>{
                 if(_closed) return;
-                statusTxt.setText(botWon?"💀 OPPONENT WINS!":"🏆 YOU WIN!").setColor(botWon?"#cc3333":"#FFD700");
+                statusTxt.setText(botWon?(CURRENT_LANG==="tr"?"💀 RAKIP KAZANDI!":"💀 OPPONENT WINS!"):(CURRENT_LANG==="tr"?"🏆 KAZANDIN!":"🏆 YOU WIN!")).setColor(botWon?"#cc3333":"#FFD700");
                 curLetTxt.setVisible(false);
                 if(!botWon&&earned>0)try{showBigReward(scene,CX,240,"gold",earned,D+15);}catch(_){}
                 try{NT_SFX.play(botWon?"hurt":"level_up");}catch(_){}
@@ -12076,7 +12084,7 @@ function showNotGame(scene){
             over=true;gd.lives=Math.max(0,gd.lives-1);gd.streak=0;gd.stats.d++;
             if(gd.lives===0)gd.lastOut=Date.now();
             _save(gd);_drawLives();_drawStats();
-            statusTxt.setText("🤝 DRAW!").setColor("#778899");curLetTxt.setVisible(false);
+            statusTxt.setText(CURRENT_LANG==="tr"?"🤝 BERABERE!":"🤝 DRAW!").setColor("#778899");curLetTxt.setVisible(false);
             try{NT_SFX.play("hurt");}catch(_){}
             scene.time.delayedCall(400,()=>{ if(!_closed) _showResult("draw"); });
             if(gd.lives===0)_startCD();
