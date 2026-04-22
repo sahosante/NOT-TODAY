@@ -2653,7 +2653,7 @@ function checkDaily(sc){ if(_dailyOK()) sc.time.delayedCall(600,()=>showDaily(sc
 
 function showDaily(scene){
     const {A,close,contentTop,contentBot,CX:cx,depth:D,objs}
-        = NT_OpenPopup(scene,"mm_panel",300,CURRENT_LANG==="tr"?"GUNLUK ODUL — NOT bedava":"DAILY REWARD — NOThing for free",320,20,null);
+        = NT_OpenPopup(scene,"mm_panel",300,CURRENT_LANG==="tr"?"GUNLUK ODUL":"DAILY REWARD",320,20,null);
 
     // Remove the default close button (last 3 objects added by NT_OpenPopup: graphics, text, hitRect)
     // Pop them from objs and destroy
@@ -2670,10 +2670,13 @@ function showDaily(scene){
     // Streak text
     A(scene.add.text(cx,contentTop+8,(CURRENT_LANG==="tr"?"GUN ":"DAY ")+(cur+1)+(CURRENT_LANG==="tr"?" / 7":" OF 7"),{fontFamily:_F,fontSize:"12px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
 
+    // Mizah alt yazisi — panelin icinde, streak altinda
+    A(scene.add.text(cx,contentTop+22,CURRENT_LANG==="tr"?"NOT bedava degil.":"NOThing is for free.",{fontFamily:_F,fontSize:"8px",color:"#ff8844",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3));
+
     // 7 reward cards: 4 top + 3 bottom
     const CW=60, CH=62, G=5;
     const rows=[[0,1,2,3],[4,5,6]];
-    const bY=contentTop+30;
+    const bY=contentTop+38;
 
     rows.forEach((row,ri)=>{
         const rw=row.length*CW+(row.length-1)*G;
@@ -11437,10 +11440,13 @@ function showNotGame(scene){
     }
     function botPick(board,t){
         const letter=getL(t);
+        // Only look for an immediate winning move — no deep search
         for(let i=0;i<CELLS;i++){if(board[i]!==null)continue;board[i]=letter;const w=checkWin(board);board[i]=null;if(w)return i;}
-        let best=-9999,move=board.findIndex(c=>c===null);
-        for(let i=0;i<CELLS;i++){if(board[i]!==null)continue;board[i]=letter;const s=minimax(board,t+1,-9999,9999,5);board[i]=null;if(s>best){best=s;move=i;}}
-        return move;
+        // Otherwise pick a random empty cell — fair, unpredictable
+        const empty=[];
+        for(let i=0;i<CELLS;i++){if(board[i]===null)empty.push(i);}
+        if(empty.length===0)return -1;
+        return empty[Math.floor(Math.random()*empty.length)];
     }
 
     // ── Storage ──────────────────────────────────────────────────
@@ -11606,9 +11612,9 @@ function showNotGame(scene){
     // ════════════════════════════════════════════════════════════
     // UPCOMING TURNS  (below grid, y≈468)
     // ════════════════════════════════════════════════════════════
-    const ULY=GY0+GW+32; // clear of grid plate bottom
+    const ULY=GY0+GW+38; // clear of grid plate bottom
     A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"SIRADAKI HAMLELER":"UPCOMING TURNS",{fontFamily:_F,fontSize:"8px",color:"#5a8aaa"}).setOrigin(0.5).setDepth(D+3));
-    const UPY=ULY+14;
+    const UPY=ULY+32;
     const UP_SZ=[42,32,26,21,17,14],UP_GP=8;
     const UP_TW=UP_SZ.reduce((a,v)=>a+v,0)+(UP_SZ.length-1)*UP_GP;
     let ux=CX-UP_TW/2;
@@ -11726,7 +11732,7 @@ function showNotGame(scene){
                 bG.lineStyle(2,0xcc8800,0.9).strokeRoundedRect(CX-72,btnY-18,144,40,12);
             }
             _bD(false);
-            _SA(scene.add.text(CX,btnY,CURRENT_LANG==="tr"?"▶  OYNA":"▶  PLAY",{fontFamily:_F,fontSize:"20px",color:"#3d1a00",stroke:"#fff3",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
+            _SA(scene.add.text(CX,btnY,CURRENT_LANG==="tr"?"OYNA":"PLAY",{fontFamily:_F,fontSize:"20px",color:"#3d1a00",stroke:"#fff3",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
             const bHz=_SA(scene.add.rectangle(CX,btnY,144,40,0xffffff,0.001).setDepth(D+11).setInteractive({useHandCursor:true}));
             bHz.on("pointerover",()=>_bD(true));bHz.on("pointerout",()=>_bD(false));
             bHz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideStart();_startGame();});
