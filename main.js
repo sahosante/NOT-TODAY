@@ -14362,20 +14362,59 @@ class SceneGame extends Phaser.Scene {
                 dmg *= gs.critMult;
             }
             if(distCenter<10){
-                // ── PERFECT HIT — silaha gore farkli carpan
+                // ── PERFECT HIT — silaha gore farkli carpan ───────────────
+                // [PRECISION ONE-SHOT] Precision rifle merkeze çarparsa düşman anında ölür
+                // Boss ve miniboss'ta one-shot çalışmaz — sadece büyük hasar verir
+                const _isPrecisionShot = gs.activeWeapon === "precision_rifle";
+                const _canOneShot = _isPrecisionShot && !enemy.isBoss && !enemy._isMiniBoss;
                 const _perfectMult =
-                    gs.activeWeapon === "precision_rifle" ? 2.2 :  // was 2.0 — slight buff for skill reward
-                    gs.activeWeapon === "heavy_cannon"    ? 1.5 :
+                    _canOneShot                        ? 999.0 : // ONE-SHOT — merkezden geçen kurşun öldürür
+                    _isPrecisionShot                   ? 3.5   : // boss/miniboss'ta güçlü ama tek atış değil
+                    gs.activeWeapon === "heavy_cannon" ? 1.5   :
                     3.0;
                 dmg *= _perfectMult;
-                const perfectMsgs=[L("perfect"),L("centerHit"),L("bullseye"),L("perfect"),"NOT BAD!","NOThing missed."];
-                showHitTxt(_S,enemy.x,enemy.y-18,perfectMsgs[Math.floor(Math.random()*perfectMsgs.length)],"#ff4400",true);
-                trackPerfectHit(gs);
-                // PRECISION RIFLE ZOOM — hafif feedback, fazla titreme yok
-                if(gs.activeWeapon === "precision_rifle" && _S.cameras && _S.cameras.main){
+
+                if(_canOneShot){
+                    // ── ONE-SHOT VFX — kırmızı laser geçişi efekti ──────────
                     try{
-                        _S.cameras.main.shake(12, 0.002);          // BEFORE: 30, 0.005
-                        _S.cameras.main.zoomTo(1.03, 60, "Quad.easeOut");  // BEFORE: 1.06
+                        // Kırmızı ışın izi — kurşunun geçtiği yolda
+                        const laserBeam = _S.add.graphics().setDepth(30);
+                        laserBeam.lineStyle(3, 0xff2244, 0.95);
+                        laserBeam.lineBetween(_S.player.x, _S.player.y-42, enemy.x, enemy.y);
+                        laserBeam.lineStyle(1, 0xffffff, 0.70);
+                        laserBeam.lineBetween(_S.player.x, _S.player.y-42, enemy.x, enemy.y);
+                        _S.tweens.add({targets:laserBeam, alpha:0, duration:200, ease:"Quad.easeOut",
+                            onComplete:()=>{ try{laserBeam.destroy();}catch(_){} }});
+                        // İmpact ring — kırmızı halka
+                        const impRing = _S.add.graphics().setDepth(31);
+                        impRing.x = enemy.x; impRing.y = enemy.y;
+                        impRing.lineStyle(3, 0xff2244, 1.0); impRing.strokeCircle(0,0,8);
+                        impRing.lineStyle(1.5, 0xffffff, 0.85); impRing.strokeCircle(0,0,14);
+                        _S.tweens.add({targets:impRing, scaleX:4.0, scaleY:4.0, alpha:0, duration:280, ease:"Quad.easeOut",
+                            onComplete:()=>{ try{impRing.destroy();}catch(_){} }});
+                        // Kamera — sert ama kısa shake
+                        _S.cameras.main.shake(18, 0.006);
+                        _S.cameras.main.zoomTo(1.04, 50, "Quad.easeOut");
+                        _S.time.delayedCall(50, ()=>{ if(_S.cameras?.main) _S.cameras.main.zoomTo(1.0, 130, "Quad.easeIn"); });
+                    }catch(e){ console.warn("[NT] Precision one-shot VFX:", e); }
+                    // One-shot mesajı
+                    const _osMsgs = CURRENT_LANG==="tr"
+                        ? ["💀 ONE SHOT!", "🎯 TAM ORTASI!", "⚡ SNIPER!", "💥 NOT FAIR!"]
+                        : CURRENT_LANG==="ru"
+                        ? ["💀 ONE SHOT!", "🎯 В ЯБЛОЧКО!", "⚡ СНАЙПЕР!"]
+                        : ["💀 ONE SHOT!", "🎯 BULLSEYE KILL!", "⚡ NOT A MISS!", "💥 CLEAN."];
+                    showHitTxt(_S, enemy.x, enemy.y-24,
+                        _osMsgs[Math.floor(Math.random()*_osMsgs.length)], "#ff2244", true);
+                } else {
+                    const perfectMsgs=[L("perfect"),L("centerHit"),L("bullseye"),L("perfect"),"NOT BAD!","NOThing missed."];
+                    showHitTxt(_S,enemy.x,enemy.y-18,perfectMsgs[Math.floor(Math.random()*perfectMsgs.length)],"#ff4400",true);
+                }
+                trackPerfectHit(gs);
+                // Precision one-shot'ta kamera zaten yukarıda handle edildi
+                if(!_canOneShot && gs.activeWeapon === "precision_rifle" && _S.cameras && _S.cameras.main){
+                    try{
+                        _S.cameras.main.shake(12, 0.002);
+                        _S.cameras.main.zoomTo(1.03, 60, "Quad.easeOut");
                         _S.time.delayedCall(60, ()=>{ if(_S.cameras?.main) _S.cameras.main.zoomTo(1.0, 120, "Quad.easeIn"); });
                     }catch(e){console.warn("[NT] Hata yutuldu:",e)}
                 }
@@ -15257,7 +15296,7 @@ function doShoot(S){
         fireBulletRaw(S,px,py,(Math.random()-0.5)*sp*0.02,vy,0.8,0x44aaff,"chain");
     } else if(wt==="precision_rifle"){
         NT_SFX.play("shoot_precision");
-        fireBulletRaw(S,px,py,0,vy*1.45,1.0,0xff2244,"precision"); // [BUFF] faster projectile = easier to land
+        fireBulletRaw(S,px,py,0,vy*1.85,1.0,0xff2244,"precision"); // [BUFF] 1.45→1.85 çok daha hızlı sniper mermisi
     } else if(wt==="reflection_rifle"){
         NT_SFX.play("shoot_reflect");
         const reflAngle=(Math.random()-0.5)*sp*0.08;
