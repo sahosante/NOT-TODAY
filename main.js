@@ -2501,7 +2501,7 @@ const DAILY = [
     { day:4, type:"gold", amount:800  },
     { day:5, type:"gold", amount:1200 },
     { day:6, type:"gold", amount:1800 },
-    { day:7, type:"gem",  amount:10   },
+    { day:7, type:"gem",  amount:5    },
 ];
 
 const WHEEL = [
@@ -2810,7 +2810,7 @@ function showWheel(scene){
 
     // Title with glow
     const titleGlow=A(scene.add.text(CX,20,CURRENT_LANG==="tr"?"SANS CARKI":"FORTUNE WHEEL",{fontFamily:_F,fontSize:"26px",color:"#ffdd44",stroke:"#000",strokeThickness:5}).setOrigin(0.5).setDepth(D+2));
-    A(scene.add.text(CX,42,CURRENT_LANG==="tr"?"NOT garantisi vermiyoruz.":"NOThing guaranteed.",{fontFamily:_F,fontSize:"10px",color:"#ffaa55",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+2));
+    A(scene.add.text(CX,42,CURRENT_LANG==="tr"?"NOT garantisi vermiyoruz.":"NOThing guaranteed.",{fontFamily:_F,fontSize:"13px",color:"#ffaa55",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+2));
     const tgv={v:0};
     A({destroy:()=>{},scene:scene});
     scene.tweens.add({targets:tgv,v:1,duration:1500,yoyo:true,repeat:-1,ease:"Sine.easeInOut",
@@ -3277,7 +3277,7 @@ function showShop(scene, defaultTab){
                 let y=6;
                 // Title
                 _add(T(cx,SY0+y+10,CURRENT_LANG==="tr"?"KOSTUM SANDIKLARI":"SKIN CHESTS",{fontFamily:_F,fontSize:"14px",color:"#ffdd44",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
-                _add(T(cx,SY0+y+28,CURRENT_LANG==="tr"?"SILAH VE KARAKTER KOSTUMLERINI ACMAK ICIN SANDIK AC!":"Open chests to unlock weapon & character skins!",{fontFamily:_F,fontSize:"9px",color:"#8899aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+28,CURRENT_LANG==="tr"?"SILAH VE KARAKTER KOSTUMLERINI ACMAK ICIN SANDIK AC!":"Open chests to unlock weapon & character skins!",{fontFamily:_F,fontSize:"11px",color:"#cce0ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=42;
                 CHESTS.forEach((ch,ci)=>{
                     const rowH=72, canB=PLAYER_GEMS>=ch.cost;
@@ -3447,7 +3447,7 @@ function showShop(scene, defaultTab){
                 _fHdr.fillStyle(0x880000,0.35);_fHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,24,{tl:8,tr:8,bl:0,br:0});
                 _add(_fHdr);
                 _add(T(cx,SY0+y+13,"⚡  FLASH SALE",{fontFamily:_F,fontSize:"16px",color:"#ff4422",stroke:"#000",strokeThickness:4}).setOrigin(0.5));
-                _add(T(cx,SY0+y+30,CURRENT_LANG==="tr"?"HER GÜN YENİ — NOThing kalıcı.":"NEW EVERY DAY — NOThing lasts forever.",{fontFamily:_F,fontSize:"8px",color:"#ff8866",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+30,CURRENT_LANG==="tr"?"HER GÜN YENİ — NOThing kalıcı.":"NEW EVERY DAY — NOThing lasts forever.",{fontFamily:_F,fontSize:"11px",color:"#ffaa77",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=56;
 
                 // Sayac
@@ -3725,7 +3725,7 @@ function showShop(scene, defaultTab){
                 _infG.lineStyle(1,0x551100,0.4);_infG.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,26,6);
                 _add(_infG);
                 _add(T(cx,SY0+y+13,CURRENT_LANG==="tr"?"🔒  Her gun gece yarisi sifirlanir — kagit gibi gider":"🔒  Resets daily at midnight — gone like smoke",
-                    {fontFamily:_F,fontSize:"8px",color:"#884444",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                    {fontFamily:_F,fontSize:"11px",color:"#cc6655",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=34;
 
                 totalH=y+10;
@@ -5350,13 +5350,13 @@ const ENEMY_POOL=[
 
 const GOLD_UPGRADES=[
     // [v10.2] Yuksek maliyet egrisi:
-    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level",     descTxtTR:"Her seviye baslangic HP'yi +3 arttirir"},
-    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:21000,  baseCost:21000,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level",  descTxtTR:"Her seviye baslangic hasari +%12 arttirir"},
-    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:15000,  baseCost:15000,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level", descTxtTR:"Her seviye hareket hizini +%10 arttirir"},
-    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:24000,  baseCost:24000,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level",              descTxtTR:"Her seviye +%18 daha fazla altin kazan"},
-    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:75000, baseCost:75000, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death",               descTxtTR:"Olunce ekstra bir can kazanirsin"},
-    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:18000,  baseCost:18000,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level",                descTxtTR:"Her seviye +%15 daha fazla XP kazan"},
-    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:45000, baseCost:45000, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level", descTxtTR:"Her seviye kritik sans +%4 arttirir"},
+    {id:"start_hp",    nameKey:"startHp",    descKey:"startHpDesc",    cost:12750,  baseCost:12750,  maxLevel:5,level:0,icon:"💪",  descTxt:"Increases starting HP by +3 per level",     descTxtTR:"Her seviye baslangic HP'yi +3 arttirir"},
+    {id:"start_dmg",   nameKey:"startDmg",   descKey:"startDmgDesc",   cost:17850,  baseCost:17850,  maxLevel:5,level:0,icon:"⚔️", descTxt:"Boosts starting damage by +12% per level",  descTxtTR:"Her seviye baslangic hasari +%12 arttirir"},
+    {id:"start_spd",   nameKey:"startSpd",   descKey:"startSpdDesc",   cost:12750,  baseCost:12750,  maxLevel:5,level:0,icon:"🏃", descTxt:"Increases movement speed by +10% per level", descTxtTR:"Her seviye hareket hizini +%10 arttirir"},
+    {id:"gold_bonus",  nameKey:"goldBonus",  descKey:"goldBonusDesc",  cost:20400,  baseCost:20400,  maxLevel:5,level:0,icon:"💰", descTxt:"Earn +18% more gold per level",              descTxtTR:"Her seviye +%18 daha fazla altin kazan"},
+    {id:"extra_life",  nameKey:"extraLife",  descKey:"extraLifeDesc",  cost:63750, baseCost:63750, maxLevel:3,level:0,icon:"❤️", descTxt:"Grants an extra life on death",               descTxtTR:"Olunce ekstra bir can kazanirsin"},
+    {id:"xp_bonus",    nameKey:"xpBonus",    descKey:"xpBonusDesc",    cost:15300,  baseCost:15300,  maxLevel:5,level:0,icon:"📚", descTxt:"Gain +15% more XP per level",                descTxtTR:"Her seviye +%15 daha fazla XP kazan"},
+    {id:"crit_start",  nameKey:"critStart",  descKey:"critStartDesc",  cost:38250, baseCost:38250, maxLevel:5,level:0,icon:"🦅", descTxt:"Increases base crit chance by +4% per level", descTxtTR:"Her seviye kritik sans +%4 arttirir"},
 ];
 
 let GS;
@@ -12666,8 +12666,8 @@ class SceneMainMenu extends Phaser.Scene {
         const DEFS  = [
             {icon:"mm_play",     label:L("menuPlay"),        cb:()=>this._goGame()},
             {icon:"mm_shop",     label:L("menuShop"),        cb:()=>this._showShop()},
-            {icon:"mm_settings", label:L("menuSettings"),    cb:()=>this._showSettings()},
             {icon:"mm_howto",    label:"MINIGAME", cb:()=>this._showPuzzle()},
+            {icon:"mm_settings", label:L("menuSettings"),    cb:()=>this._showSettings()},
             {icon:"mm_lb",       label:L("menuLeaderboard"), cb:()=>this._showLeaderboard()},
         ];
         // Phaser glyph warm-up: tum buton labellarini invisible text olarak render et
@@ -13124,13 +13124,17 @@ class SceneMainMenu extends Phaser.Scene {
                     color:'#fff', stroke:'#000', strokeThickness:2
                 }).setOrigin(0.5).setDepth(DP+3).setAlpha(0));
 
-                // Sonraki level altın ödülü
+                // Sonraki level altın ödülü — icon_gold asset kullan
                 const nextGold = Math.round(_plvGoldReward(PLAYER_LEVEL+1) * _plvPrestigeMultiplier());
-                _A(this.add.text(CX2, PY+139,
-                    (isTR?"Seviye atladığında: ":"On level up: ")+"+"+nextGold.toLocaleString()+" 🪙",
+                const _ngLabel = (isTR?"Seviye atladığında: ":"On level up: ")+"+"+nextGold.toLocaleString();
+                _A(this.add.text(CX2 - 12, PY+139, _ngLabel,
                     { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'10px',
                       color:'#ccaa44', stroke:'#000', strokeThickness:1 }
                 ).setOrigin(0.5).setDepth(DP+2).setAlpha(0));
+                if(this.textures.exists("icon_gold")){
+                    _A(this.add.image(CX2 + (this.add.text(0,0,_ngLabel,{fontFamily:'LilitaOne, Arial, sans-serif',fontSize:'10px'}).width / 2) - 2, PY+139, "icon_gold")
+                        .setDisplaySize(14,14).setOrigin(0,0.5).setDepth(DP+2).setAlpha(0));
+                }
 
                 // Kapat
                 const closeZone = _A(this.add.text(CX2, PY+PH-14,
