@@ -5869,7 +5869,7 @@ function syncStatsFromPipeline(gs){
         gs.damage    *= 0.65;                                // ×0.60 dmgM per bullet, 2 bullets, floor 120ms
         gs.shootDelay = Math.max(120, gs.shootDelay / 1.7); // was /1.8 floor 110 — slightly slower
     } else if(wt==="heavy_cannon"){
-        gs.damage    *= 2.75;                                // [BUFF] 2.60→2.75 hafif artış
+        gs.damage    *= 4.20;                                // [BUFF] 2.75→4.20 — geç oyunda güçlü hissettirmeli
         gs.shootDelay = Math.min(750, gs.shootDelay * 2.0);
     } else if(wt==="spread_shot"){
         gs.damage    *= 0.75;                                // ×0.70 dmgM per bullet, 3 bullets
@@ -14518,6 +14518,67 @@ class SceneGame extends Phaser.Scene {
                 if(!enemy.active){ // [FIX] Sadece öldüren isabette patlama efekti
                     doExplosion(_S,enemy.x,enemy.y, true);
                 }
+
+                // ── İKİNCİL PATLAMA — 500ms sonra, dar alan, dengeli hasar ───────
+                // [TASARIM] İlk isabet anında ufak uyarı halkası → 500ms → ikincil boom
+                // Hasar: gs.damage × 0.45, yarıçap: 55px — oyunu kırmayacak kadar dengeli
+                if(!b._secondaryFired){
+                    b._secondaryFired = true;
+                    const _sx = enemy.x, _sy = enemy.y; // pozisyonu kilitle
+                    // Uyarı göstergesi — titreşen turuncu halka
+                    const _warn = _S.add.graphics().setDepth(17);
+                    _warn.x = _sx; _warn.y = _sy;
+                    _warn.lineStyle(2, 0xff6600, 0.80);
+                    _warn.strokeCircle(0, 0, 55);
+                    _warn.fillStyle(0xff4400, 0.10);
+                    _warn.fillCircle(0, 0, 55);
+                    _S.tweens.add({ targets:_warn, alpha:0.2, duration:200,
+                        yoyo:true, repeat:1, ease:"Sine.easeInOut" });
+
+                    _S.time.delayedCall(500, ()=>{
+                        if(!_S || !GS || GS.gameOver) return;
+                        try{ _warn.destroy(); }catch(_){}
+
+                        // İkincil patlama VFX — daha küçük, turuncu-kırmızı ton
+                        const _sg = _S.add.graphics().setDepth(21);
+                        _sg.x = _sx; _sg.y = _sy;
+                        _sg.fillStyle(0xff5500, 0.50); _sg.fillCircle(0, 0, 30);
+                        _sg.lineStyle(2.5, 0xff8800, 0.85); _sg.strokeCircle(0, 0, 42);
+                        _sg.lineStyle(1.5, 0xffcc00, 0.60); _sg.strokeCircle(0, 0, 55);
+                        _S.tweens.add({ targets:_sg, scaleX:1.6, scaleY:1.6, alpha:0,
+                            duration:300, ease:"Quad.easeOut",
+                            onComplete:()=>{ try{_sg.destroy();}catch(_){} }});
+
+                        // Merkez flaş
+                        if(!_IS_MOBILE_EARLY){
+                            const _sf = _S.add.graphics().setDepth(22);
+                            _sf.x = _sx; _sf.y = _sy;
+                            _sf.fillStyle(0xffffff, 0.55); _sf.fillCircle(0, 0, 8);
+                            _S.tweens.add({ targets:_sf, scaleX:3, scaleY:3, alpha:0,
+                                duration:120, ease:"Quad.easeOut",
+                                onComplete:()=>{ try{_sf.destroy();}catch(_){} }});
+                        }
+
+                        // Kamera mini shake
+                        try{ _S.cameras.main.shake(12, 0.003); }catch(_){}
+
+                        // İkincil alan hasarı — 55px, %45 hasar
+                        const _SEC_R   = 55;
+                        const _SEC_DMG = GS.damage * 0.45;
+                        const _secEnemies = _S._activeEnemies && _S._activeEnemies.length > 0
+                            ? _S._activeEnemies
+                            : _S.pyramids.getMatching("active", true);
+                        for(let _si = 0; _si < _secEnemies.length; _si++){
+                            const _se = _secEnemies[_si];
+                            if(!_se || !_se.active || !_se.body || !_se.body.enable) continue;
+                            const _sdx = _se.x - _sx, _sdy = _se.y - _sy;
+                            if(_sdx*_sdx + _sdy*_sdy < _SEC_R*_SEC_R){
+                                applyDmg(_S, _se, _SEC_DMG, false);
+                            }
+                        }
+                        try{ NT_SFX.play("pixel_explode"); }catch(_){}
+                    });
+                }
                 // enemy.active (sağ kaldı) → sade isabet, patlama yok — diğer mermiler gibi
             } else if(UPGRADES.explosive.level>0&&!enemy.active){
                 doExplosion(_S,enemy.x,enemy.y);
@@ -14997,37 +15058,7 @@ class SceneGame extends Phaser.Scene {
         const BURST_INTERVAL = 75;   // burst içi mermi arası (ms)
         const BURST_PAUSE    = 520;  // burst bitince bekleme (ms)
 
-        // ── HEAVY CANNON BURST — 3 mermi basılı kal → bekleme → tekrar ─
-        const HC_BURST_SIZE     = 3;    // 3 mermi
-        const HC_BURST_INTERVAL = 220;  // mermi arası (ms) — ağır top, yavaş ritmik
-        const HC_BURST_PAUSE    = 900;  // burst bitince bekleme (ms)
-
-        if(_isHeavy){
-            const _pressingHC = _spaceDown || this._mobileFire;
-            gs._hcBurstTimer    = (gs._hcBurstTimer    || 0) + delta;
-            gs._hcBurstCooldown = (gs._hcBurstCooldown || 0);
-
-            if(gs._hcBurstCooldown > 0){
-                gs._hcBurstCooldown -= delta;
-                if(gs._hcBurstCooldown < 0) gs._hcBurstCooldown = 0;
-            } else if(_pressingHC){
-                if(gs._hcBurstTimer >= HC_BURST_INTERVAL){
-                    gs._hcBurstTimer = 0;
-                    this._shootTimer = gs.shootDelay; // canShoot bypass
-                    doShoot(this);
-                    gs._hcBurstCount = (gs._hcBurstCount || 0) + 1;
-                    if(gs._hcBurstCount >= HC_BURST_SIZE){
-                        gs._hcBurstCount    = 0;
-                        gs._hcBurstCooldown = HC_BURST_PAUSE;
-                        gs._hcBurstTimer    = 0;
-                    }
-                }
-            } else {
-                // Tuş bırakıldı — sayaç resetle
-                gs._hcBurstTimer = HC_BURST_INTERVAL;
-                gs._hcBurstCount = 0;
-            }
-        } else if(_isDefault && !_isPrecision){
+        if(_isDefault && !_isPrecision && !_isHeavy){
             const _pressing = _spaceDown || this._mobileFire;
             gs._burstTimer     = (gs._burstTimer     || 0) + delta;
             gs._burstCooldown  = (gs._burstCooldown  || 0);
@@ -15058,7 +15089,7 @@ class SceneGame extends Phaser.Scene {
         } else {
             // Diğer silahlar — eski sistem (heavy cannon artık kendi burst bloğunda)
             const _fireNormal = (_spaceDown || this._mobileFire) && _canShoot && !_isPrecision && !_isHeavy;
-            if(_fireNormal || _firePrecision){
+            if(_fireNormal || _firePrecision || _fireHeavy){
                 this._shootTimer = 0;
                 if(_firePrecision) this._precisionCooldown = 0;
                 doShoot(this);
@@ -15376,7 +15407,7 @@ function fireBulletRaw(S,x,y,vx,vy,dmgM,weaponTint,weaponType){
 
     b.setScale(bScale);
     b.body.setVelocity(vx+bSpread,vy);
-    b._pierced=0; b._age=0; b._chainBounced=false; b._chainCount=0; // [FIX] Reset chain state on bullet reuse
+    b._pierced=0; b._age=0; b._chainBounced=false; b._chainCount=0; b._secondaryFired=false; // [FIX] Reset states on bullet reuse
     b._weaponType=weaponType||"default";
     b._dmgMult=(dmgM!=null?dmgM:1.0); // BALANCE FIX: store per-bullet dmgM — was only used for visual scale
     b.setDepth(16); b.setAlpha(1);
@@ -20287,7 +20318,7 @@ function doExplosion(S,x,y,showAnim=true){
         if(d<r+e.displayWidth*0.5){
             const falloff=Math.max(0.3,1-(d/r)*0.6);
             // [BUFF] Heavy cannon splash hits harder — 1.2→1.55 base multiplier
-            const _splashMult = gs.activeWeapon==="heavy_cannon" ? 1.1+lv*0.20 : 1.2+lv*0.30;
+            const _splashMult = gs.activeWeapon==="heavy_cannon" ? 1.8+lv*0.25 : 1.2+lv*0.30; // [BUFF] alan hasarı da güçlendirildi
             applyDmg(S,e,gs.damage*_splashMult*falloff,d<r*0.4);
         }
     }
