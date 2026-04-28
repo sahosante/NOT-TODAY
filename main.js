@@ -13909,6 +13909,9 @@ class SceneGame extends Phaser.Scene {
             orbitAngle:0,            // used by drone orbit positioning
             // ── BURST FIRE sistemi (default silah) ──────────────────
             _burstCount:0,          // mevcut burst'te kaç mermi atıldı
+            _hcBurstCount:0,        // heavy cannon burst sayacı
+            _hcBurstTimer:0,        // heavy cannon burst timer
+            _hcBurstCooldown:0,     // heavy cannon burst bekleme
             _burstTimer:0,          // burst içi zamanlayıcı (ms)
             _burstCooldown:0,       // burst arası bekleme sayacı (ms)
             extraLife:(GOLD_UPGRADES.find(u=>u.id==="extra_life")?.level||0)>0,
@@ -14951,7 +14954,37 @@ class SceneGame extends Phaser.Scene {
         const BURST_INTERVAL = 75;   // burst içi mermi arası (ms)
         const BURST_PAUSE    = 520;  // burst bitince bekleme (ms)
 
-        if(_isDefault && !_isPrecision && !_isHeavy){
+        // ── HEAVY CANNON BURST — 3 mermi basılı kal → bekleme → tekrar ─
+        const HC_BURST_SIZE     = 3;    // 3 mermi
+        const HC_BURST_INTERVAL = 220;  // mermi arası (ms) — ağır top, yavaş ritmik
+        const HC_BURST_PAUSE    = 900;  // burst bitince bekleme (ms)
+
+        if(_isHeavy){
+            const _pressingHC = _spaceDown || this._mobileFire;
+            gs._hcBurstTimer    = (gs._hcBurstTimer    || 0) + delta;
+            gs._hcBurstCooldown = (gs._hcBurstCooldown || 0);
+
+            if(gs._hcBurstCooldown > 0){
+                gs._hcBurstCooldown -= delta;
+                if(gs._hcBurstCooldown < 0) gs._hcBurstCooldown = 0;
+            } else if(_pressingHC){
+                if(gs._hcBurstTimer >= HC_BURST_INTERVAL){
+                    gs._hcBurstTimer = 0;
+                    this._shootTimer = gs.shootDelay; // canShoot bypass
+                    doShoot(this);
+                    gs._hcBurstCount = (gs._hcBurstCount || 0) + 1;
+                    if(gs._hcBurstCount >= HC_BURST_SIZE){
+                        gs._hcBurstCount    = 0;
+                        gs._hcBurstCooldown = HC_BURST_PAUSE;
+                        gs._hcBurstTimer    = 0;
+                    }
+                }
+            } else {
+                // Tuş bırakıldı — sayaç resetle
+                gs._hcBurstTimer = HC_BURST_INTERVAL;
+                gs._hcBurstCount = 0;
+            }
+        } else if(_isDefault && !_isPrecision){
             const _pressing = _spaceDown || this._mobileFire;
             gs._burstTimer     = (gs._burstTimer     || 0) + delta;
             gs._burstCooldown  = (gs._burstCooldown  || 0);
@@ -14980,9 +15013,9 @@ class SceneGame extends Phaser.Scene {
                 gs._burstCount = 0;
             }
         } else {
-            // Diğer silahlar — eski sistem
+            // Diğer silahlar — eski sistem (heavy cannon artık kendi burst bloğunda)
             const _fireNormal = (_spaceDown || this._mobileFire) && _canShoot && !_isPrecision && !_isHeavy;
-            if(_fireNormal || _firePrecision || _fireHeavy){
+            if(_fireNormal || _firePrecision){
                 this._shootTimer = 0;
                 if(_firePrecision) this._precisionCooldown = 0;
                 doShoot(this);
@@ -15212,7 +15245,7 @@ function doShoot(S){
         fireBulletRaw(S,px+3,py,(Math.random()-0.5)*sp*0.04,vy,0.6,0xffee44,"rapid");
     } else if(wt==="heavy_cannon"){
         NT_SFX.play("shoot_cannon");
-        fireBulletRaw(S,px,py,0,vy*0.52,1.0,0xff6600,"cannon"); // mermi biraz daha yavaş — heavy hissettirsin
+        fireBulletRaw(S,px,py,0,vy*0.75,1.0,0xff6600,"cannon"); // [BUFF] 0.52→0.75 mermi hızı artırıldı
     } else if(wt==="spread_shot"){
         NT_SFX.play("shoot_spread");
         const ang=sp*0.52; // BALANCE: wider angle so not all 3 hit reliably
@@ -20103,19 +20136,17 @@ function doExplosion(S,x,y,showAnim=true){
     ];
     const _exC = _expColors[Math.min(Math.max(lv-1, 0), _expColors.length-1)];
 
-    // ── EXPLOSION SPRITE ANIMASYONU — sadece showAnim=true (öldürünce) ──
+    // ── EXPLOSION SPRITE ANIMASYONU — sadece heavy cannon için TEK anim ──
     if(showAnim && S.anims && S.anims.exists("anim_expl")){
         try{
-            const sc = 4.0 + (lv*0.3); // [FIX] heavy cannon da artık aynı boyut
+            const sc = _isHeavy ? 5.2 : (4.0 + (lv*0.3));
             const es=S.add.sprite(x,y,"explosion").setDepth(25).setScale(sc).setAlpha(0.95);
             es.play("anim_expl");
             es.once("animationcomplete",()=>{ try{es.destroy();}catch(_){} });
         }catch(_){}
     }
-    // [FIX] Heavy cannon extra exp1 animasyonları KALDIRILDI — ekstra büyütme gerekmiyor
 
-    // ── GRENADE VFX — explosive upgrade öldürmelerinde tatlı özel animasyon ──
-    // (Heavy cannon değil, Explosive upgrade'i aktifken)
+    // ── GRENADE VFX — explosive upgrade öldürmelerinde (heavy cannon DEĞİL) ──
     if(showAnim && !_isHeavy && lv > 0 && !_IS_MOBILE_EARLY){
         // 1. Renkli halka patlaması — turuncu → sarı → beyaz
         const _grenColors = [0xff8800, 0xffcc00, 0xffffff];
