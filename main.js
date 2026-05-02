@@ -193,10 +193,52 @@ const NT_SFX = (function(){
     let _paused  = false;
 
     // ── Voice pool — prevents simultaneous voice overload ─────────
-    const _MAX_VOICES = 40;
+    // Düşük uçlu cihazlarda daha az eşzamanlı ses — distortion önlenir
+    const _IS_LOW_END_DEV = (function(){
+        try{
+            const cores = navigator.hardwareConcurrency || 4;
+            const mem   = navigator.deviceMemory || 4; // GB
+            const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            return touch && (cores <= 4 || mem <= 2);
+        }catch(e){ return false; }
+    })();
+    const _MAX_VOICES = _IS_LOW_END_DEV ? 16 : 28;
     let   _activeVoices = 0;
     function _acquireVoice(){ if(_activeVoices>=_MAX_VOICES)return false; _activeVoices++; return true; }
     function _releaseVoice(){ _activeVoices=Math.max(0,_activeVoices-1); }
+
+    // ── Noise buffer cache — aynı süre için buffer yeniden kullanılır ──
+    // Her _noise() çağrısında yeni Float32Array doldurma → CPU spike.
+    // Cache: {sampleRate_dur → AudioBuffer} — GC baskısı ve CPU pikini önler.
+    const _noiseBufCache = new Map();
+    function _getCachedNoiseBuf(ctx, dur){
+        const key = ctx.sampleRate + '_' + Math.round(dur * 20); // 50ms hassasiyet
+        if(_noiseBufCache.has(key)) return _noiseBufCache.get(key);
+        const sr=ctx.sampleRate, len=Math.ceil(sr*(dur+0.05));
+        const buf=ctx.createBuffer(1,len,sr);
+        const d=buf.getChannelData(0);
+        for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+        if(_noiseBufCache.size < 32) _noiseBufCache.set(key, buf); // max 32 entry
+        return buf;
+    }
+
+    // ── Per-sound SFX cooldowns — rapid-fire sesler için throttle ─
+    // knockback_hit vb. aynı anda çok sayıda tetiklenince audio bozulur.
+    const _sfxCd = {};
+    const _sfxMinMs = {
+        knockback_hit:  85,   // max ~12/sn → distortion önlenir
+        hit_enemy:      18,
+        bullet_hit:     15,
+        crit_hit:       55,
+        kill_enemy:     35,
+        explosion:      60,
+        footstep:      130,
+        freeze_hit:     70,
+        lightning_hit:  60,
+        laser_hit:      30,
+        poison_tick:    50,
+        void_hit:       65,
+    };
 
     // ── AudioContext bootstrap ────────────────────────────────────
     function _getCtx(){
@@ -294,15 +336,13 @@ const NT_SFX = (function(){
     // [SES FIX] Müzik bus'a giden noise'lar SFX voice pool'u TÜKETMEMELİ.
     // _musBus / _ambBus → _noPool=true → _acquireVoice() atlanır.
     // Böylece oyun ilerledikçe SFX'lerin kaybolması sorunu çözülür.
+    // [PERF FIX] Buffer cache kullanılır — her çağrıda Float32Array doldurma yok.
     function _noise(t0,dur,gain,lo=300,hi=6000,bus=null,panVal=0){
         const ctx=_getCtx(); if(!ctx) return;
         const _noPool = bus!=null && (bus===_musBus||bus===_ambBus);
         if(!_noPool && !_acquireVoice()) return;
         const dest=bus||_sfxBus;
-        const sr=ctx.sampleRate, len=Math.ceil(sr*(dur+0.05));
-        const buf=ctx.createBuffer(1,len,sr);
-        const d=buf.getChannelData(0);
-        for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+        const buf=_getCachedNoiseBuf(ctx, dur);
         const src=ctx.createBufferSource(); src.buffer=buf;
         const bpf=ctx.createBiquadFilter(); bpf.type="bandpass";
         bpf.frequency.value=(lo+hi)/2; bpf.Q.value=0.8;
@@ -1843,12 +1883,15 @@ const NT_SFX = (function(){
             const ctx=_getCtx(); if(!ctx||!_sfxOn()) return; _resume();
             const t=ctx.currentTime;
             // Güçlü bass thud — "WHAM" hissi
-            _osc("sine",   _vary(95),  t, _vary(0.14,0.05), _vol(0.85), _vary(22));
-            _osc("sine",   _vary(48),  t, _vary(0.18,0.05), _vol(0.65), _vary(18));
-            _noise(t, _vary(0.05,0.05), _vol(0.55), 150,3500);
-            // Hava itme whoosh
-            _noise(t+0.03, _vary(0.12,0.05), _vol(0.22), 400,9000);
-            _osc("sawtooth",_vary(220),t+0.02,_vary(0.06,0.05),_vol(0.15),_vary(55));
+            _osc("sine", _vary(95), t, _vary(0.14,0.05), _vol(0.80), _vary(22));
+            _osc("sine", _vary(48), t, _vary(0.18,0.05), _vol(0.55), _vary(18));
+            // Mobilde noise pahalı — sadece masaüstünde ikinci whoosh
+            if(!_IS_LOW_END_DEV){
+                _noise(t, _vary(0.05,0.05), _vol(0.45), 150, 3500);
+                _noise(t+0.03, _vary(0.10,0.05), _vol(0.18), 400, 9000);
+            } else {
+                _noise(t, _vary(0.05,0.05), _vol(0.40), 200, 3000);
+            }
         },
 
         // ── PANEL OPEN WHOOSH (PLAY butonu) — hızlı aşağı süzülme ─
@@ -2071,6 +2114,14 @@ const NT_SFX = (function(){
     // ── Public API ────────────────────────────────────────────────
     function play(name, ...args){
         if(!_sfxOn()) return;
+        // [PERF FIX] Per-sound throttle — rapid-fire ses birikimini önler
+        const minMs = _sfxMinMs[name];
+        if(minMs !== undefined){
+            const now = performance.now();
+            const last = _sfxCd[name] || 0;
+            if(now - last < minMs) return;
+            _sfxCd[name] = now;
+        }
         try{ if(SFX[name]) SFX[name](...args); }
         catch(e){ console.warn("[NT_SFX]",name,e); }
     }
@@ -5953,7 +6004,23 @@ function applyTimedBuff(gs, key, multiplier, duration, S){
 // ★ PERFORMANS — Global FPS Monitor + Particle Budget
 // ═══════════════════════════════════════════════════════════════
 const _IS_MOBILE_EARLY = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-let _perfMode = _IS_MOBILE_EARLY ? "low" : "high"; // "high" | "low" — mobile starts low
+
+// ── 3-Tier performans sistemi: "high" | "mid" | "low" ──────────────────
+// Başlangıçta donanım profiline göre tier seç, FPS ile dinamik ayarla
+const _PERF_INIT = (function(){
+    try{
+        const cores = navigator.hardwareConcurrency || 4;
+        const mem   = navigator.deviceMemory; // undefined = bilinmiyor
+        const touch = _IS_MOBILE_EARLY;
+        if(!touch) return "high";
+        if(mem && mem <= 2) return "low";
+        if(mem && mem >= 6) return "mid";
+        if(cores >= 8) return "mid";
+        if(cores <= 3) return "low";
+        return "mid";
+    }catch(e){ return _IS_MOBILE_EARLY ? "mid" : "high"; }
+})();
+let _perfMode = _PERF_INIT;
 
 // [PERF-FIX] Dairesel buffer — Array.shift() O(n) kopyalamasini onler, reduce() her frame yok
 const _FPS_BUF_SIZE = 60;
@@ -5971,22 +6038,34 @@ function updatePerfMode(fps){
     _fpsBuf[_fpsBufIdx] = fps;
     _fpsBufSum += fps;
     _fpsBufIdx = (_fpsBufIdx + 1) % _FPS_BUF_SIZE;
-    // [PERF-FIX] Her frame degil, her 30 frame'de bir (~500ms) guncelle
+    // Her frame degil, her 45 frame'de bir (~750ms) guncelle — histerezis önler
     _perfModeFrame++;
-    if(_perfModeFrame < 30) return;
+    if(_perfModeFrame < 45) return;
     _perfModeFrame = 0;
     if(_fpsBufCount < 20) return;
     const avg = _fpsBufSum / _fpsBufCount;
-    const threshold = _IS_MOBILE_EARLY ? 50 : 35;
-    _perfMode = avg < threshold ? "low" : "high";
+    // 3-tier eşikler — histerezis ile ani geçiş önlenir
+    if(_perfMode === "high"){
+        if(avg < (_IS_MOBILE_EARLY ? 48 : 32)) _perfMode = "mid";
+    } else if(_perfMode === "mid"){
+        if(avg < (_IS_MOBILE_EARLY ? 36 : 24)) _perfMode = "low";
+        else if(avg > (_IS_MOBILE_EARLY ? 56 : 50)) _perfMode = "high";
+    } else { // low
+        if(avg > (_IS_MOBILE_EARLY ? 48 : 40)) _perfMode = "mid";
+    }
 }
 
-// Particle budget — low mode'da daha az efekt
+// Particle budget — low/mid mode'da daha az efekt
 function canSpawnParticle(priority="normal"){
     if(_perfMode === "high") return true;
     if(priority === "critical") return true;   // boss death vs
-    if(priority === "normal")   return Math.random() < 0.4;
-    return false; // "cheap" particle → low mode'da atla
+    if(_perfMode === "mid"){
+        if(priority === "normal") return Math.random() < 0.65;
+        return false; // "cheap" → mid'de %35 skip
+    }
+    // low mode
+    if(priority === "normal") return Math.random() < 0.25;
+    return false;
 }
 
 
@@ -8359,12 +8438,14 @@ function tickEnemies(S){
     S.pyramids.children.iterate(p=>{
         if(!p||!p.active) return;
         // PIXEL-PERFECT: pozisyonu en yakin piksele yuvarla — subpixel jitter onle
-        if(p.x !== undefined) p.x = Math.round(p.x);
-        if(p.y !== undefined) p.y = Math.round(p.y);
-        // Velocity de tam sayiya yuvarla — subpixel birikimi onle
-        if(p.body){
-            p.body.velocity.x = Math.round(p.body.velocity.x * 10) / 10;
-            p.body.velocity.y = Math.round(p.body.velocity.y * 10) / 10;
+        // [PERF] low/mid modda her frame yuvarlamak yerine her 2 frame — CPU tasarufu
+        if(_perfMode === "high"){
+            if(p.x !== undefined) p.x = Math.round(p.x);
+            if(p.y !== undefined) p.y = Math.round(p.y);
+            if(p.body){
+                p.body.velocity.x = Math.round(p.body.velocity.x * 10) / 10;
+                p.body.velocity.y = Math.round(p.body.velocity.y * 10) / 10;
+            }
         }
         if(p.type==="minion"){
             if(!p.body||!p.body.enable) return;
@@ -21750,7 +21831,8 @@ function onLevelUpPowerSpike(S){
 
 // ── 1. FIZIKSEL DEBRIS — parcalar zemine duser ─────────────────
 let _debrisCount = 0;
-const MAX_DEBRIS = 6;  // [PERF] Daha agresif limit — FPS korumasi
+// [PERF] Debris limiti tier'a göre belirlenir — low'da neredeyse yok
+const MAX_DEBRIS = _perfMode==="low" ? 2 : _perfMode==="mid" ? 4 : 6;
 
 // [PERF] Periyodik sahne temizleyici - devre disi, donma sorunu yarattigi icin
 let _lastCleanupTime = 0;
@@ -21758,9 +21840,10 @@ let _lastCleanupTime = 0;
 // Oyun objelerini (dusman, mermi, xp) ASLA silmez; sadece tamamlanmis VFX artiklari temizler.
 let _cleanupFrame = 0;
 function periodicSceneCleanup(S){
-    // Her 600 frame'de bir calistir (~10 saniye 60fps'te) — hic kasma yaratmaz
+    // [PERF] Temizlik sıklığı tier'a göre: low=200 frame, mid=400, high=600
+    const _cleanupInterval = _perfMode==="low" ? 200 : _perfMode==="mid" ? 400 : 600;
     _cleanupFrame++;
-    if(_cleanupFrame < 600) return;
+    if(_cleanupFrame < _cleanupInterval) return;
     _cleanupFrame = 0;
     if(!S || !S.children || !S.children.list) return;
     const list = S.children.list;
@@ -22007,7 +22090,9 @@ function initVFX(S){
     if(!S||!S.add) return;
     NT_VFX._scene=S;
     NT_VFX._initialized=true;
-    _POOL=new ParticlePool(S,160);
+    // [PERF] Pool boyutunu tier'a göre ayarla — düşük uçta daha az Graphics objesi
+    const _poolMax = _perfMode==="low" ? 60 : _perfMode==="mid" ? 100 : 160;
+    _POOL=new ParticlePool(S, _poolMax);
 
     // Vignette (static, drawn once)
     NT_VFX.vignette=S.add.graphics().setDepth(199).setAlpha(0.30);
@@ -22864,15 +22949,19 @@ function _startPhaserGame(){
             height:640,
             parent:"game-container",
             expandParent:false,
-            // [FIX] Mobil zoom bug — devicePixelRatio kullanma, Phaser kendi yonetsin
         },
         render:{
-            antialias:      true,                                        // [QUALITY] WebGL MSAA ac
-            antialiasGL:    true,                                        // [QUALITY] GL antialiasing ac
-            pixelArt:       false,                                       // [QUALITY] CSS pixelated KAPALI — scale manager eziyor
-            roundPixels:    false,                                       // [QUALITY] sub-pixel smooth scroll
-            resolution:     Math.min(window.devicePixelRatio || 1, 2),  // HiDPI destek
-            powerPreference:"high-performance"
+            // [PERF] Mobil tier'a göre render kalitesi ayarlanır
+            antialias:      _perfMode !== "low",            // low tier'da kapalı — GPU yükü azalır
+            antialiasGL:    _perfMode !== "low",
+            pixelArt:       false,                          // scale manager ezdikten sonra override
+            roundPixels:    _perfMode === "low",            // low'da piksel snap — blending yok
+            // [PERF] DPR cap: low=1.0, mid=1.5, high=cihaz DPR (max 2.0)
+            resolution:     _perfMode==="low"  ? 1.0 :
+                            _perfMode==="mid"  ? Math.min(window.devicePixelRatio||1, 1.5) :
+                                                 Math.min(window.devicePixelRatio||1, 2.0),
+            powerPreference:"high-performance",
+            batchSize:       _perfMode==="low" ? 512 : 2048, // düşük batch → daha az VRAM kullanımı
         },
         callbacks:{
             postBoot:(game)=>{
