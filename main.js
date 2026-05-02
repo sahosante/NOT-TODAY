@@ -3456,7 +3456,7 @@ function showShop(scene, defaultTab){
                 y+=46;
                 // Süreli güç bilgi satırı
                 const _infoG=G();_infoG.fillStyle(0x0c1e30,0.70);_infoG.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,22,5);_add(_infoG);
-                _add(T(cx,SY0+y+11,CURRENT_LANG==="tr"?"⏱  Güçler süreli — süre dolunca yenile":"⏱  Powers expire — renew after duration ends",{fontFamily:_F,fontSize:"11px",color:"#5a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+11,CURRENT_LANG==="tr"?"⏱  Güçler süreli — satın alınca aktif olur":"⏱  Powers are timed — activate on purchase",{fontFamily:_F,fontSize:"11px",color:"#5a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                 y+=30;
                 GOLD_UPGRADES.forEach((u)=>{
                     const mx=u.level>=u.maxLevel;
@@ -3504,12 +3504,12 @@ function showShop(scene, defaultTab){
                             stBg.fillStyle(0x200808,0.90);stBg.fillRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                             stBg.lineStyle(1,0xaa3333,0.50);stBg.strokeRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                             _add(stBg);
-                            _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"⚠️ Süre doldu! Yenile — Lv "+u.level+"/"+u.maxLevel:"⚠️ Expired! Renew — Lv "+u.level+"/"+u.maxLevel),{fontFamily:_F,fontSize:"10px",color:"#ff6655",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                            _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"⚠️ Süre doldu — Lv "+u.level+"/"+u.maxLevel+"  (tekrar satın al)":"⚠️ Expired — Lv "+u.level+"/"+u.maxLevel+"  (purchase again)"),{fontFamily:_F,fontSize:"10px",color:"#ff6655",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         }
                     } else {
                         stBg.fillStyle(0x0c1828,0.70);stBg.fillRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                         _add(stBg);
-                        _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"🕐 "+u.durationDays+" GÜN KORUMA · Henüz alınmadı":"🕐 "+u.durationDays+" DAY SHIELD · Not purchased yet"),{fontFamily:_F,fontSize:"10px",color:"#6a9abf",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"🕐 "+u.durationDays+" günlük kullanım — satın alınca başlar":"🕐 "+u.durationDays+" day usage — starts on purchase"),{fontFamily:_F,fontSize:"10px",color:"#6a9abf",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     }
 
                     if(!mx){
@@ -6503,14 +6503,13 @@ function renderEventHUD(S){
         return;
     }
 
-    // XP barının hemen altı: xpBarBg y=0, yükseklik=6 → event bar y=6'dan başlar
-    const W=360, BAR_Y=0, BAR_H=4; // graphics objesinin y'si 6 olacak (XP barın altı)
+    // XP barı y=0-6 → event bar y=6'dan başlar, tam genişlik W=360
+    const W=360, BAR_Y=0, BAR_H=4;
 
     if(!S._evHudBar){
         S._evHudBar = S.add.graphics().setDepth(70).setScrollFactor(0);
         S._evHudBg  = S.add.graphics().setDepth(69).setScrollFactor(0);
-        // Başlangıç: XP barının altında gizli, fade-in
-        S._evHudBar.y = 6;
+        S._evHudBar.y = 6;  // XP barının hemen altı
         S._evHudBg.y  = 6;
         S._evHudBar.alpha = 0;
         S._evHudBg.alpha  = 0;
@@ -6539,23 +6538,21 @@ function renderEventHUD(S){
     const barAlpha = progress < 0.1 ? 0.7 + 0.3 * Math.sin(Date.now() * 0.018) : 0.92;
     const fillW = Math.round(W * progress);
 
-    // Arka plan — XP barıyla birebir hizalı (x=0, tam genişlik)
+    // Arka plan — XP barıyla hizalı (tam W genişlik, x=0)
     S._evHudBg.clear();
     S._evHudBg.fillStyle(0x000000, 0.50);
     S._evHudBg.fillRect(0, BAR_Y, W, BAR_H);
 
-    // Doldurma bar — XP barıyla aynı genişlik (W=360)
+    // Doldurma — turuncu bar, XP barıyla aynı genişlik mantığı
     S._evHudBar.clear();
     if(fillW > 0){
         const ew = Math.max(2, fillW);
         S._evHudBar.fillStyle(dynCol, barAlpha);
         S._evHudBar.fillRect(0, BAR_Y, ew, BAR_H);
-        // Üst parıltı
-        S._evHudBar.fillStyle(0xffffff, 0.30);
+        S._evHudBar.fillStyle(0xffffff, 0.28);
         S._evHudBar.fillRect(0, BAR_Y, ew, 1);
-        // Parlak uç
         if(ew > 8){
-            S._evHudBar.fillStyle(0xffffff, 0.75);
+            S._evHudBar.fillStyle(0xffffff, 0.72);
             S._evHudBar.fillRect(ew-4, BAR_Y, 4, BAR_H);
         }
     }
@@ -13026,8 +13023,10 @@ class SceneMainMenu extends Phaser.Scene {
         }
 
         try{
-            NT_SFX.startMusic();
-            NT_SFX.setMusicState("menu", 1.0);
+            if(window._nt_music_enabled !== false){
+                NT_SFX.startMusic();
+                NT_SFX.setMusicState("menu", 1.0);
+            }
             NT_SFX.startWindAmbience();
         }catch(e){ console.warn("[NT] Menu muzik init hatasi:", e); }
 
@@ -13125,7 +13124,7 @@ class SceneMainMenu extends Phaser.Scene {
         }});
 
         // ── MENÜ BULUTLARI — kaldırıldı (bulutlar sadece oyun içinde)
-        // Bulutlar SceneGame'de bulunur, ana menüde görünmemeli.
+
 
         // Panel boyutları — metalik panel (sprite bağımsız)
         const m = NT_Measure(this,"mm_panel",340);
@@ -14801,10 +14800,10 @@ class SceneGame extends Phaser.Scene {
             }
         }});
 
-        // ── BULUTLAR — faz rengi değişen, yavaş süzülen pixel art bulutlar ─
-        const _cldTints  = [0xffffff, 0xffffff, 0x2a3d66]; // morning / sunset (beyaz kalır) / night
+        // ── BULUTLAR — faz rengi değişen, 3 bulut ekranda ─────────────────
+        const _cldTints  = [0xffffff, 0xffffff, 0x2a3d66]; // morning / sunset=beyaz kalır / night
         const _cldKeys   = ["cloud1","cloud2","cloud3"];
-        const _cldScales = [0.26, 0.22, 0.30];             // ekrana sığacak ölçek
+        const _cldScales = [0.26, 0.22, 0.30];
         const _activeClds= [];
 
         const _spawnCld=(delay)=>{
@@ -14812,7 +14811,7 @@ class SceneGame extends Phaser.Scene {
                 if(!this.scene||!this.scene.isActive()) return;
                 const ki  = Math.floor(Math.random()*3);
                 const sc  = _cldScales[ki]*(0.65+Math.random()*0.55);
-                const spd = 10+Math.random()*14;
+                const spd = 13+Math.random()*16; // biraz hızlı
                 const cy  = 28+Math.random()*200;
                 const tnt = _cldTints[_gmPhase];
                 const alp = _gmPhase===2 ? 0.15 : 0.50+Math.random()*0.30;
@@ -14820,7 +14819,7 @@ class SceneGame extends Phaser.Scene {
                 const fromRight = Math.random() < 0.5;
                 const startX = fromRight ? W+150 : -150;
                 const dir    = fromRight ? -1 : 1;
-                if(!this.textures.exists(_cldKeys[ki])){ _spawnCld(3000+Math.random()*5000); return; }
+                if(!this.textures.exists(_cldKeys[ki])){ _spawnCld(2000+Math.random()*3000); return; }
                 const cl = this.add.image(startX, cy, _cldKeys[ki])
                     .setScrollFactor(0).setDepth(-8)
                     .setScale(sc).setAlpha(alp).setTint(tnt)
@@ -14830,11 +14829,14 @@ class SceneGame extends Phaser.Scene {
                 const tgtAlpha = alp;
                 cl.setAlpha(0);
                 this.tweens.add({targets:cl, alpha:tgtAlpha, duration:1800, ease:"Sine.easeIn"});
-                _spawnCld(16000+Math.random()*18000);
+                // Kısa interval — ekranda 3 bulut tutar
+                _spawnCld(9000+Math.random()*9000);
             });
         };
+        // 3 bulut farklı zamanlarda başlar — ekranda sürekli 3 bulut
         _spawnCld(0);
-        _spawnCld(4000);
+        _spawnCld(3500);
+        _spawnCld(7000);
 
         // Bulut renk geçişi için _lerpHex yukarıda tanımlı
 
@@ -14862,72 +14864,88 @@ class SceneGame extends Phaser.Scene {
             }
         }});
 
-        // ── KAYAN YILDIZLAR — gece fazında, kenarlara doğru smooth kayış ──
+        // ── KAYAN YILDIZLAR — gece fazında, noktalı iz, kenarlara doğru ──
         const _shStarG = this.add.graphics().setDepth(-9.5).setScrollFactor(0);
         const _shStars = [];
-        const _shStarMaxY = H * 0.38; // ekranın üst %38'i — karakterin üstüne inmez
-        const _spawnShootingStar=()=>{ 
+        const _shStarMaxY = H * 0.38;
+        const _spawnShootingStar=()=>{
             if(_gmPhase !== 2) return;
-            // Sol veya sağ kenara doğru gider (karakterin ortasına değil)
             const toRight = Math.random() < 0.5;
-            // Başlangıç: ekranın üst kısmında, karşı taraftan
-            const startX = toRight ? Phaser.Math.Between(0, W*0.3) : Phaser.Math.Between(W*0.7, W);
-            const startY = Phaser.Math.Between(5, 55); // çok üstten başlar
-            // Sığ açı (5°-15°) ile kenara doğru yatay kayış
-            const dir = toRight ? 1 : -1;
-            const angle = (5 + Math.random()*10) * Math.PI/180;
-            const speed = 280 + Math.random()*140;
+            const startX  = toRight ? Phaser.Math.Between(0, W*0.25) : Phaser.Math.Between(W*0.75, W);
+            const startY  = Phaser.Math.Between(5, 40);
+            const dir     = toRight ? 1 : -1;
+            // Belirgin eğim: 18°-30°
+            const angle   = (18 + Math.random()*12) * Math.PI/180;
+            const speed   = 260 + Math.random()*120;
             _shStars.push({
                 x:startX, y:startY,
                 vx: Math.cos(angle)*speed*dir,
                 vy: Math.sin(angle)*speed,
-                life:0, maxLife:1.6,
-                trail:[], alpha:0 // smooth fade-in için
+                life:0, maxLife:1.5,
+                // Noktalı iz için ayrı nokta listesi
+                dots:[], dotTimer:0
             });
         };
-        // Periyodik spawn — gece fazında
-        this.time.addEvent({delay:2400,loop:true,callback:()=>{
-            if(_gmPhase===2 && Math.random()<0.50) _spawnShootingStar();
+        this.time.addEvent({delay:2400, loop:true, callback:()=>{
+            if(_gmPhase===2 && Math.random()<0.52) _spawnShootingStar();
         }});
 
-        // requestAnimationFrame tabanlı güncelleme — kasma yok, delta-time ile
-        let _shLastTime = 0;
-        this.time.addEvent({delay:16, loop:true, callback:()=>{  // ~60fps
+        let _shLast = 0;
+        this.time.addEvent({delay:16, loop:true, callback:()=>{
             _shStarG.clear();
             const now = Date.now();
-            const dt = Math.min((now - _shLastTime) / 1000, 0.05); // max 50ms cap
-            _shLastTime = now;
+            const dt = Math.min((now - (_shLast||now)) / 1000, 0.05);
+            _shLast = now;
             for(let i=_shStars.length-1;i>=0;i--){
-                const s=_shStars[i];
-                s.life += dt;
-                s.x += s.vx * dt;
-                s.y += s.vy * dt;
-                // Smooth alpha: 0→1 in 0.1s, 1 for most of life, 1→0 in last 0.3s
-                const fadeIn  = Math.min(1, s.life / 0.12);
-                const fadeOut = s.life > s.maxLife - 0.30 ? Math.max(0, 1 - (s.life - (s.maxLife-0.30)) / 0.30) : 1;
-                s.alpha = fadeIn * fadeOut;
-                // 24 noktalı iz
-                s.trail.push({x:s.x, y:s.y});
-                if(s.trail.length > 24) s.trail.shift();
-                // Sınır: ekrandan çıktıysa veya maxLife dolduğunda veya y limiti
+                const s = _shStars[i];
+                s.life  += dt;
+                s.x     += s.vx * dt;
+                s.y     += s.vy * dt;
+                // Nokta ekle — her 14ms'de bir (yaklaşık her frame)
+                s.dotTimer += dt * 1000;
+                if(s.dotTimer >= 14){
+                    s.dotTimer = 0;
+                    s.dots.push({x:s.x, y:s.y, age:0});
+                }
+                // Yaşlanan noktalar
+                s.dots.forEach(d => d.age += dt);
+                // Eski noktaları temizle (0.55s sonra silinir)
+                s.dots = s.dots.filter(d => d.age < 0.55);
+
                 if(s.life >= s.maxLife || s.x < -20 || s.x > W+20 || s.y > _shStarMaxY){
                     _shStars.splice(i,1); continue;
                 }
-                const baseAlpha = s.alpha * 0.82;
-                // İnce, smooth iz
-                for(let t=1; t<s.trail.length; t++){
-                    const pct = t / s.trail.length;
-                    const a = Math.pow(pct, 1.4) * baseAlpha;
-                    const w = pct * 1.0 + 0.1;
-                    _shStarG.lineStyle(w, 0xffffff, Math.min(1,a));
-                    _shStarG.lineBetween(s.trail[t-1].x, s.trail[t-1].y, s.trail[t].x, s.trail[t].y);
-                }
-                // Baş — parlak nokta
-                if(baseAlpha > 0.05){
-                    _shStarG.fillStyle(0xffffff, baseAlpha);
-                    _shStarG.fillCircle(s.x, s.y, 1.2);
-                    _shStarG.fillStyle(0xddeeff, baseAlpha*0.45);
-                    _shStarG.fillCircle(s.x, s.y, 2.0);
+                const fadeIn  = Math.min(1, s.life / 0.10);
+                const fadeOut = s.life > s.maxLife - 0.28 ? Math.max(0, 1-(s.life-(s.maxLife-0.28))/0.28) : 1;
+                const baseA   = fadeIn * fadeOut * 0.85;
+
+                // Noktalı iz — büyükten küçüğe azalan daireler
+                const nDots = s.dots.length;
+                s.dots.forEach((d, ti) => {
+                    const pct    = (nDots - ti) / nDots; // 1=yeni, 0=eski
+                    const dotAge = d.age / 0.55;          // 0-1
+                    const a      = baseA * pct * (1 - dotAge * 0.85);
+                    const r      = 0.55 + pct * 1.0;       // 0.55→1.55px
+                    if(a > 0.02){
+                        // Parlak çekirdek
+                        _shStarG.fillStyle(0xffffff, Math.min(1, a));
+                        _shStarG.fillCircle(d.x, d.y, r);
+                        // Hafif mavi hale — büyük noktalarda
+                        if(pct > 0.6){
+                            _shStarG.fillStyle(0xaaddff, a * 0.4);
+                            _shStarG.fillCircle(d.x, d.y, r * 1.8);
+                        }
+                    }
+                });
+
+                // Baş — parlak çekirdek + dış hale
+                if(baseA > 0.05){
+                    _shStarG.fillStyle(0xffffff, baseA);
+                    _shStarG.fillCircle(s.x, s.y, 1.6);
+                    _shStarG.fillStyle(0xddeeff, baseA * 0.5);
+                    _shStarG.fillCircle(s.x, s.y, 2.6);
+                    _shStarG.fillStyle(0x88ccff, baseA * 0.22);
+                    _shStarG.fillCircle(s.x, s.y, 4.0);
                 }
             }
         }});
@@ -18323,6 +18341,8 @@ function getUpgradePool(){
         const isPartiallyBuilt = (u.level||0) >= 1 && (u.level||0) < (u.max||1);
 
         let weight = 1;
+        // [BALANCE] Heavy cannon nadir çıksın — weight %30'a düşürüldü
+        if(k === "heavy_cannon" && (u.level||0) === 0 && Math.random() > 0.30) continue;
         // Zayif durum: iyilestirici onceligi artar
         if(isWeak && isHealType)          weight = 5;
         else if(isLateGame && isHealType) weight = 2;
@@ -19457,9 +19477,8 @@ function showCrystalRevivePrompt(S){
         // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
         S.cameras.main.fadeIn(350,0,0,0);
         S.cameras.main.shake(150,0.018);
-        // [FIX-REVIVE] Müziği yeniden başlat
-        NT_SFX.startMusic();
-        NT_SFX.setMusicState("gameplay", 0.5);
+        // [FIX-REVIVE] Müziği yeniden başlat — sadece açıksa
+        if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
         NT_SFX.startWindAmbience();
         // [FIX-MOBİL] Mobil butonları göster
         try{ _showMobileBtns(S); }catch(_){}
@@ -20806,8 +20825,7 @@ function gameOver(S){
                 S.cameras.main.fadeIn(350,0,0,0);
                 S.cameras.main.flash(400,255,180,50,false);
                 S.cameras.main.shake(180,0.018);
-                NT_SFX.startMusic();
-                NT_SFX.setMusicState("gameplay", 0.5);
+                if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
                 NT_SFX.startWindAmbience();
                 try{ _showMobileBtns(S); }catch(_){}
                 showHitTxt(S,180,220,L("revived"),"#ffcc44",true);
@@ -21093,9 +21111,8 @@ function doRevive(S, panel){
     }catch(_){}
     // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
     try{ S.cameras.main.fadeIn(350,0,0,0); }catch(_){}
-    // [FIX-REVIVE] Müziği yeniden başlat — gameOver() stopMusic() yapmıştı
-    NT_SFX.startMusic();
-    NT_SFX.setMusicState("gameplay", 0.5);
+    // [FIX-REVIVE] Müziği yeniden başlat — sadece açıksa
+    if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
     NT_SFX.startWindAmbience();
     // [FIX-MOBİL] Revive sonrası mobil butonları göster
     try{ _showMobileBtns(S); }catch(_){}
@@ -22879,18 +22896,34 @@ function _ensureFontLoaded(callback){
     }
 }
 
-// [PERF-FIX] AudioContext resume on first user gesture (Chrome autoplay policy)
-// Onceki versiyon tamamen no-op'tu — hicbir sey yapmiyordu.
+// [AUDIO-FIX v2] AudioContext universal resume — tüm mobil tarayıcılarda çalışır
+// iOS Safari, Android Chrome, Telegram WebView hepsini kapsar
 (function _fixAudioContext(){
-    const resume=()=>{
-        // NT_SFX zaten kendi context'ini yonetiyor; ancak herhangi bir
-        // suspended AudioContext instance'i varsa burada da resume et.
+    let _resumed = false;
+    const resume = ()=>{
+        if(_resumed) return;
         try{
+            // NT_SFX'in kendi resume metodu
             if(NT_SFX && typeof NT_SFX.resumeAudio === "function") NT_SFX.resumeAudio(0.05);
+            // Tüm global AudioContext instance'larını da tara
+            ["_ctx","_audioCtx","audioCtx"].forEach(k=>{
+                const ctx = window[k] || (NT_SFX && NT_SFX[k]);
+                if(ctx && ctx.state === "suspended"){
+                    ctx.resume().catch(()=>{});
+                }
+            });
+            _resumed = true;
         }catch(_){}
     };
-    document.addEventListener("pointerdown", resume, {once:true, capture:true});
-    document.addEventListener("keydown",     resume, {once:true, capture:true});
+    // Kullanıcı etkileşimini bekle — birden fazla event türü
+    ["pointerdown","touchstart","keydown","click"].forEach(ev=>{
+        document.addEventListener(ev, resume, {once:false, capture:true, passive:true});
+    });
+    // iOS: her ses çalmadan önce context'i resume et (iOS'ta askıya geri düşer)
+    const _origPlay = NT_SFX && NT_SFX.play;
+    if(NT_SFX && _origPlay){
+        NT_SFX._resumeBeforePlay = ()=>{ try{ if(NT_SFX.resumeAudio) NT_SFX.resumeAudio(0); }catch(_){} };
+    }
 })();
 
 function _startPhaserGame(){
@@ -22916,7 +22949,7 @@ function _startPhaserGame(){
         console.warn("[NT] window.Presence bulunamadi — presence sistemi devre disi.");
     }
     // ── MUZIK BASLAT ──────────────────────────────────────────
-    NT_SFX.startMusic();
+    if(window._nt_music_enabled !== false) NT_SFX.startMusic();
     NT_SFX.startWindAmbience();
     const config = {
         type:Phaser.AUTO, width:360, height:640,
