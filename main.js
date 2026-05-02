@@ -6503,20 +6503,20 @@ function renderEventHUD(S){
         return;
     }
 
-    const W=360, BAR_Y=4, BAR_H=4; // Ekranın üstüne taşındı (y=4)
+    // XP barının hemen altı: xpBarBg y=0, yükseklik=6 → event bar y=6'dan başlar
+    const W=360, BAR_Y=0, BAR_H=4; // graphics objesinin y'si 6 olacak (XP barın altı)
 
     if(!S._evHudBar){
-        S._evHudBar = S.add.graphics().setDepth(70);
-        S._evHudBg  = S.add.graphics().setDepth(69);
-        // Slide-in animasyonu: bar ekranin altindan yukari kayar
-        S._evHudBar.y = 60;
-        S._evHudBg.y  = 60;
+        S._evHudBar = S.add.graphics().setDepth(70).setScrollFactor(0);
+        S._evHudBg  = S.add.graphics().setDepth(69).setScrollFactor(0);
+        // Başlangıç: XP barının altında gizli, fade-in
+        S._evHudBar.y = 6;
+        S._evHudBg.y  = 6;
         S._evHudBar.alpha = 0;
         S._evHudBg.alpha  = 0;
-        // Phaser tween ile slide-in
         try{
             S.tweens.add({targets:[S._evHudBar, S._evHudBg],
-                y: 0, alpha: 1, duration: 320, ease: "Back.easeOut"});
+                alpha: 1, duration: 320, ease: "Sine.easeOut"});
         }catch(e){console.warn("[NT] Hata yutuldu:",e)}
     }
 
@@ -6539,20 +6539,24 @@ function renderEventHUD(S){
     const barAlpha = progress < 0.1 ? 0.7 + 0.3 * Math.sin(Date.now() * 0.018) : 0.92;
     const fillW = Math.round(W * progress);
 
+    // Arka plan — XP barıyla birebir hizalı (x=0, tam genişlik)
     S._evHudBg.clear();
-    S._evHudBg.fillStyle(0x000000, 0.40);
-    S._evHudBg.fillRoundedRect(6, BAR_Y, W-12, BAR_H, 1);
+    S._evHudBg.fillStyle(0x000000, 0.50);
+    S._evHudBg.fillRect(0, BAR_Y, W, BAR_H);
 
+    // Doldurma bar — XP barıyla aynı genişlik (W=360)
     S._evHudBar.clear();
-    if(fillW > 3){
-        const ew = Math.max(4, (fillW/W)*(W-12));
+    if(fillW > 0){
+        const ew = Math.max(2, fillW);
         S._evHudBar.fillStyle(dynCol, barAlpha);
-        S._evHudBar.fillRoundedRect(6, BAR_Y, ew, BAR_H, 1);
-        S._evHudBar.fillStyle(0xffffff, 0.35);
-        S._evHudBar.fillRoundedRect(6, BAR_Y, ew, 1, 1);
-        if(ew > 12){
-            S._evHudBar.fillStyle(0xffffff, 0.80);
-            S._evHudBar.fillRoundedRect(6+ew-5, BAR_Y, 4, BAR_H, 1);
+        S._evHudBar.fillRect(0, BAR_Y, ew, BAR_H);
+        // Üst parıltı
+        S._evHudBar.fillStyle(0xffffff, 0.30);
+        S._evHudBar.fillRect(0, BAR_Y, ew, 1);
+        // Parlak uç
+        if(ew > 8){
+            S._evHudBar.fillStyle(0xffffff, 0.75);
+            S._evHudBar.fillRect(ew-4, BAR_Y, 4, BAR_H);
         }
     }
 }
@@ -13120,40 +13124,8 @@ class SceneMainMenu extends Phaser.Scene {
             });
         }});
 
-        // ── MENÜ BULUTLARI — metalik mavi tonlarda ───────────────────────
-        {
-            const _mCldKeys=["cloud1","cloud2","cloud3"];
-            const _mCldSc=[0.24,0.20,0.28];
-            const _mClds=[];
-            const _mSpawn=(delay)=>{
-                this.time.delayedCall(delay,()=>{
-                    if(!this.scene||!this.scene.isActive()) return;
-                    const ki=Math.floor(Math.random()*3);
-                    if(!this.textures.exists(_mCldKeys[ki])){ _mSpawn(3000+Math.random()*5000); return; }
-                    const sc=_mCldSc[ki]*(0.7+Math.random()*0.5);
-                    const spd=7+Math.random()*9;
-                    const cy=28+Math.random()*160;
-                    const fromRight=Math.random()<0.5;
-                    const startX=fromRight?W+140:-140;
-                    const dir=fromRight?-1:1;
-                    const cl=this.add.image(startX,cy,_mCldKeys[ki])
-                        .setDepth(1).setScale(sc).setAlpha(0.12+Math.random()*0.14)
-                        .setTint(0x2a4060).setFlipX(!fromRight);
-                    _mClds.push({obj:cl,spd,dir});
-                    _mSpawn(5000+Math.random()*9000);
-                });
-            };
-            _mSpawn(1500); _mSpawn(7000);
-            this.time.addEvent({delay:50,loop:true,callback:()=>{
-                for(let i=_mClds.length-1;i>=0;i--){
-                    const c=_mClds[i];
-                    if(!c.obj||!c.obj.active){_mClds.splice(i,1);continue;}
-                    c.obj.x+=c.spd*0.050*(c.dir);
-                    const dead=c.dir===-1?c.obj.x<-180:c.obj.x>W+180;
-                    if(dead){c.obj.destroy();_mClds.splice(i,1);}
-                }
-            }});
-        }
+        // ── MENÜ BULUTLARI — kaldırıldı (bulutlar sadece oyun içinde)
+        // Bulutlar SceneGame'de bulunur, ana menüde görünmemeli.
 
         // Panel boyutları — metalik panel (sprite bağımsız)
         const m = NT_Measure(this,"mm_panel",340);
@@ -14830,7 +14802,7 @@ class SceneGame extends Phaser.Scene {
         }});
 
         // ── BULUTLAR — faz rengi değişen, yavaş süzülen pixel art bulutlar ─
-        const _cldTints  = [0xffffff, 0xff9944, 0x2a3d66]; // morning / sunset / night
+        const _cldTints  = [0xffffff, 0xffffff, 0x2a3d66]; // morning / sunset (beyaz kalır) / night
         const _cldKeys   = ["cloud1","cloud2","cloud3"];
         const _cldScales = [0.26, 0.22, 0.30];             // ekrana sığacak ölçek
         const _activeClds= [];
@@ -14890,63 +14862,73 @@ class SceneGame extends Phaser.Scene {
             }
         }});
 
-        // ── KAYAN YILDIZLAR — gece fazında, ince uzun iz bırakan ──────
+        // ── KAYAN YILDIZLAR — gece fazında, kenarlara doğru smooth kayış ──
         const _shStarG = this.add.graphics().setDepth(-9.5).setScrollFactor(0);
         const _shStars = [];
-        // Maksimum y: zeminin üstünde kalacak (oyuncu üzerine düşmesin)
-        const _shStarMaxY = H * 0.40; // yaklaşık 256px — gökyüzünün üstü
-        const _spawnShootingStar=()=>{
+        const _shStarMaxY = H * 0.38; // ekranın üst %38'i — karakterin üstüne inmez
+        const _spawnShootingStar=()=>{ 
             if(_gmPhase !== 2) return;
-            // Üst gökten girer, sığ açı ile çapraz
-            const fromRight = Math.random()<0.5;
-            const startX = fromRight ? W*0.5 + Math.random()*W*0.5 : Math.random()*W*0.5;
-            const startY = Math.random()*60;  // ekranın çok üstü (0-60px)
-            // Sığ açı: 8°-18° → çok daha yatay
-            const dir = fromRight ? -1 : 1;
-            const angle = (8 + Math.random()*10) * Math.PI/180;
-            const speed = 320 + Math.random()*160;
+            // Sol veya sağ kenara doğru gider (karakterin ortasına değil)
+            const toRight = Math.random() < 0.5;
+            // Başlangıç: ekranın üst kısmında, karşı taraftan
+            const startX = toRight ? Phaser.Math.Between(0, W*0.3) : Phaser.Math.Between(W*0.7, W);
+            const startY = Phaser.Math.Between(5, 55); // çok üstten başlar
+            // Sığ açı (5°-15°) ile kenara doğru yatay kayış
+            const dir = toRight ? 1 : -1;
+            const angle = (5 + Math.random()*10) * Math.PI/180;
+            const speed = 280 + Math.random()*140;
             _shStars.push({
                 x:startX, y:startY,
                 vx: Math.cos(angle)*speed*dir,
                 vy: Math.sin(angle)*speed,
-                life:0, maxLife:1.4,
-                trail:[]
+                life:0, maxLife:1.6,
+                trail:[], alpha:0 // smooth fade-in için
             });
         };
-        // Periyodik spawn — gece fazında 2-4sn'de bir
-        this.time.addEvent({delay:2200,loop:true,callback:()=>{
-            if(_gmPhase===2 && Math.random()<0.55) _spawnShootingStar();
+        // Periyodik spawn — gece fazında
+        this.time.addEvent({delay:2400,loop:true,callback:()=>{
+            if(_gmPhase===2 && Math.random()<0.50) _spawnShootingStar();
         }});
 
-        this.time.addEvent({delay:33,loop:true,callback:()=>{
+        // requestAnimationFrame tabanlı güncelleme — kasma yok, delta-time ile
+        let _shLastTime = 0;
+        this.time.addEvent({delay:16, loop:true, callback:()=>{  // ~60fps
             _shStarG.clear();
+            const now = Date.now();
+            const dt = Math.min((now - _shLastTime) / 1000, 0.05); // max 50ms cap
+            _shLastTime = now;
             for(let i=_shStars.length-1;i>=0;i--){
                 const s=_shStars[i];
-                s.life += 0.033;
-                s.x += s.vx * 0.033;
-                s.y += s.vy * 0.033;
-                // 18 noktalı uzun iz
+                s.life += dt;
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                // Smooth alpha: 0→1 in 0.1s, 1 for most of life, 1→0 in last 0.3s
+                const fadeIn  = Math.min(1, s.life / 0.12);
+                const fadeOut = s.life > s.maxLife - 0.30 ? Math.max(0, 1 - (s.life - (s.maxLife-0.30)) / 0.30) : 1;
+                s.alpha = fadeIn * fadeOut;
+                // 24 noktalı iz
                 s.trail.push({x:s.x, y:s.y});
-                if(s.trail.length > 18) s.trail.shift();
-                // Y limit kontrol — ekranın üstünde kalır
-                if(s.life>=s.maxLife || s.x<-30 || s.x>W+30 || s.y > _shStarMaxY){
+                if(s.trail.length > 24) s.trail.shift();
+                // Sınır: ekrandan çıktıysa veya maxLife dolduğunda veya y limiti
+                if(s.life >= s.maxLife || s.x < -20 || s.x > W+20 || s.y > _shStarMaxY){
                     _shStars.splice(i,1); continue;
                 }
-                const fadeIn = Math.min(1, s.life*5);
-                const fadeOut = s.life>s.maxLife*0.75 ? Math.max(0, 1-(s.life-s.maxLife*0.75)/(s.maxLife*0.25)) : 1;
-                const baseAlpha = fadeIn * fadeOut * 0.78;
-                // İnce uzun iz — kalınlık 0.2-1.0px
+                const baseAlpha = s.alpha * 0.82;
+                // İnce, smooth iz
                 for(let t=1; t<s.trail.length; t++){
-                    const a = Math.pow(t / s.trail.length, 1.2) * baseAlpha;
-                    const w = (t / s.trail.length) * 0.9 + 0.15;
-                    _shStarG.lineStyle(w, 0xffffff, a);
+                    const pct = t / s.trail.length;
+                    const a = Math.pow(pct, 1.4) * baseAlpha;
+                    const w = pct * 1.0 + 0.1;
+                    _shStarG.lineStyle(w, 0xffffff, Math.min(1,a));
                     _shStarG.lineBetween(s.trail[t-1].x, s.trail[t-1].y, s.trail[t].x, s.trail[t].y);
                 }
-                // Baş kısmı — küçük parlak nokta
-                _shStarG.fillStyle(0xffffff, baseAlpha);
-                _shStarG.fillCircle(s.x, s.y, 1.0);
-                _shStarG.fillStyle(0xddeeff, baseAlpha*0.5);
-                _shStarG.fillCircle(s.x, s.y, 1.8);
+                // Baş — parlak nokta
+                if(baseAlpha > 0.05){
+                    _shStarG.fillStyle(0xffffff, baseAlpha);
+                    _shStarG.fillCircle(s.x, s.y, 1.2);
+                    _shStarG.fillStyle(0xddeeff, baseAlpha*0.45);
+                    _shStarG.fillCircle(s.x, s.y, 2.0);
+                }
             }
         }});
 
@@ -21528,7 +21510,7 @@ function triggerPowerSpike(S, type){
     const m = msgs[type]; if(!m) return;
     const W=360, H=640;
     const txt = S.add.text(W/2, H/2-80, m.text, {
-        font:"bold 28px LilitaOne, Arial, sans-serif",
+        font:"bold 28px Arial, sans-serif",
         color:m.color, stroke:"#000000",
         strokeThickness:3
     }).setOrigin(0.5).setAlpha(0).setDepth(650).setScale(0.4);
