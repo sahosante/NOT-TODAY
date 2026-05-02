@@ -5369,6 +5369,7 @@ const _TG_USER = (function(){
             return {
                 id: u.id||0,
                 name: u.username ? "@"+u.username : (u.first_name||"Player")+(u.last_name?" "+u.last_name:""),
+                photo_url: u.photo_url || null,
                 raw: u
             };
         }
@@ -5558,6 +5559,7 @@ async function lbSubmitScore(score, kills, level){
         const entry={
             id:   _TG_USER.id||Date.now(),
             name: _TG_USER.name,
+            photo_url: _TG_USER.photo_url || null,
             score, kills, level,
             date: Date.now(),
             tok:  _hash(String(score)+String(kills)+String(level))
@@ -5593,6 +5595,7 @@ async function lbSubmitScoreWithBadge(score, kills, level){
         let entry={
             id:   _TG_USER.id||Date.now(),
             name: _TG_USER.name,
+            photo_url: _TG_USER.photo_url || null,
             score, kills, level,
             date: Date.now(),
             tok:  _hash(String(score)+String(kills)+String(level))
@@ -9993,7 +9996,7 @@ function showPause(S){
     });
 
     // ── SES TOGGLE BUTONLARI — panelin alt iç kısmında ────────────
-    const _sBtnW=126,_sBtnH=28,_sBtnY=btnCY-BH/2-26,_sBtnGap=6;
+    const _sBtnW=126,_sBtnH=28,_sBtnY=btnCY-BH/2-46,_sBtnGap=6;
     const _sBtnLX=CX-_sBtnW/2-_sBtnGap/2, _sBtnRX=CX+_sBtnW/2+_sBtnGap/2;
     const _drawSBtn=(gfx,bx,by,label,active)=>{
         gfx.clear();
@@ -14043,54 +14046,104 @@ class SceneMainMenu extends Phaser.Scene {
             if(_lbClosed) return;
             const myId=(_TG_USER&&_TG_USER.id)||null;
             const scores=lbGetMergedScores().slice(0,12);
-            const newTexts=[];
 
-            if(scores.length===0){
-                newTexts.push(A(this.add.text(CX,hY+55,CURRENT_LANG==="tr"?"Henuz skor yok!":"No scores yet!",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3).setAlpha(0)));
-            } else {
-                let ry=hY+26;
-                scores.forEach((s,i)=>{
-                    if(ry+26>contentBot) return;
-                    const isMe=s.id===myId;
-                    const rowStyle = ntpGetRowStyle(s, isMe);
-                    const nameCol = rowStyle ? rowStyle.color : (i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#ddeeff");
-                    const rankCol = i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#667788";
+            // ── Profil fotoğraflarını runtime'da yükle ───────────────
+            const toLoad = scores.filter(s=>
+                s.photo_url && !this.textures.exists('av_'+s.id)
+            );
 
-                    // Özel satır arkaplanı — crown/legend/diamond için
-                    if(rowStyle){
-                        const rhBg = A(this.add.graphics().setDepth(depth+2).setAlpha(0));
-                        rhBg.fillStyle(rowStyle.bgColor, 0.70);
-                        rhBg.fillRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
-                        rhBg.lineStyle(1, rowStyle.borderColor, 0.35);
-                        rhBg.strokeRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
-                        newTexts.push(rhBg);
-                    }
+            const _renderRows = () => {
+                if(_lbClosed) return;
+                const newTexts=[];
 
-                    // Sıra numarası
-                    newTexts.push(A(this.add.text(TX, ry,"#"+(i+1), NT_STYLE.accent(13,rankCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
+                if(scores.length===0){
+                    newTexts.push(A(this.add.text(CX,hY+55,CURRENT_LANG==="tr"?"Henuz skor yok!":"No scores yet!",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3).setAlpha(0)));
+                } else {
+                    let ry=hY+26;
+                    scores.forEach((s,i)=>{
+                        if(ry+26>contentBot) return;
+                        const isMe=s.id===myId;
+                        const rowStyle = ntpGetRowStyle(s, isMe);
+                        const nameCol = rowStyle ? rowStyle.color : (i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#ddeeff");
+                        const rankCol = i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#667788";
 
-                    // İsim + badge (badge varsa önünde gösterilir)
-                    const displayName = ntpDecoratedName(s) + (isMe?" ★":"");
-                    newTexts.push(A(this.add.text(TX+28, ry, displayName, NT_STYLE.accent(12, nameCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
+                        // Özel satır arkaplanı — crown/legend/diamond için
+                        if(rowStyle){
+                            const rhBg = A(this.add.graphics().setDepth(depth+2).setAlpha(0));
+                            rhBg.fillStyle(rowStyle.bgColor, 0.70);
+                            rhBg.fillRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
+                            rhBg.lineStyle(1, rowStyle.borderColor, 0.35);
+                            rhBg.strokeRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
+                            newTexts.push(rhBg);
+                        }
 
-                    // Seviye
-                    const lvStr=s.level?"Lv"+s.level:"-";
-                    newTexts.push(A(this.add.text(CX+30, ry, lvStr, NT_STYLE.accent(11,"#88aacc")).setOrigin(0.5,0.5).setDepth(depth+3).setAlpha(0)));
+                        // Sıra numarası
+                        newTexts.push(A(this.add.text(TX, ry,"#"+(i+1), NT_STYLE.accent(13,rankCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
 
-                    // Skor
-                    newTexts.push(A(this.add.text(VX, ry, s.score.toLocaleString(), NT_STYLE.accent(13,rankCol)).setOrigin(1,0.5).setDepth(depth+3).setAlpha(0)));
+                        // ── Avatar (profil fotoğrafı) ──────────────────────
+                        const avKey = 'av_'+s.id;
+                        const avSize = 18;
+                        const avX = TX+28+avSize/2;
+                        let nameOffsetX = TX+28;
 
-                    ry+=26;
-                });
-            }
-            // 2 frame bekle → font glyphleri rasterize edilsin, sonra goster
-            requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                if(_lbClosed){
-                    newTexts.forEach(t=>{ try{if(t&&!t.destroyed){t.setAlpha(0);t.destroy();}}catch(_){} });
-                    return;
+                        if(this.textures.exists(avKey)){
+                            // Yuvarlak maske için graphics
+                            const mskG = this.add.graphics().setDepth(depth+4).setAlpha(0);
+                            mskG.fillStyle(0xffffff,1);
+                            mskG.fillCircle(avX, ry, avSize/2);
+                            const msk = mskG.createGeometryMask();
+
+                            const av = A(this.add.image(avX, ry, avKey)
+                                .setDisplaySize(avSize, avSize)
+                                .setDepth(depth+4).setAlpha(0)
+                                .setMask(msk));
+
+                            // Avatar çerçevesi
+                            const avBorder = A(this.add.graphics().setDepth(depth+5).setAlpha(0));
+                            avBorder.lineStyle(1.5, parseInt(rankCol.replace('#','0x'),16)||0xffffff, 0.85);
+                            avBorder.strokeCircle(avX, ry, avSize/2);
+
+                            newTexts.push(mskG);
+                            newTexts.push(avBorder);
+                            nameOffsetX = TX+28+avSize+4;
+                        }
+
+                        // İsim + badge (varsa avatarın sağında)
+                        const displayName = ntpDecoratedName(s) + (isMe?" ★":"");
+                        newTexts.push(A(this.add.text(nameOffsetX, ry, displayName, NT_STYLE.accent(12, nameCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
+
+                        // Seviye
+                        const lvStr=s.level?"Lv"+s.level:"-";
+                        newTexts.push(A(this.add.text(CX+30, ry, lvStr, NT_STYLE.accent(11,"#88aacc")).setOrigin(0.5,0.5).setDepth(depth+3).setAlpha(0)));
+
+                        // Skor
+                        newTexts.push(A(this.add.text(VX, ry, s.score.toLocaleString(), NT_STYLE.accent(13,rankCol)).setOrigin(1,0.5).setDepth(depth+3).setAlpha(0)));
+
+                        ry+=26;
+                    });
                 }
-                newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
-            }));
+                // 2 frame bekle → font glyphleri rasterize edilsin, sonra goster
+                requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                    if(_lbClosed){
+                        newTexts.forEach(t=>{ try{if(t&&!t.destroyed){t.setAlpha(0);t.destroy();}}catch(_){} });
+                        return;
+                    }
+                    newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
+                }));
+            };
+
+            if(toLoad.length > 0){
+                try{
+                    toLoad.forEach(s=>{ this.load.image('av_'+s.id, s.photo_url); });
+                    this.load.once('complete', _renderRows);
+                    this.load.once('loaderror', _renderRows); // hata olsa bile devam et
+                    this.load.start();
+                }catch(e){
+                    _renderRows(); // loader hata verirse direkt render
+                }
+            } else {
+                _renderRows();
+            }
         }).catch(()=>{ try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){} });
     }
 }
@@ -14719,7 +14772,7 @@ class SceneGame extends Phaser.Scene {
                     .setScrollFactor(0).setDepth(-8)
                     .setScale(sc).setAlpha(alp).setTint(tnt)
                     .setFlipX(!fromRight); // soldan gelince çevir
-                _activeClds.push({obj:cl, spd, dir, lastPhase:_gmPhase});
+                _activeClds.push({obj:cl, spd, dir, lastPhase:_gmPhase, _curTint:tnt});
                 // Yumuşak görünme — alpha 0'dan hedefe
                 const tgtAlpha = alp;
                 cl.setAlpha(0);
@@ -14738,10 +14791,10 @@ class SceneGame extends Phaser.Scene {
                 const c=_activeClds[i];
                 if(!c.obj||!c.obj.active){_activeClds.splice(i,1);continue;}
                 c.obj.x += c.spd * 0.050 * (c.dir||(-1));
-                // Yavaş renk geçişi — %1.8 / tick (50ms tick → ~3sn'de %95 geçer)
-                if(c._curTint === undefined || isNaN(c._curTint)) c._curTint = tgt;
+                // Yavaş renk geçişi — %0.8 / tick (50ms tick → ~7-8sn'de %95 geçer, çok yumuşak)
+                if(c._curTint === undefined || isNaN(c._curTint)) c._curTint = c.obj.tintTopLeft||tgt;
                 if(c._curTint !== tgt){
-                    c._curTint = _lerpHex(c._curTint, tgt, 0.018);
+                    c._curTint = _lerpHex(c._curTint, tgt, 0.008);
                     if(!isNaN(c._curTint) && Math.abs((c._curTint>>16)-(tgt>>16))<2) c._curTint = tgt;
                     if(!isNaN(c._curTint)) c.obj.setTint(c._curTint);
                 }
