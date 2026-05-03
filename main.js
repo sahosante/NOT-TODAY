@@ -12201,13 +12201,19 @@ function showNotGame(scene){
     // ════════════════════════════════════════════════════════════
     const GBY=UPY+56;
     const gbBg=A(scene.add.graphics().setDepth(D+2));
-    gbBg.fillStyle(0x0d1800,1).fillRoundedRect(GX0,GBY-14,GW,30,8);
-    gbBg.lineStyle(1.5,0x2a4400,1).strokeRoundedRect(GX0,GBY-14,GW,30,8);
-    A(scene.add.text(GX0+8,GBY,CURRENT_LANG==="tr"?"KAZAN:":"EARN:",{fontFamily:_F,fontSize:"11px",color:"#88cc44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
-    [[GX0+52,"≤8t","300"],[GX0+114,"≤12t","200"],[GX0+178,"≤14t","100"]].forEach(([tx,label,amt])=>{
-        A(scene.add.text(tx,GBY,label,{fontFamily:_F,fontSize:"10px",color:"#aabb66",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
-        A(scene.add.image(tx+32,GBY,"icon_gold").setDisplaySize(15,15).setDepth(D+3));
-        A(scene.add.text(tx+42,GBY,amt,{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
+    gbBg.fillStyle(0x0d1800,1).fillRoundedRect(GX0,GBY-20,GW,40,8);
+    gbBg.lineStyle(1.5,0x2a4400,1).strokeRoundedRect(GX0,GBY-20,GW,40,8);
+    // Üst satır: EARN etiketi ortada
+    A(scene.add.text(GX0+GW/2,GBY-8,CURRENT_LANG==="tr"?"— KAZAN —":"— EARN —",{fontFamily:_F,fontSize:"10px",color:"#88cc44",stroke:"#000",strokeThickness:2}).setOrigin(0.5,0.5).setDepth(D+3));
+    // Alt satır: 3 grup eşit aralıklı
+    const _earnItems=[["≤8t","300"],["≤12t","200"],["≤14t","100"]];
+    const _earnSlotW = GW/3;
+    _earnItems.forEach(([label,amt],idx)=>{
+        const cx = GX0 + _earnSlotW*idx + _earnSlotW/2;
+        // label solda, ikon+miktar sağda — her slot kendi içinde hizalı
+        const labelTxt=A(scene.add.text(cx-30,GBY+8,label,{fontFamily:_F,fontSize:"11px",color:"#aabb66",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
+        A(scene.add.image(cx+10,GBY+8,"icon_gold").setDisplaySize(14,14).setDepth(D+3));
+        A(scene.add.text(cx+20,GBY+8,amt,{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
     });
 
     // ════════════════════════════════════════════════════════════
