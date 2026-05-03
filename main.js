@@ -2896,7 +2896,7 @@ function _xMult(){ return _isB("xp2x")?2.0:1.0; }
 function _sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
 function _nextDay(a,b){ const d1=new Date(a);d1.setHours(0,0,0,0);const d2=new Date(b);d2.setHours(0,0,0,0);const x=d2-d1;return x>=864e5&&x<1728e5; }
 function _fmt(ms){ const h=Math.floor(ms/36e5),m=Math.floor((ms%36e5)/6e4),s=Math.floor((ms%6e4)/1e3); return (h?h+"h ":"")+m+"m "+s+"s"; }
-function _rlbl(r){ return r.type==="gold"?r.n+(CURRENT_LANG==="tr"?" ALTIN":" GOLD"):r.n+(CURRENT_LANG==="tr"?" NF Elmas":" NF Gems"); }
+function _rlbl(r){ return r.type==="gold"?r.n+(CURRENT_LANG==="tr"?" ALTIN":" GOLD"):r.n+(CURRENT_LANG==="tr"?" NF Elmas":" NF GEM"); }
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -3309,17 +3309,19 @@ function showWheel(scene){
 // §6  SHOP — 5 tabs, scrollable, fully functional
 // ═══════════════════════════════════════════════════════════════
 
-function showShop(scene, defaultTab){
+function showShop(scene, defaultTab, scrollTarget){
     let _cleanupSc=()=>{};
     const {A,close,contentTop,contentBot,CX:cx,depth:D,PW}
         =NT_OpenPopup(scene,"mm_panel",330,CURRENT_LANG==="tr"?"MAGAZA":"SHOP",312,20,()=>_cleanupSc(),"shop");
 
     // ── TAB BAR ────────────────────────────────────────────────
     let _tab=defaultTab||"power";
+    // scrollTarget sadece ilk açılışta kullanılır
+    let _pendingScroll = scrollTarget || null;
     const TH=30, TY=contentTop+18;
     const tabs=CURRENT_LANG==="tr"
-        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"flash",l:"⚡"},{k:"gems",l:"MARKET"}]
-        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"flash",l:"⚡"},{k:"gems",l:"MARKET"}];
+        ?[{k:"power",l:"GUC"},{k:"chest",l:"SANDIK"},{k:"boost",l:"TAKVIYE"},{k:"skins",l:"KOSTUM"},{k:"flash",l:"⚡"},{k:"gems",l:"NF GEM"}]
+        :[{k:"power",l:"POWER"},{k:"chest",l:"CHEST"},{k:"boost",l:"BOOST"},{k:"skins",l:"SKINS"},{k:"flash",l:"⚡"},{k:"gems",l:"NF GEM"}];
     const TC=tabs.length, TWid=Math.floor((PW-16)/TC)-2;
     const TX0=cx-(TC*TWid+(TC-1)*4)/2;
     const tG={},tT={};
@@ -3414,6 +3416,7 @@ function showShop(scene, defaultTab){
         _destroyScroll();
         const cont=_mkScrollCont();
         let totalH=0;
+        let _goldPacksY=0, _gemPacksY=0; // scroll hedefi — case dışından erişilebilir
 
         function _add(o){cont.add(o);return o;}
         function G(){return scene.add.graphics();}
@@ -3656,7 +3659,7 @@ function showShop(scene, defaultTab){
                 ];
                 const _lvXpNow = _plvXpNeeded(PLAYER_LEVEL);
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"— LEVEL XP PAKETLERi —":"— LEVEL XP PACKS —",{fontFamily:_F,fontSize:"11px",color:"#ffcc44",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"NF Elmas harcayarak Level XP kazan!":"Spend NF Gems to earn Level XP directly!",{fontFamily:_F,fontSize:"10px",color:"#ffcc55",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"NF Elmas harcayarak Level XP kazan!":"Spend NF GEM to earn Level XP directly!",{fontFamily:_F,fontSize:"10px",color:"#ffcc55",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=28;
                 _xpPacks.forEach((pk)=>{
                     const rowH=56; const canB=PLAYER_GEMS>=pk.cost;
@@ -3947,14 +3950,14 @@ function showShop(scene, defaultTab){
                     // ─── PAKETLER ───────────────────────────────────────
                     { id:"fs_bundle_kahraman",
                       name:"HERO BUNDLE",          nameTR:"KAHRAMAN PAKETI",
-                      desc:"3 char skins + 150 NF Gems",      descTR:"3 kostum + 150 NF Elmas",
+                      desc:"3 char skins + 150 NF GEM",      descTR:"3 kostum + 150 NF Elmas",
                       type:"bundle", rarity:"LEGENDARY", col:0xff4400,
                       price:"$7.99", invoiceId:"flash_bundle_hero",
                       emoji:"🦸", gems:150 },
 
                     { id:"fs_bundle_ucgen_kabusu",
                       name:"TRIANGLE NIGHTMARE",   nameTR:"UCGEN KABUSU PAKETI",
-                      desc:"2 skins + 3 Exotic chests + 200 NF Gems",
+                      desc:"2 skins + 3 Exotic chests + 200 NF GEM",
                       descTR:"2 kostum + 3 Egzotik sandik + 200 NF Elmas",
                       type:"bundle", rarity:"LEGENDARY", col:0xffaa00,
                       price:"$12.99", invoiceId:"flash_bundle_tri_night",
@@ -4093,7 +4096,7 @@ function showShop(scene, defaultTab){
                     const spH=62;
                     const sg=G();sg.fillStyle(0x180828,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.lineStyle(2.5,0xff4488,0.9);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.fillStyle(0xff4488,0.06);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);_add(sg);
                     _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"NOT BASLANGIC — -":"NOT STARTER — -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" NF Elmas + ":" NF Gems + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" NF Elmas + ":" NF GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=72,bh=30;
                     _btn(bx,SY0+y+spH/2,bw,bh,"⭐ "+STARTER.stars,0x88002a,0xff4488,null);
                     _zone(10,y,PW-10,y+spH,()=>{
@@ -4107,7 +4110,8 @@ function showShop(scene, defaultTab){
                     });
                     y+=spH+8;
                 }
-                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"NF Elmas PAKETLERi":"NF Gems PACKS",{fontFamily:_F,fontSize:"13px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                _gemPacksY = y; // NF GEM PACKS section başlangıcı
+                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"NF Elmas PAKETLERi":"NF GEM PACKS",{fontFamily:_F,fontSize:"13px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
                 GEM_PACKS.forEach((pk,i)=>{
                     const tot=pk.gems+pk.bonus, rowH=58;
@@ -4136,6 +4140,7 @@ function showShop(scene, defaultTab){
 
                 // ── GOLD PACKS SECTION ──────────────────────────────────
                 y+=8;
+                _goldPacksY = y; // Gold packs section başlangıcı
                 const goldSecHdr=G();
                 goldSecHdr.fillStyle(0x120e00,0.97);
                 goldSecHdr.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,32,6);
@@ -4188,6 +4193,12 @@ function showShop(scene, defaultTab){
         // Update scroll max
         _scrollMax=Math.max(0,totalH-VIEW_H);
         _scrollTo(0);
+        // Bekleyen scroll hedefi uygula (gold/gem pill tıklamasından gelir)
+        if(_pendingScroll && _tab==="gems"){
+            if(_pendingScroll==="gold" && _goldPacksY>0) _scrollTo(_goldPacksY-10);
+            else if(_pendingScroll==="gem"  && _gemPacksY>0)  _scrollTo(_gemPacksY-10);
+            _pendingScroll=null; // sadece ilk açılışta
+        }
       } catch(err) {
         console.error("[NT] Shop render error:", err);
       }
@@ -4721,7 +4732,7 @@ function showMissions(scene){
         hdrG.lineStyle(1.5,0xaa44ff,0.5);hdrG.strokeRoundedRect(cx-PW/2+10,SY0+4,PW-20,44,6);
         _scrollCont.add(hdrG);
         _scrollCont.add(scene.add.text(cx,SY0+18,
-            CURRENT_LANG==="tr"?"𝕏  TAKİP ET — NF Elmas KAZAN (NOT bedava)":"𝕏  FOLLOW — EARN NF Gems (NOT free)",
+            CURRENT_LANG==="tr"?"𝕏  TAKİP ET — NF Elmas KAZAN (NOT bedava)":"𝕏  FOLLOW — EARN NF GEM (NOT free)",
             {fontFamily:_F,fontSize:"11px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
         _scrollCont.add(scene.add.text(cx,SY0+34,
             CURRENT_LANG==="tr"?"Her hesap kalıcı olarak 1 kez tamamlanır":"Each account completes permanently once",
@@ -4915,9 +4926,9 @@ function showIAPStore(scene){
     pg.fillStyle(0xcc44ff,0.09); pg.fillRoundedRect(6,6,348,54,{tl:12,tr:12,bl:0,br:0});
     pg.lineStyle(1,0x440066,0.3); pg.strokeRoundedRect(10,10,340,620,10);
 
-    const titleStr=CURRENT_LANG==="ru"?"💎 NF Gems МАГАЗИН":CURRENT_LANG==="en"?"💎 NF Gems STORE — NOThing is free":"💎 NF Elmas — NOT bedava";
+    const titleStr=CURRENT_LANG==="en"?"💎 NF GEM STORE — NOThing is free":"💎 NF Elmas — NOT bedava";
     addO(scene.add.text(W/2,28,titleStr,{font:"bold 16px LilitaOne, Arial, sans-serif",color:"#cc44ff"}).setOrigin(0.5).setDepth(12));
-    const subStr=CURRENT_LANG==="ru"?"Покупай NF Gems · используй для контента":CURRENT_LANG==="en"?"Buy NF Gems · use for exclusive content":"NF Elmas al · ozel icerikler icin kullan";
+    const subStr=CURRENT_LANG==="en"?"Buy NF GEM · use for exclusive content":"NF Elmas al · ozel icerikler icin kullan";
     addO(scene.add.text(W/2,46,subStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc"}).setOrigin(0.5).setDepth(12));
 
     // Mevcut bakiye — ikon + rakam
@@ -4959,7 +4970,7 @@ function showIAPStore(scene){
         const totalGems=pack.gems+pack.bonus;
         const gemAmtStr=totalGems.toString();
         addO(scene.add.text(CX+74,cy+12,gemAmtStr,{font:"bold 24px LilitaOne, Arial, sans-serif",color:"#cc44ff",stroke:"#000",strokeThickness:3}).setDepth(14));
-        const gemWordStr=CURRENT_LANG==="ru"?"NF Gems":CURRENT_LANG==="en"?"NF Gems":"NF Elmas";
+        const gemWordStr=CURRENT_LANG==="en"?"NF Gems":"NF Elmas";
         addO(scene.add.text(CX+74+gemAmtStr.length*14+4,cy+18,gemWordStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#aa66cc",padding:{x:2,y:1}}).setDepth(14));
 
 
@@ -4967,13 +4978,13 @@ function showIAPStore(scene){
         if(pack.bonus>0){
             const bonusBg=addO(scene.add.graphics().setDepth(14));
             bonusBg.fillStyle(0x00aa44,0.9); bonusBg.fillRoundedRect(CX+74,cy+54,70,16,4);
-            const bStr=CURRENT_LANG==="ru"?"+"+pack.bonus+" БОНУС":CURRENT_LANG==="en"?"+"+pack.bonus+" BONUS":"+"+pack.bonus+" BONUS";
+            const bStr=CURRENT_LANG==="en"?"+"+pack.bonus+" BONUS":"+"+pack.bonus+" BONUS";
             addO(scene.add.text(CX+109,cy+62,bStr,{font:"bold 12px LilitaOne, Arial, sans-serif",color:"#ffffff",padding:{x:2,y:1}}).setOrigin(0.5).setDepth(15));
         }
 
         // Tag rozeti
         if(pack.tag){
-            const tagStr=pack.tag==="best"?(CURRENT_LANG==="ru"?"⭐ ЛУЧШЕЕ":CURRENT_LANG==="en"?"⭐ BEST VALUE":"⭐ EN IYI"):(CURRENT_LANG==="ru"?"🔥 ПОПУЛЯРНО":CURRENT_LANG==="en"?"🔥 POPULAR":"🔥 POPULER");
+            const tagStr=pack.tag==="best"?(CURRENT_LANG==="en"?"⭐ BEST VALUE":"⭐ EN IYI"):(CURRENT_LANG==="en"?"🔥 POPULAR":"🔥 POPULER");
             const tagBg=addO(scene.add.graphics().setDepth(14));
             tagBg.fillStyle(tagCol,0.95); tagBg.fillRoundedRect(CX+CW-92,cy+8,82,18,5);
             tagBg.lineStyle(1,0xffffff,0.3); tagBg.strokeRoundedRect(CX+CW-92,cy+8,82,18,5);
@@ -4993,7 +5004,7 @@ function showIAPStore(scene){
         addO(scene.add.text(BX+BW/2,BY+10,pack.price,{font:"bold 12px LilitaOne, Arial, sans-serif",color:"#ffffff",
             padding:{x:2,y:1}
         }).setOrigin(0.5).setDepth(14));
-        const buyStr=CURRENT_LANG==="ru"?"КУПИТЬ":CURRENT_LANG==="en"?"BUY":"SATIN AL";
+        const buyStr=CURRENT_LANG==="en"?"BUY":"SATIN AL";
         addO(scene.add.text(BX+BW/2,BY+25,buyStr,{font:"bold 12px LilitaOne, Arial, sans-serif",color:"#cc88ff",padding:{x:2,y:1}}).setOrigin(0.5).setDepth(14));
 
         const hitArea=addO(scene.add.rectangle(CX+CW/2,cy+CARD_H/2,CW,CARD_H,0xffffff,0.001).setInteractive({useHandCursor:true}).setDepth(16));
@@ -5155,7 +5166,7 @@ const LANG_DATA = {
         howto_crystal:"Boss oldur ya da 5 dk hayatta kal → kristal kazan!",
         howto_synergy:"2 uyumlu silah birlikte = gizli guclu sinerji bonusu!",
         goRevive:"💎 DIRIL",goReviveCost:"(5 NF Elmas)",goInsufficientGems:"❌ Yetersiz NF Elmas!",
-        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
+        goGemsStatus:"💎 NF GEM:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
         goRevivePrompt:"DIRILMEK ISTER MISIN?",goReviveCrystalCost:"NOT bitirdin daha →",
         goReviveBtn:"✦ DIRIL  (3 💎)",
         leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"NOThing yok burada. Henüz.",lbYou:"(NOT sen, ama evet sen)",lbSubmit:"NOT gizleyecektim",lbError:"NOT bağlandı. Tahmin et neden.",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
@@ -5265,9 +5276,9 @@ const LANG_DATA = {
         crystalRevived:"💎 REVIVED!",
         crystalRevivedFull:"💎 REVIVED! 5s INVINCIBLE",
         reviveTitle:"** REVIVE **",
-        reviveCostInfo:"5 NF Gems — NOThing is free",
+        reviveCostInfo:"5 NF GEM — NOThing is free",
         reviveHpInfo:"HP+3 / 5s INVINCIBLE",
-        reviveBtnGem:"✦ REVIVE  (5 NF Gems)",
+        reviveBtnGem:"✦ REVIVE  (5 NF GEM)",
         reviveEndBtn:"END GAME",
         howto_goal:"Destroy pyramids before they reach the ground!",
         howto_move:"Press ← → or tap the screen to move left/right",
@@ -5280,121 +5291,15 @@ const LANG_DATA = {
         howto_crystal:"Kill a boss or survive 5 mins → earn a crystal!",
         howto_synergy:"2 compatible weapons together = hidden powerful synergy!",
         goScore:"SCORE",goNewRecord:"** NOT your old record **",goLevel:"LEVEL",goTime:"TIME",
-        goRevive:"💎 REVIVE",goReviveCost:"(5 NF Gems)",goInsufficientGems:"❌ Not enough NF Gems!",
-        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
+        goRevive:"💎 REVIVE",goReviveCost:"(5 NF GEM)",goInsufficientGems:"❌ Not enough NF GEM!",
+        goGemsStatus:"💎 NF GEM:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
         goRevivePrompt:"WANT TO REVIVE?",goReviveCrystalCost:"NOT giving up yet →",
         goReviveBtn:"✦ REVIVE  (3 💎)",
         leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"NOThing here yet.",lbYou:"(NOT you, but yes you)",lbSubmit:"Submit — NOT hiding it",lbError:"NOT connected. Shocking.",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
         menuPlay:"PLAY",menuShop:"SHOP",menuSettings:"SETTINGS",menuLeaderboard:"LEADERBOARD",
         playAgain:"PLAY AGAIN",mainMenu:"MAIN MENU",gameOver:"GAME OVER",
-        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"NOThing to lose",notEnoughGems:"Not enough NF Gems!",revived:"✦ REVIVED!",
-        levelXpPacks:"— LEVEL XP PACKS —",levelXpPacksDesc:"Spend NF Gems to earn Level XP directly!"
-    },
-    ru:{
-        start:"НАЧАТЬ",shop:"МАГАЗИН",collection:"КОЛЛЕКЦИЯ",
-        unlocks:"ОТКРЫТИЯ",credits:"ТИТРЫ",options:"НАСТРОЙКИ",
-        back:"НАЗАД",close:"ЗАКРЫТЬ",buy:"КУПИТЬ",maxed:"МАКС ✓",
-        gameOver:"ИГРА ОКОНЧЕНА",playAgain:"ИГРАТЬ СНОВА",mainMenu:"ГЛАВНОЕ МЕНЮ",
-        paused:"ПАУЗА",resume:"ПРОДОЛЖИТЬ",
-        levelUp:"УРОВЕНЬ ВЫРОС!",pickPower:"Выбери способность",
-        perfect:"ОТЛИЧНО!",centerHit:"В ЯБЛОЧКО!",bullseye:"ТОЧНЫЙ ВЫСТРЕЛ!",
-        chestOpened:"СУНДУК ОТКРЫТ!",earned:"получено!",
-        chestCommon:"ОБЫЧНЫЙ СУНДУК",chestRare:"РЕДКИЙ СУНДУК",chestLegendary:"ЛЕГЕНДАРНЫЙ СУНДУК",
-        kills:"УБИЙСТВ",time:"ВРЕМЯ",combo:"КОМБО",gold:"ЗОЛОТО",
-        bestRun:"РЕКОРД:",highscore:"РЕКОРД",
-        shopUpgrades:"УЛУЧШЕНИЯ",shopCosmetics:"КОСМЕТИКА",
-        shopWeaponSkins:"СКИНЫ ОРУЖИЯ",shopCharSkins:"СКИНЫ ПЕРСОНАЖА",
-        shopEnemySkins:"СКИНЫ ВРАГОВ",
-        selectMap:"ВЫБРАТЬ КАРТУ",mapLocked:"🔒 ЗАБЛОКИРОВАНО",mapsTitle:"КАРТЫ",locked:"ЗАБЛОКИРОВАНО",lockedReq:"Требуется:",
-        map1Name:"Пустыня Ажкар",map1Desc:"Ажкар… последние следы утраченной цивилизации",
-        map2Name:"Тёмная Пещера",map2Desc:"Ещё не разблокировано",
-        map3Name:"Древний Храм",map3Desc:"Ещё не разблокировано",
-        collectionTitle:"КОЛЛЕКЦИЯ",unlocksTitle:"ОТКРЫТИЯ",
-        weaponsTab:"ОРУЖИЕ",enemiesTab:"ВРАГИ",upgradesTab:"СПОСОБНОСТИ",
-        settingsTitle:"НАСТРОЙКИ",language:"ЯЗЫК",sfxVol:"ГРОМКОСТЬ SFX",
-        musicVol:"ГРОМКОСТЬ МУЗЫКИ",langTR:"Turkce",langEN:"English",langRU:"Русский",
-        upDamage:"Сила",upAttack:"Скорострельность",upSize:"Большая Пуля",
-        upSplit:"Разделение",upSpeed:"Ловкость",upPierce:"Пробивание",
-        upCrit:"Критический удар",upKnockback:"Отброс",upFreeze:"Лёд",
-        upXpboost:"Учёный",upMaxhp:"Выносливость",upRegen:"Регенерация",
-        upHeal:"Аптечка",
-        upExplosive:"Граната",upLightning:"Цепная Молния",
-        upDrone:"Боевой Дрон",upSaw:"Пила",upPoison:"Ядовитое Облако",upLaser:"Лазер",upThunder:"Гром",
-        upRapidBlaster:"Скорострел",upHeavyCannon:"Тяжёлая Пушка",
-        upSpreadShot:"Шрапнель",upChainShot:"Цепной Выстрел",upPrecisionRifle:"Снайпер",
-        upReflectRifle:"Рикошет Винтовка",
-        evoTriCannon:"Тройная Пушка",evoStormCore:"Ядро Бури",
-        evoOverload:"Перегрузка",
-        evoMirrorStorm:"Зеркальный Шторм",
-        evoCryoField:"Криополе",evoPlagueBearer:"Носитель Чумы",
-        startHp:"Железное Тело",startHpDesc:"Старт: +10 макс. здоровья",
-        startDmg:"Острый Клинок",startDmgDesc:"Старт: +15% урона",
-        startSpd:"Пустынный Бегун",startSpdDesc:"Старт: +10% скорости",
-        goldBonus:"Охотник за Сокровищами",goldBonusDesc:"+25% золота",
-        extraLife:"Второй Шанс",extraLifeDesc:"Одно воскрешение",
-        xpBonus:"Дар Учёного",xpBonusDesc:"Старт: +20% опыта",
-        critStart:"Орлиный Глаз",critStartDesc:"Старт: 5% крит",
-        chestHeal:"+5 ХП",chestDamage:"+15% УРОНА",
-        chestAttack:"+8% СКОРОСТРЕЛЬНОСТЬ",chestSpeed:"+10% ДВИЖЕНИЕ",
-        chestMaxHp:"+3 МАКС ХП",chestComboBoost:"БОНУС КОМБО",
-        chestXp:"+50% ОПЫТА (30с)",chestGold:"+ЗОЛОТО",
-        extraLife2:"✦ ВОСКРЕШЕНИЕ!",
-        evolution:"ЭВОЛЮЦИЯ",
-        upDamageDesc:"+20% урона",upAttackDesc:"+15% скорострельность",upSizeDesc:"+18% размер пули",
-        upSplitDesc:"При убийстве: пуля разделяется на 2",upSpeedDesc:"+12% скорость",upPierceDesc:"+1 пробивание",
-        upCritDesc:"+8% крит. шанс",upKnockbackDesc:"Отбрасывает врагов",upFreezeDesc:"9% заморозка",
-        upXpboostDesc:"+20% опыта",upMaxhpDesc:"+5 макс. ХП",upRegenDesc:"1 ХП каждые 4с",
-        upHealDesc:"Мгновенно +8 ХП",
-        upExplosiveDesc:"Взрывные пули",upLightningDesc:"Цепная молния",
-        upDroneDesc:"Дрон-автонаводка",upSawDesc:"Рикошетная пила",upPoisonDesc:"Яд при смерти",upLaserDesc:"Лазер по области",upThunderDesc:"Случайная молния",
-        upRapidBlasterDesc:"Быстрый огонь, низкий урон. 2.2x скорость / 0.6x урон",
-        upHeavyCannonDesc:"Медленно, но мощно. 2.5x урон / 0.5x скорость",
-        upSpreadShotDesc:"Конус из 3 пуль. 0.45x урон каждая",
-        upChainShotDesc:"Пуля прыгает по 3 целям. 0.8x урон",
-        upPrecisionRifleDesc:"Центр = 3x бонус. 1.8x урон",
-        upReflectRifleDesc:"Рикошет от стен. 2 отскока, 0.7x урон каждый",
-        evoTriCannonDesc:"Тройной широкий выстрел",evoStormCoreDesc:"Резонанс x2, урон x1.5",
-        evoOverloadDesc:"Взрыв 4% экрана",
-        evoCryoFieldDesc:"Заморозка по области",evoPlagueBearer2Desc:"Взрывы оставляют яд",
-        evoMirrorStormDesc:"Первый рикошет разделяется на 3",
-        comingSoon:"🔒  СКОРО",required:"Требуется:",unlocked:"✓ ОТКРЫТО",
-        creditsTitle:"ТИТРЫ",creditsBy:"РАЗРАБОТЧИК",
-        footerSignature:"NOT FAIR  —  Sahin Beyazgul",
-        cosmingSoonLabel:"🎨 Скоро...",
-        evolutionsLabel:"— ЭВОЛЮЦИИ —",
-        synergyTitle:"⚡ СИНЕРГИЯ ⚡",
-        miniBossAlert:"⚠  ИДЁТ МИНИ-БОСС  ⚠",
-        evolutionTitle:"⚡ ЭВОЛЮЦИЯ ⚡",
-        powerSpike_overload:"ПЕРЕГРУЗКА",
-        powerSpike_unstoppable:"НЕУДЕРЖИМЫЙ",
-        powerSpike_godlike:"БОГОПОДОБНЫЙ",
-        nearDeath_buff:"💀 АДРЕНАЛИН СМЕРТИ",
-        comboBreak:"КОМБО СБРОШЕНО",
-        hiddenSynergy:"✦ СКРЫТАЯ СИНЕРГИЯ",
-        eventDoubleDmg:"ДВОЙНОЙ УРОН",
-        eventGodBurst:"ВЗРЫВ БОГА",
-        eventTripleGold:"РЕЖИМ 3X ЗОЛОТО",
-        eventOneHit:"МГНОВЕННАЯ СМЕРТЬ",
-        accept:"Принять",
-        decline:"Отказать",
-        crystalRevived:"💎 ВОСКРЕШЁН!",
-        crystalRevivedFull:"💎 ВОСКРЕШЁН! 5с НЕУЯЗВИМОСТЬ",
-        howto_goal:"Уничтожай пирамиды до того, как они достигнут земли!",
-        howto_move:"Нажми ← → или коснись экрана для перемещения",
-        howto_shoot:"Пробел = выстрел. Попади в ЦЕНТР врага = 3x урон!",
-        howto_level:"Собирай XP-шары. При новом уровне выбирай усиление.",
-        howto_evo:"Прокачай 2 навыка до макс — Эволюция активируется!",
-        howto_events:"Каждые ~60с появляется рискованное событие. Осторожно!",
-        howto_combo:"Быстро убивай → больше комбо → больше XP и золота!",
-        howto_apple:"Редко выпадает из врагов. Подбери = +3 HP",
-        howto_crystal:"Убей босса или продержись 5 минут → кристалл!",
-        howto_synergy:"2 совместимых оружия = скрытый мощный бонус!",
-        goScore:"СЧЁТ",goNewRecord:"** НОВЫЙ РЕКОРД **",goLevel:"УРОВЕНЬ",goTime:"ВРЕМЯ",
-        goRevive:"💎 ВОСКРЕСИТЬ",goReviveCost:"(5 NF Gems)",goInsufficientGems:"❌ Недостаточно NF Gems!",
-        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Недостаточно)",goShare:"📤 Поделиться",
-        goRevivePrompt:"ХОЧЕШЬ ВОСКРЕСНУТЬ?",goReviveCrystalCost:"Текущий:",
-        goReviveBtn:"✦ ВОСКРЕСИТЬ  (3 💎)",
-        leaderboard:"🏆 ТАБЛИЦА РЕКОРДОВ",lbTitle:"МИРОВОЙ РЕЙТИНГ",lbRank:"МЕСТО",lbPlayer:"ИГРОК",lbScore:"СЧЁТ",lbLoading:"Загрузка...",lbEmpty:"Очков пока нет!",lbYou:"(Вы)",lbSubmit:"Отправить счёт",lbError:"Ошибка соединения",lbGlobal:"ГЛОБАЛЬНЫЙ",lbLocal:"ЛИЧНЫЙ"
+        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"NOThing to lose",notEnoughGems:"Not enough NF GEM!",revived:"✦ REVIVED!",
+        levelXpPacks:"— LEVEL XP PACKS —",levelXpPacksDesc:"Spend NF GEM to earn Level XP directly!"
     }
 };
 // Dil ayari: "tr" ve "en" aktif, dil ayarlardan secilebilir.
@@ -5409,7 +5314,7 @@ function setLang(l){
     localStorage.setItem("nt_lang", CURRENT_LANG);
 }
 // Helper for objects with name/nameEN/nameRU fields
-function LLang(obj,trKey,enKey,ruKey){ if(!obj) return ""; return CURRENT_LANG==="ru"?(obj[ruKey]||obj[trKey]):CURRENT_LANG==="en"?(obj[enKey]||obj[trKey]):obj[trKey]; }
+function LLang(obj,trKey,enKey,ruKey){ if(!obj) return ""; return CURRENT_LANG==="en"?(obj[enKey]||obj[trKey]):obj[trKey]; }
 
 // ── TELEGRAM KULLANICI BILGISI ──────────────────────────────────────────────
 const _TG_USER = (function(){
@@ -8406,9 +8311,9 @@ function spawnBoss(S){
         bg.fillStyle(BOSS_COL, 0.70); bg.fillRect(0, 262, 5, 72);
         bg.fillStyle(BOSS_COL, 0.70); bg.fillRect(W-5, 262, 5, 72);
 
-        const isTR = CURRENT_LANG==="tr", isRU = CURRENT_LANG==="ru";
-        const line1 = isTR ? "⚠  BOSS GELİYOR  ⚠" : isRU ? "⚠  BOSS ИДЁТ  ⚠" : "⚠  BOSS INCOMING  ⚠";
-        const line2 = isTR ? "NOT ADIL DEĞİL. (Biliyoruz.)" : isRU ? "NOT честная игра. (Знаем.)" : "NOT a fair fight. (We know.)";
+        const isTR = CURRENT_LANG==="tr";
+        const line1 = isTR ? "⚠  BOSS GELİYOR  ⚠" : "⚠  BOSS INCOMING  ⚠";
+        const line2 = isTR ? "NOT ADIL DEĞİL. (Biliyoruz.)" : "NOT a fair fight. (We know.)";
 
         const warnTxt = S.add.text(W/2, 270, line1, {
             fontFamily:"LilitaOne, Arial, sans-serif", fontSize:"15px",
@@ -9970,7 +9875,7 @@ function showPause(S){
     const TX=CX-140, VX=CX+140;
 
     // Title in orange strip
-    const pLabel=CURRENT_LANG==="en"?"PAUSED":CURRENT_LANG==="ru"?"ПАУЗА":"DURAKLANDI";
+    const pLabel=CURRENT_LANG==="en"?"PAUSED":"DURAKLANDI";
     A(S.add.text(CX,stripCY,"⏸  "+pLabel,{
         fontFamily:"LilitaOne, Arial, sans-serif",
         fontSize:"28px",color:"#ffffff",stroke:"#5a0000",strokeThickness:5
@@ -9993,14 +9898,7 @@ function showPause(S){
         "Running away? Go ahead. Try.",
         "Triangles don't pause. Just saying. 😈",
     ];
-    const _pauseFunnyRU = [
-        "NOT не даёт тебе уйти.",
-        "Игра ждёт. Терпеливо. Угрожающе.",
-        "Отдохни. Треугольники — нет.",
-        "NOT: Перерыва не предусмотрено.",
-        "Убегаешь? Попробуй. 😈",
-    ];
-    const _pArr = CURRENT_LANG==="tr"?_pauseFunnyTR:CURRENT_LANG==="ru"?_pauseFunnyRU:_pauseFunnyEN;
+    const _pArr = CURRENT_LANG==="tr"?_pauseFunnyTR:_pauseFunnyEN;
     // Komik yazı — butonların hemen üstünde
     A(S.add.text(CX, btnCY - 30,
         _pArr[Math.floor(Math.random()*_pArr.length)], {
@@ -12160,42 +12058,48 @@ function showNotGame(scene){
     // STATS + LIVES ROW  (y=132)
     // ════════════════════════════════════════════════════════════
     const LR=66;
-    // Lives
-    A(scene.add.text(40,LR,CURRENT_LANG==="tr"?"CAN:":"LIVES:",{fontFamily:_F,fontSize:"9px",color:"#4a6a88",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+    // Lives label
+    A(scene.add.text(10,LR,CURRENT_LANG==="tr"?"❤ CAN:":"❤ LIVES:",{fontFamily:_F,fontSize:"11px",color:"#cc5566",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
     const liveDots=[];
     for(let i=0;i<MAX_LIVES;i++){
         const g=A(scene.add.graphics().setDepth(D+4));
-        g._px=72+i*14;g._py=LR;liveDots.push(g);
+        g._px=88+i*18;g._py=LR;liveDots.push(g);
     }
     function _drawLives(){
         for(let i=0;i<MAX_LIVES;i++){
             const on=i<gd.lives;
             liveDots[i].clear();
-            liveDots[i].fillStyle(on?0xFFD700:0x111820,1);liveDots[i].fillCircle(liveDots[i]._px,liveDots[i]._py,6);
-            liveDots[i].lineStyle(1.5,on?0xFFAA00:0x253545,1);liveDots[i].strokeCircle(liveDots[i]._px,liveDots[i]._py,6);
+            liveDots[i].fillStyle(on?0xff4466:0x1a0810,1);
+            liveDots[i].fillCircle(liveDots[i]._px,liveDots[i]._py,7);
+            liveDots[i].lineStyle(2,on?0xff8899:0x331122,1);
+            liveDots[i].strokeCircle(liveDots[i]._px,liveDots[i]._py,7);
+            if(on){
+                liveDots[i].fillStyle(0xffffff,0.3);
+                liveDots[i].fillCircle(liveDots[i]._px-2,liveDots[i]._py-2,3);
+            }
         }
     }
     _drawLives();
     // Separator
-    A(scene.add.text(148,LR,"·",{fontFamily:_F,fontSize:"12px",color:"#1a2a3a"}).setOrigin(0.5,0.5).setDepth(D+3));
+    A(scene.add.text(184,LR,"│",{fontFamily:_F,fontSize:"14px",color:"#1a2a3a"}).setOrigin(0.5,0.5).setDepth(D+3));
     // Gold icon + amount
-    A(scene.add.image(160,LR,"icon_gold").setDisplaySize(16,16).setDepth(D+4));
-    const goldTxt=A(scene.add.text(171,LR,"0",{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
+    A(scene.add.image(198,LR,"icon_gold").setDisplaySize(20,20).setDepth(D+4));
+    const goldTxt=A(scene.add.text(212,LR,"0",{fontFamily:_F,fontSize:"14px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
     function _drawGold(){if(goldTxt&&goldTxt.active)goldTxt.setText(PLAYER_GOLD.toLocaleString());}
     _drawGold();
     // Stats
-    const statsTxt=A(scene.add.text(224,LR,"W:0 L:0 D:0",{fontFamily:_F,fontSize:"9px",color:"#2a3c4e",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+4));
+    const statsTxt=A(scene.add.text(270,LR,"W:0 L:0 D:0",{fontFamily:_F,fontSize:"11px",color:"#4a8aaa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+4));
     function _drawStats(){
         const{w,l,d}=gd.stats;const ex=gd.streak>1?" 🔥"+gd.streak+"x":"";
-        if(statsTxt&&statsTxt.active)statsTxt.setText("W:"+w+" L:"+l+" D:"+d+ex).setColor(gd.streak>1?"#FF8C00":"#2a3c4e");
+        if(statsTxt&&statsTxt.active)statsTxt.setText("W:"+w+" L:"+l+" D:"+d+ex).setColor(gd.streak>1?"#FF8C00":"#4a8aaa");
     }
     _drawStats();
     // ? button
-    const QX=340,QY=LR;
+    const QX=342,QY=LR;
     const qG=A(scene.add.graphics().setDepth(D+4));
-    qG.fillStyle(0x0a1624,1).fillCircle(QX,QY,11);qG.lineStyle(1.5,0x2a4a6a,1).strokeCircle(QX,QY,11);
-    A(scene.add.text(QX,QY,"?",{fontFamily:_F,fontSize:"12px",color:"#5588aa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+5));
-    A(scene.add.circle(QX,QY,11,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
+    qG.fillStyle(0x0a1624,1).fillCircle(QX,QY,12);qG.lineStyle(2,0x2a6a9a,1).strokeCircle(QX,QY,12);
+    A(scene.add.text(QX,QY,"?",{fontFamily:_F,fontSize:"13px",color:"#55aadd",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+5));
+    A(scene.add.circle(QX,QY,12,0xffffff,0.001).setDepth(D+6).setInteractive({useHandCursor:true}))
         .on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_showTut();});
 
     // Countdown label
@@ -12258,7 +12162,7 @@ function showNotGame(scene){
     // UPCOMING TURNS  (below grid, y≈468)
     // ════════════════════════════════════════════════════════════
     const ULY=GY0+GW+38; // clear of grid plate bottom
-    A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"SIRADAKI HAMLELER":"UPCOMING TURNS",{fontFamily:_F,fontSize:"8px",color:"#5a8aaa"}).setOrigin(0.5).setDepth(D+3));
+    A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"— SIRADAKİ HAMLELER —":"— UPCOMING TURNS —",{fontFamily:_F,fontSize:"11px",color:"#4a7aaa",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
     const UPY=ULY+32;
     const UP_SZ=[42,32,26,21,17,14],UP_GP=8;
     const UP_TW=UP_SZ.reduce((a,v)=>a+v,0)+(UP_SZ.length-1)*UP_GP;
@@ -12269,7 +12173,7 @@ function showNotGame(scene){
         const sz=UP_SZ[i],bx=Math.round(ux+sz/2);
         const ug=A(scene.add.graphics().setDepth(D+3));
         const ut=A(scene.add.text(bx,UPY,"",{fontFamily:_F,fontSize:Math.max(10,sz-12)+"px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
-        const uw=A(scene.add.text(bx,UP_LABEL_Y,"",{fontFamily:_F,fontSize:"7px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+        const uw=A(scene.add.text(bx,UP_LABEL_Y,"",{fontFamily:_F,fontSize:"9px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
         upBoxes.push({ug,ut,uw,bx,sz});ux+=sz+UP_GP;
     }
     function _drawUpcoming(){
@@ -12297,13 +12201,13 @@ function showNotGame(scene){
     // ════════════════════════════════════════════════════════════
     const GBY=UPY+56;
     const gbBg=A(scene.add.graphics().setDepth(D+2));
-    gbBg.fillStyle(0x0a1200,1).fillRoundedRect(GX0,GBY-12,GW,26,6);
-    gbBg.lineStyle(1,0x1e2a00,1).strokeRoundedRect(GX0,GBY-12,GW,26,6);
-    A(scene.add.text(GX0+6,GBY,CURRENT_LANG==="tr"?"KAZAN:":"EARN:",{fontFamily:_F,fontSize:"9px",color:"#7aaa48"}).setOrigin(0,0.5).setDepth(D+3));
-    [[GX0+36,"≤8t","300"],[GX0+104,"≤12t","200"],[GX0+170,"≤14t","100"]].forEach(([tx,label,amt])=>{
-        A(scene.add.text(tx,GBY,label,{fontFamily:_F,fontSize:"9px",color:"#88bb66"}).setOrigin(0,0.5).setDepth(D+3));
-        A(scene.add.image(tx+32,GBY,"icon_gold").setDisplaySize(13,13).setDepth(D+3));
-        A(scene.add.text(tx+41,GBY,amt,{fontFamily:_F,fontSize:"10px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+    gbBg.fillStyle(0x0d1800,1).fillRoundedRect(GX0,GBY-14,GW,30,8);
+    gbBg.lineStyle(1.5,0x2a4400,1).strokeRoundedRect(GX0,GBY-14,GW,30,8);
+    A(scene.add.text(GX0+8,GBY,CURRENT_LANG==="tr"?"KAZAN:":"EARN:",{fontFamily:_F,fontSize:"11px",color:"#88cc44",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
+    [[GX0+52,"≤8t","300"],[GX0+114,"≤12t","200"],[GX0+178,"≤14t","100"]].forEach(([tx,label,amt])=>{
+        A(scene.add.text(tx,GBY,label,{fontFamily:_F,fontSize:"10px",color:"#aabb66",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+3));
+        A(scene.add.image(tx+32,GBY,"icon_gold").setDisplaySize(15,15).setDepth(D+3));
+        A(scene.add.text(tx+42,GBY,amt,{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
     });
 
     // ════════════════════════════════════════════════════════════
@@ -13230,18 +13134,7 @@ class SceneMainMenu extends Phaser.Scene {
             "You can win. NOT likely.",
             "A NOT production. ™",
         ];
-        const _NOT_TAGLINES_RU = [
-            "NOT отвечает. Нет, не отвечает.",
-            "Честно? NOT.",
-            "Может вызвать привыкание. NOT: Вызывает.",
-            "Выход есть. Удачи с поиском.",
-            "NOT Certified™",
-            "Компания: NOT. Сердце: Отсутствует.",
-            "«Ещё одна игра». — Ты, только что",
-            "NOT несёт ответственности.",
-        ];
         const _tagArr = (typeof CURRENT_LANG!=="undefined"&&CURRENT_LANG==="tr") ? _NOT_TAGLINES_TR
-                      : (typeof CURRENT_LANG!=="undefined"&&CURRENT_LANG==="ru") ? _NOT_TAGLINES_RU
                       : _NOT_TAGLINES_EN;
         const _tagMsg = _tagArr[Math.floor(Math.random() * _tagArr.length)];
         // Strip'in tam altında, 13px aşağıda — buton alanından önce dedicated zona
@@ -13377,7 +13270,7 @@ class SceneMainMenu extends Phaser.Scene {
 
             // ── GEM pill (sag) ──────────────────────────
             const gemBg = this.add.graphics().setDepth(7).setAlpha(0);
-            _drawPill(gemBg, GEM_X, TOP_Y, PILL_W, PILL_H, 0xaa44dd, 0x1a0828);
+            _drawPill(gemBg, GEM_X, TOP_Y, PILL_W, PILL_H, 0xaa44dd, 0x08050f);
             const gemIc = this.add.image(GEM_X + ICON_SZ/2 + 3, CY, "icon_gem")
                 .setDisplaySize(ICON_SZ, ICON_SZ).setDepth(9).setAlpha(0);
             const gemTxt = this.add.text(GEM_X + PILL_W - 6, CY, PLAYER_GEMS.toLocaleString(), {
@@ -13386,6 +13279,20 @@ class SceneMainMenu extends Phaser.Scene {
             }).setOrigin(1, 0.5).setDepth(9).setAlpha(0);
 
             this.tweens.add({targets:[goldBg,goldTxt,goldIc,gemBg,gemTxt,gemIc], alpha:1, duration:380, delay:460, ease:'Quad.easeOut'});
+
+            // ── PILL TIKLAMA — shop'u ilgili seksiyon'a yönlendir ──
+            const _openGoldPacks = () => { try{ NT_SFX.play("menu_click"); }catch(_){} _self._showShop("gems","gold"); };
+            const _openGemPacks  = () => { try{ NT_SFX.play("menu_click"); }catch(_){} _self._showShop("gems","gem");  };
+            // Gold pill
+            goldBg.setInteractive(new Phaser.Geom.Rectangle(GOLD_X, TOP_Y, PILL_W, PILL_H), Phaser.Geom.Rectangle.Contains)
+                .on("pointerdown", _openGoldPacks).on("pointerover", ()=>goldBg.setAlpha(0.8)).on("pointerout", ()=>goldBg.setAlpha(1));
+            goldIc.setInteractive().on("pointerdown", _openGoldPacks);
+            goldTxt.setInteractive().on("pointerdown", _openGoldPacks);
+            // Gem pill
+            gemBg.setInteractive(new Phaser.Geom.Rectangle(GEM_X, TOP_Y, PILL_W, PILL_H), Phaser.Geom.Rectangle.Contains)
+                .on("pointerdown", _openGemPacks).on("pointerover", ()=>gemBg.setAlpha(0.8)).on("pointerout", ()=>gemBg.setAlpha(1));
+            gemIc.setInteractive().on("pointerdown", _openGemPacks);
+            gemTxt.setInteractive().on("pointerdown", _openGemPacks);
 
             // ── HUD REFRESH ─────────────────────────────────────────
             _self._mmGoldTxt = goldTxt;
@@ -13652,8 +13559,8 @@ class SceneMainMenu extends Phaser.Scene {
                 const xpCurrent = PLAYER_LEVEL_XP;
                 const xpLeft    = xpNeeded - xpCurrent;
                 const ratio     = Math.min(1, xpCurrent / xpNeeded);
-                const PW = 230, PH = 178;
-                const PX = 10,  PY = CIR_CY * 2 + 14;
+                const PW = 300, PH = 220;
+                const PX = (360-PW)/2, PY = CIR_CY * 2 + 10;
                 const DP = 210;
                 const objs = [];
                 const _A  = o => { objs.push(o); return o; };
@@ -13661,99 +13568,89 @@ class SceneMainMenu extends Phaser.Scene {
                 const CX2 = PX + PW / 2;
                 const isTR = CURRENT_LANG === "tr";
 
-                // Overlay — tıklayınca kapansın
-                _A(this.add.rectangle(180, 320, 360, 640, 0x000000, 0.60)
+                // Overlay
+                _A(this.add.rectangle(180, 320, 360, 640, 0x000000, 0.70)
                     .setDepth(DP).setInteractive()).on("pointerdown", _cl);
 
-                // Panel arkaplanı — metalik koyu çelik
+                // Panel arkaplanı — premium koyu panel
                 const pg = _A(this.add.graphics().setDepth(DP+1));
-                // Dış gölge
-                pg.fillStyle(0x000000, 0.50); pg.fillRoundedRect(PX+4, PY+6, PW, PH, 13);
-                // Ana gövde
-                pg.fillStyle(0x0d1320, 0.98); pg.fillRoundedRect(PX, PY, PW, PH, 13);
-                // Üst parlaklık
-                pg.fillStyle(0x1e2e48, 0.35); pg.fillRoundedRect(PX+2, PY+2, PW-4, PH*0.30, 11);
-                // Başlık şeridi
-                pg.fillStyle(0x101c30, 1); pg.fillRoundedRect(PX, PY, PW, 38, {tl:13,tr:13,bl:0,br:0});
-                pg.fillStyle(0x2a4268, 0.55); pg.fillRoundedRect(PX+4, PY+4, PW-8, 28, 8);
-                // Dış kenar
-                pg.lineStyle(2, 0x3a6090, 0.85); pg.strokeRoundedRect(PX, PY, PW, PH, 13);
-                // İç kenar
-                pg.lineStyle(1, 0xffffff, 0.05); pg.strokeRoundedRect(PX+2, PY+2, PW-4, PH-4, 11);
-                // Başlık alt ayırıcı
-                pg.lineStyle(1.5, 0x2a4060, 0.80);
-                pg.beginPath(); pg.moveTo(PX+12, PY+38); pg.lineTo(PX+PW-12, PY+38); pg.strokePath();
+                pg.fillStyle(0x000000, 0.55); pg.fillRoundedRect(PX+5, PY+7, PW, PH, 16);
+                pg.fillStyle(0x080e1c, 1);    pg.fillRoundedRect(PX, PY, PW, PH, 16);
+                pg.fillStyle(0x0d1830, 1);    pg.fillRoundedRect(PX, PY, PW, 46, {tl:16,tr:16,bl:0,br:0});
+                pg.fillStyle(0xffffff, 0.06); pg.fillRoundedRect(PX+3, PY+3, PW-6, 20, 12);
+                pg.lineStyle(2, 0x2255aa, 0.9); pg.strokeRoundedRect(PX, PY, PW, PH, 16);
+                pg.lineStyle(1, 0x4488ff, 0.15); pg.strokeRoundedRect(PX+2, PY+2, PW-4, PH-4, 14);
+                pg.lineStyle(1, 0x1a3060, 0.8);
+                pg.beginPath(); pg.moveTo(PX+16, PY+46); pg.lineTo(PX+PW-16, PY+46); pg.strokePath();
                 pg.setAlpha(0);
                 this.tweens.add({ targets: pg, alpha: 1, duration: 220, ease: 'Back.easeOut' });
 
-                // Başlık
-                const titleTxt = _A(this.add.text(CX2, PY + 19,
+                // Başlık — ⭐ LEVEL N
+                const titleTxt = _A(this.add.text(CX2, PY + 23,
                     "⭐  LEVEL " + PLAYER_LEVEL + (PLAYER_PRESTIGE > 0 ? "  ✦"+PLAYER_PRESTIGE : ""),
-                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'16px',
-                      color:'#88ccff', stroke:'#000', strokeThickness:3 }
+                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'20px',
+                      color:'#66ccff', stroke:'#001040', strokeThickness:4 }
                 ).setOrigin(0.5).setDepth(DP+2).setAlpha(0));
 
-                // Ayırıcı çizgi (kaldırıldı — şeritte zaten var)
-                const divG = _A(this.add.graphics().setDepth(DP+2).setAlpha(0));
-
                 // Satır yardımcısı
-                const _row = (label, val, rowY, valColor) => {
-                    _A(this.add.text(PX+16, PY+rowY, label, {
-                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
-                        color:'#5a88aa', stroke:'#000', strokeThickness:1
+                const _row = (label, val, rowY, valColor, highlight) => {
+                    if(highlight){
+                        const hg = _A(this.add.graphics().setDepth(DP+1).setAlpha(0));
+                        hg.fillStyle(0x0a1830, 1); hg.fillRoundedRect(PX+10, PY+rowY-10, PW-20, 22, 5);
+                        hg.lineStyle(1, 0x1a3a60, 0.6); hg.strokeRoundedRect(PX+10, PY+rowY-10, PW-20, 22, 5);
+                    }
+                    _A(this.add.text(PX+20, PY+rowY, label, {
+                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'13px',
+                        color: highlight ? '#88bbdd' : '#4a7a9a', stroke:'#000', strokeThickness:2
                     }).setOrigin(0, 0.5).setDepth(DP+2).setAlpha(0));
-                    _A(this.add.text(PX+PW-16, PY+rowY, val, {
-                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
-                        color: valColor || '#b8ccd8', stroke:'#000', strokeThickness:1
+                    _A(this.add.text(PX+PW-20, PY+rowY, val, {
+                        fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'13px',
+                        color: valColor || '#aaccee', stroke:'#000', strokeThickness:2
                     }).setOrigin(1, 0.5).setDepth(DP+2).setAlpha(0));
                 };
 
-                _row(isTR?"Mevcut XP:"       :"Current XP:",     xpCurrent.toLocaleString()+" XP",  52, "#b8ccd8");
-                _row(isTR?"Sonraki seviye:"  :"Next level at:",  xpNeeded.toLocaleString()+" XP",   70, "#b8ccd8");
-                _row(isTR?"Kalan XP:"        :"XP remaining:",   xpLeft.toLocaleString()+" XP",     88, "#88aacc");
-                _row(isTR?"Toplam XP (kümül)":"Total XP earned",
+                _row(isTR?"Mevcut XP:"       :"Current XP:",     xpCurrent.toLocaleString()+" XP",  66, "#88ddff", true);
+                _row(isTR?"Sonraki seviye:"  :"Next level at:",  xpNeeded.toLocaleString()+" XP",   90, "#aaccee", false);
+                _row(isTR?"Kalan XP:"        :"XP remaining:",   xpLeft.toLocaleString()+" XP",    113, "#6699bb", false);
+                _row(isTR?"Toplam XP:"       :"Total XP earned",
                     (function(){ let t=0; for(let i=1;i<PLAYER_LEVEL;i++) t+=_plvXpNeeded(i); return (t+xpCurrent).toLocaleString(); })()+" XP",
-                    106, "#7899bb");
+                    136, "#4477aa", false);
 
-                // XP bar
-                const barX=PX+16, barY=PY+120, barW=PW-32, barH=13;
+                // XP bar — daha büyük ve belirgin
+                const barX=PX+16, barY=PY+152, barW=PW-32, barH=18;
                 const barG = _A(this.add.graphics().setDepth(DP+2).setAlpha(0));
-                barG.fillStyle(0x0a1020, 1);
-                barG.fillRoundedRect(barX, barY, barW, barH, 5);
-                if(ratio > 0.015){
-                    barG.fillStyle(0x3a88cc, 1);
-                    barG.fillRoundedRect(barX, barY, Math.max(6, barW*ratio), barH, 5);
-                    barG.fillStyle(0x88ccff, 0.30);
-                    barG.fillRoundedRect(barX, barY+1, Math.max(6, barW*ratio), barH/2-1, {tl:5,tr:3,bl:0,br:0});
+                barG.fillStyle(0x040810, 1); barG.fillRoundedRect(barX, barY, barW, barH, 8);
+                if(ratio > 0.01){
+                    const fillW = Math.max(10, barW*ratio);
+                    barG.fillStyle(0x1155cc, 1); barG.fillRoundedRect(barX, barY, fillW, barH, 8);
+                    barG.fillStyle(0x4499ff, 1); barG.fillRoundedRect(barX, barY, fillW, barH*0.45, {tl:8,tr:fillW<barW?3:8,bl:0,br:0});
+                    barG.fillStyle(0xffffff, 0.12); barG.fillRoundedRect(barX+2, barY+2, Math.max(4,fillW-4), barH*0.3, 4);
                 }
-                barG.lineStyle(1, 0x2a4060, 0.8);
-                barG.strokeRoundedRect(barX, barY, barW, barH, 5);
-                _A(this.add.text(PX+PW/2+16, PY+124, Math.round(ratio*100)+"%", {
-                    fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'9px',
-                    color:'#fff', stroke:'#000', strokeThickness:2
+                barG.lineStyle(1.5, 0x2255aa, 0.9); barG.strokeRoundedRect(barX, barY, barW, barH, 8);
+                _A(this.add.text(CX2, barY+barH/2, Math.round(ratio*100)+"%", {
+                    fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
+                    color:'#fff', stroke:'#000', strokeThickness:3
                 }).setOrigin(0.5).setDepth(DP+3).setAlpha(0));
 
                 // Sonraki level altın ödülü
                 const nextGold = Math.round(_plvGoldReward(PLAYER_LEVEL+1) * _plvPrestigeMultiplier());
-                const _ngPrefix = (isTR?"Seviye atladığında: ":"On level up: ")+"+";
-                const _ngNum = nextGold.toLocaleString();
-                // Tek bir text + icon — dikey ortalı, sıkı yan yana
-                const _ngTextObj = _A(this.add.text(0, PY+139, _ngPrefix+_ngNum, {
-                    fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'10px',
-                    color:'#ccaa44', stroke:'#000', strokeThickness:1
+                const _ngPrefix = (isTR?"Seviye atlayınca: +":"On level up: +")+nextGold.toLocaleString();
+                const _ngTextObj = _A(this.add.text(0, PY+PH-26, _ngPrefix, {
+                    fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'12px',
+                    color:'#ddaa44', stroke:'#000', strokeThickness:2
                 }).setOrigin(0,0.5).setDepth(DP+2).setAlpha(0));
-                const _ngTotalW = _ngTextObj.width + 14 + 4; // text + icon + boşluk
+                const _ngTotalW = _ngTextObj.width + 16 + 4;
                 _ngTextObj.x = CX2 - _ngTotalW/2;
                 if(this.textures.exists("icon_gold")){
-                    _A(this.add.image(_ngTextObj.x + _ngTextObj.width + 4, PY+139, "icon_gold")
-                        .setDisplaySize(14,14).setOrigin(0,0.5).setDepth(DP+2).setAlpha(0));
+                    _A(this.add.image(_ngTextObj.x + _ngTextObj.width + 4, PY+PH-26, "icon_gold")
+                        .setDisplaySize(16,16).setOrigin(0,0.5).setDepth(DP+2).setAlpha(0));
                 }
 
                 // Kapat
-                const closeZone = _A(this.add.text(CX2, PY+PH-14,
+                const closeZone = _A(this.add.text(CX2, PY+PH-10,
                     isTR?"KAPAT  ✕":"CLOSE  ✕",
-                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'10px',
-                      color:'#665533', stroke:'#000', strokeThickness:1 }
+                    { fontFamily:'LilitaOne, Arial, sans-serif', fontSize:'11px',
+                      color:'#4466aa', stroke:'#000', strokeThickness:2 }
                 ).setOrigin(0.5).setDepth(DP+2).setInteractive({useHandCursor:true}).setAlpha(0));
                 closeZone.on("pointerdown", _cl);
 
@@ -13905,7 +13802,7 @@ class SceneMainMenu extends Phaser.Scene {
     }
 
     // ── Shop ─────────────────────────────────────────────────────────
-    _showShop(tab) { NT_Monetization.showShop(this, tab); }
+    _showShop(tab, scrollTarget) { NT_Monetization.showShop(this, tab, scrollTarget); }
     _showPuzzle(){ showNotGame(this); }
     _showSettings(){
         // Use mm_panel (340px wide) centered slightly higher to leave room
@@ -14844,7 +14741,6 @@ class SceneGame extends Phaser.Scene {
                         if(GS && !GS.gameOver)
                             showHitTxt(this, 180, 220,
                                 CURRENT_LANG==="en" ? `+${_earlyBonus}G FIRST RUN BONUS!` :
-                                CURRENT_LANG==="ru" ? `+${_earlyBonus}G БОНУС НОВИЧКА!` :
                                 `+${_earlyBonus}G ILK OYUN BONUSU!`, "#ffcc00", true);
                     });
                 }
@@ -15498,8 +15394,6 @@ class SceneGame extends Phaser.Scene {
                     // One-shot mesajı
                     const _osMsgs = CURRENT_LANG==="tr"
                         ? ["💀 ONE SHOT!", "🎯 TAM ORTASI!", "⚡ SNIPER!", "💥 NOT FAIR!"]
-                        : CURRENT_LANG==="ru"
-                        ? ["💀 ONE SHOT!", "🎯 В ЯБЛОЧКО!", "⚡ СНАЙПЕР!"]
                         : ["💀 ONE SHOT!", "🎯 BULLSEYE KILL!", "⚡ NOT A MISS!", "💥 CLEAN."];
                     showHitTxt(_S, enemy.x, enemy.y-24,
                         _osMsgs[Math.floor(Math.random()*_osMsgs.length)], "#ff2244", true);
@@ -15578,7 +15472,6 @@ class SceneGame extends Phaser.Scene {
                         NT_SFX.play("first_blood");
                         const _fbOpts = CURRENT_LANG==="en"
                             ? ["FIRST BLOOD!", "NOT your last!", "FIRST. NOT the last."]
-                            : CURRENT_LANG==="ru" ? ["ПЕРВАЯ КРОВЬ!"]
                             : ["ILK KAN!", "NOT bitti mi? Hayır.", "ILK — NOT son!"];
                         const fbLang = _fbOpts[Math.floor(Math.random()*_fbOpts.length)];
                         const fbTxt = _S.add.text(180, 200, fbLang, {
@@ -16074,7 +15967,7 @@ class SceneGame extends Phaser.Scene {
                 gs._spawnDelayOverride = Math.round(gs.spawnDelay * 0.55); // spawn 45% faster
                 // Brief warning text
                 showHitTxt(this, 180, 200,
-                    CURRENT_LANG==="en" ? "⚠ SURGE!" : CURRENT_LANG==="ru" ? "⚠ ВОЛНА!" : "⚠ DALGA!",
+                    CURRENT_LANG==="en" ? "⚠ SURGE!" : "⚠ DALGA!",
                     "#ff4400", true);
                 // End spike after 8 seconds
                 this.time.delayedCall(8000, ()=>{
@@ -17854,13 +17747,9 @@ function showLevelUpUI(S) {
     // 5-E  Subtitle — level göstergesi, okunabilir ve belirgin
     const _subLbl = CURRENT_LANG==="tr"
         ? `⭐ SEVİYE ${gs.level}`
-        : CURRENT_LANG==="ru"
-        ? `⭐ УРОВЕНЬ ${gs.level}`
         : `⭐ LEVEL ${gs.level}`;
     const _subPick = CURRENT_LANG==="tr"
         ? `— NOT kolay. Seç.`
-        : CURRENT_LANG==="ru"
-        ? `— ВЫБЕРИ СИЛУ —`
         : `— NOT easy. Pick.`;
 
     // Level badge — sol taraf, ★ sembolüyle
@@ -19519,8 +19408,7 @@ function showCrystalRevivePrompt(S){
     let cy=contentTop+10;
 
     // Maliyet satiri
-    const costLine=CURRENT_LANG==="en"?"3 crystals will be spent":
-                   CURRENT_LANG==="ru"?"Потратится 3 кристалла":"3 kristal harcanacak";
+    const costLine=CURRENT_LANG==="en"?"3 crystals will be spent":"3 kristal harcanacak";
     A(S.add.text(CX,cy,costLine,NT_STYLE.body(13,"#cc99ff")).setOrigin(0.5,0).setDepth(D+1));
     cy+=24;
 
@@ -19591,7 +19479,7 @@ function showCrystalRevivePrompt(S){
         nBg.strokeRoundedRect(CX-62,nY-12,124,26,7);
     };
     _dN(false);
-    const noLbl=CURRENT_LANG==="en"?"No, end game":CURRENT_LANG==="ru"?"Нет, завершить":"Hayir, bitir";
+    const noLbl=CURRENT_LANG==="en"?"No, end game":"Hayir, bitir";
     A(S.add.text(CX,nY,noLbl,NT_STYLE.stat(12,"#777788")).setOrigin(0.5).setDepth(D+1));
     A(S.add.rectangle(CX,nY,124,26,0xffffff,0.001).setDepth(D+2)
         .setInteractive({useHandCursor:true})
@@ -20055,8 +19943,6 @@ function handleMiniBossDeath(S, p){
 
     const _mbDeadMsg = CURRENT_LANG==="tr"
         ? "MİNİ BOSS BİTTİ — NOT satisfied."
-        : CURRENT_LANG==="ru"
-        ? "МИН-БОСС ПОВЕРЖЕН — NOT satisfied."
         : "MINI BOSS DOWN — NOT satisfied.";
     showHitTxt(S,p.x,p.y-30,_mbDeadMsg,"#ffcc00",true);
 }
@@ -20193,7 +20079,7 @@ function showRunEventUI(S, ev){
 
     // ── KABUL ET — yeşil tema, 3D stil ──────────────────────────
     const ch0 = ev.choices[0];
-    const lbl0 = CURRENT_LANG==="ru" ? ch0.labelRU : CURRENT_LANG==="en" ? ch0.labelEN : ch0.label;
+    const lbl0 = CURRENT_LANG==="en" ? ch0.labelEN : ch0.label;
 
     const aG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
     const _drawAcc=(h)=>{
@@ -20238,8 +20124,8 @@ function showRunEventUI(S, ev){
     // ── REDDET — kırmızı tema, 3D stil ──────────────────────────
     if(ev.choices.length > 1){
         const chi = ev.choices[1];
-        const isTR=CURRENT_LANG==="tr", isRU=CURRENT_LANG==="ru";
-        const dLabel=isTR?"REDDET":isRU?"ОТКАЗАТЬ":"DECLINE";
+        const isTR=CURRENT_LANG==="tr";
+        const dLabel=isTR?"REDDET":"DECLINE";
 
         const dG=ui.add(S.add.graphics().setDepth(D+2).setAlpha(0));
         const _drawDec=(h)=>{
@@ -20579,19 +20465,7 @@ function gameOver(S){
             "NOThing kalmadı. Her şey gitti.",
             "NOThing yanlış gitmedi. Her şey gitti.",
         ];
-        const _goFunnyRU = [
-            "Честно? Нет. Именно так задумано.",
-            "RNG говорит: 'Не сегодня'.",
-            "Пирамиды снова победили. Сюрприз.",
-            "NOT Fair™ — так и должно быть.",
-            "Ты почти... (Нет, не почти.)",
-            "Попробуй снова. Снова проиграешь.",
-            "Система тебя не любит. Пока.",
-            "NOT Corp™ благодарит за службу. 🫡",
-            "Ошибка 404: Победа NOT найдена.",
-            "Подписано и удалено. — NOT",
-        ];
-        const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:CURRENT_LANG==="ru"?_goFunnyRU:_goFunnyEN;
+        const _goArr = CURRENT_LANG==="tr"?_goFunnyTR:_goFunnyEN;
         const _goMsg = _goArr[Math.floor(Math.random()*_goArr.length)];
 
         const prevHs=parseInt(localStorage.getItem("nt_highscore")||"0");
@@ -20626,8 +20500,8 @@ function gameOver(S){
             A(S.add.text(VX,cy,val,NT_STYLE.stat(13,col)).setOrigin(1,0.5).setDepth(D));
             cy+=22;
         };
-        const kLbl=CURRENT_LANG==="en"?"KILLS":CURRENT_LANG==="ru"?"УБИТО":"KILL";
-        const lLbl=CURRENT_LANG==="en"?"LEVEL":CURRENT_LANG==="ru"?"УРОВЕНЬ":"SEVIYE";
+        const kLbl=CURRENT_LANG==="en"?"KILLS":"KILL";
+        const lLbl=CURRENT_LANG==="en"?"LEVEL":"SEVIYE";
         _row(kLbl, String(gs.kills), "#ff7777");
         _row(lLbl, "Lv "+gs.level,  "#88ddff");
 
@@ -20643,7 +20517,7 @@ function gameOver(S){
             cy += 6;
 
             // ── XP KAZANILDI satırı — açık renkli, net ──
-            const xpLblKey = CURRENT_LANG==="tr" ? "KAZANILAN XP" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО XP" : "XP EARNED";
+            const xpLblKey = CURRENT_LANG==="tr" ? "KAZANILAN XP" : "XP EARNED";
             A(S.add.text(TX, cy+10, xpLblKey,
                 {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
                  color:"#ffffff", stroke:"#000", strokeThickness:3}
@@ -20668,7 +20542,7 @@ function gameOver(S){
             cy += 26;
 
             // ── GOLD KAZANILDI satırı — her zaman göster, 0 bile olsa ──
-            const goldLblKey = CURRENT_LANG==="tr" ? "KAZANILAN ALTIN" : CURRENT_LANG==="ru" ? "ПОЛУЧЕНО ЗОЛОТА" : "GOLD EARNED";
+            const goldLblKey = CURRENT_LANG==="tr" ? "KAZANILAN ALTIN" : "GOLD EARNED";
             A(S.add.text(TX, cy+10, goldLblKey,
                 {fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
                  color:"#ffffff", stroke:"#000", strokeThickness:3}
@@ -22080,7 +21954,7 @@ function getBuildTitle(){
 function showBuildTitle(S){
     const info=getBuildTitle();
     if(!info||!S||!S.add) return;
-    const txt=CURRENT_LANG==="ru"?info.ru:CURRENT_LANG==="en"?info.en:info.tr;
+    const txt=CURRENT_LANG==="en"?info.en:info.tr;
     const W=360,H=640;
 
     const bg=S.add.graphics().setDepth(620);
