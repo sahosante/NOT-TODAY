@@ -2896,7 +2896,7 @@ function _xMult(){ return _isB("xp2x")?2.0:1.0; }
 function _sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
 function _nextDay(a,b){ const d1=new Date(a);d1.setHours(0,0,0,0);const d2=new Date(b);d2.setHours(0,0,0,0);const x=d2-d1;return x>=864e5&&x<1728e5; }
 function _fmt(ms){ const h=Math.floor(ms/36e5),m=Math.floor((ms%36e5)/6e4),s=Math.floor((ms%6e4)/1e3); return (h?h+"h ":"")+m+"m "+s+"s"; }
-function _rlbl(r){ return r.type==="gold"?r.n+(CURRENT_LANG==="tr"?" ALTIN":" GOLD"):r.n+(CURRENT_LANG==="tr"?" ELMAS":" GEM"); }
+function _rlbl(r){ return r.type==="gold"?r.n+(CURRENT_LANG==="tr"?" ALTIN":" GOLD"):r.n+(CURRENT_LANG==="tr"?" NF Elmas":" NF Gems"); }
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -3456,7 +3456,7 @@ function showShop(scene, defaultTab){
                 y+=46;
                 // Süreli güç bilgi satırı
                 const _infoG=G();_infoG.fillStyle(0x0c1e30,0.70);_infoG.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,22,5);_add(_infoG);
-                _add(T(cx,SY0+y+11,CURRENT_LANG==="tr"?"⏱  Güçler süreli — satın alınca aktif olur":"⏱  Powers are timed — activate on purchase",{fontFamily:_F,fontSize:"11px",color:"#5a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
+                _add(T(cx,SY0+y+11,CURRENT_LANG==="tr"?"⏱  Güçler süreli — süre dolunca yenile":"⏱  Powers expire — renew after duration ends",{fontFamily:_F,fontSize:"11px",color:"#5a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
                 y+=30;
                 GOLD_UPGRADES.forEach((u)=>{
                     const mx=u.level>=u.maxLevel;
@@ -3504,12 +3504,12 @@ function showShop(scene, defaultTab){
                             stBg.fillStyle(0x200808,0.90);stBg.fillRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                             stBg.lineStyle(1,0xaa3333,0.50);stBg.strokeRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                             _add(stBg);
-                            _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"⚠️ Süre doldu — Lv "+u.level+"/"+u.maxLevel+"  (tekrar satın al)":"⚠️ Expired — Lv "+u.level+"/"+u.maxLevel+"  (purchase again)"),{fontFamily:_F,fontSize:"10px",color:"#ff6655",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                            _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"⚠️ Süre doldu! Yenile — Lv "+u.level+"/"+u.maxLevel:"⚠️ Expired! Renew — Lv "+u.level+"/"+u.maxLevel),{fontFamily:_F,fontSize:"10px",color:"#ff6655",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                         }
                     } else {
                         stBg.fillStyle(0x0c1828,0.70);stBg.fillRoundedRect(cx-PW/2+24,ry+44,PW-140,28,5);
                         _add(stBg);
-                        _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"🕐 "+u.durationDays+" günlük kullanım — satın alınca başlar":"🕐 "+u.durationDays+" day usage — starts on purchase"),{fontFamily:_F,fontSize:"10px",color:"#6a9abf",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
+                        _add(T(cx-PW/2+30,ry+58,(CURRENT_LANG==="tr"?"🕐 "+u.durationDays+" GÜN KORUMA · Henüz alınmadı":"🕐 "+u.durationDays+" DAY SHIELD · Not purchased yet"),{fontFamily:_F,fontSize:"10px",color:"#6a9abf",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5));
                     }
 
                     if(!mx){
@@ -3656,7 +3656,7 @@ function showShop(scene, defaultTab){
                 ];
                 const _lvXpNow = _plvXpNeeded(PLAYER_LEVEL);
                 _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"— LEVEL XP PAKETLERi —":"— LEVEL XP PACKS —",{fontFamily:_F,fontSize:"11px",color:"#ffcc44",stroke:"#000",strokeThickness:1}).setOrigin(0.5));
-                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"Gem harcayarak Level XP kazan!":"Spend Gems to earn Level XP directly!",{fontFamily:_F,fontSize:"10px",color:"#ffcc55",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                _add(T(cx,SY0+y+18,CURRENT_LANG==="tr"?"NF Elmas harcayarak Level XP kazan!":"Spend NF Gems to earn Level XP directly!",{fontFamily:_F,fontSize:"10px",color:"#ffcc55",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=28;
                 _xpPacks.forEach((pk)=>{
                     const rowH=56; const canB=PLAYER_GEMS>=pk.cost;
@@ -3947,15 +3947,15 @@ function showShop(scene, defaultTab){
                     // ─── PAKETLER ───────────────────────────────────────
                     { id:"fs_bundle_kahraman",
                       name:"HERO BUNDLE",          nameTR:"KAHRAMAN PAKETI",
-                      desc:"3 char skins + 150 Gems",      descTR:"3 kostum + 150 Elmas",
+                      desc:"3 char skins + 150 NF Gems",      descTR:"3 kostum + 150 NF Elmas",
                       type:"bundle", rarity:"LEGENDARY", col:0xff4400,
                       price:"$7.99", invoiceId:"flash_bundle_hero",
                       emoji:"🦸", gems:150 },
 
                     { id:"fs_bundle_ucgen_kabusu",
                       name:"TRIANGLE NIGHTMARE",   nameTR:"UCGEN KABUSU PAKETI",
-                      desc:"2 skins + 3 Exotic chests + 200 Gems",
-                      descTR:"2 kostum + 3 Egzotik sandik + 200 Elmas",
+                      desc:"2 skins + 3 Exotic chests + 200 NF Gems",
+                      descTR:"2 kostum + 3 Egzotik sandik + 200 NF Elmas",
                       type:"bundle", rarity:"LEGENDARY", col:0xffaa00,
                       price:"$12.99", invoiceId:"flash_bundle_tri_night",
                       emoji:"💀", gems:200, chestIdx:2, count:3 },
@@ -4093,7 +4093,7 @@ function showShop(scene, defaultTab){
                     const spH=62;
                     const sg=G();sg.fillStyle(0x180828,0.97);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.lineStyle(2.5,0xff4488,0.9);sg.strokeRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);sg.fillStyle(0xff4488,0.06);sg.fillRoundedRect(cx-PW/2+10,SY0+y,PW-20,spH,9);_add(sg);
                     _add(T(cx-PW/2+18,SY0+y+16,(CURRENT_LANG==="tr"?"NOT BASLANGIC — -":"NOT STARTER — -")+STARTER.disc+"%",{fontFamily:_F,fontSize:"14px",color:"#ff88aa",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
-                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" ELMAS + ":" GEM + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
+                    _add(T(cx-PW/2+18,SY0+y+38,STARTER.gems+(CURRENT_LANG==="tr"?" NF Elmas + ":" NF Gems + ")+STARTER.gold+(CURRENT_LANG==="tr"?" ALTIN + 2X ALTIN":" GOLD + 2X GOLD"),{fontFamily:_F,fontSize:"12px",color:"#ffccdd",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5));
                     const bx=cx+PW/2-52,bw=72,bh=30;
                     _btn(bx,SY0+y+spH/2,bw,bh,"⭐ "+STARTER.stars,0x88002a,0xff4488,null);
                     _zone(10,y,PW-10,y+spH,()=>{
@@ -4107,7 +4107,7 @@ function showShop(scene, defaultTab){
                     });
                     y+=spH+8;
                 }
-                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"ELMAS PAKETLERi":"GEM PACKS",{fontFamily:_F,fontSize:"13px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
+                _add(T(cx,SY0+y+4,CURRENT_LANG==="tr"?"NF Elmas PAKETLERi":"NF Gems PACKS",{fontFamily:_F,fontSize:"13px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
                 y+=18;
                 GEM_PACKS.forEach((pk,i)=>{
                     const tot=pk.gems+pk.bonus, rowH=58;
@@ -4721,7 +4721,7 @@ function showMissions(scene){
         hdrG.lineStyle(1.5,0xaa44ff,0.5);hdrG.strokeRoundedRect(cx-PW/2+10,SY0+4,PW-20,44,6);
         _scrollCont.add(hdrG);
         _scrollCont.add(scene.add.text(cx,SY0+18,
-            CURRENT_LANG==="tr"?"𝕏  TAKİP ET — ELMAS KAZAN (NOT bedava)":"𝕏  FOLLOW — EARN GEMS (NOT free)",
+            CURRENT_LANG==="tr"?"𝕏  TAKİP ET — NF Elmas KAZAN (NOT bedava)":"𝕏  FOLLOW — EARN NF Gems (NOT free)",
             {fontFamily:_F,fontSize:"11px",color:"#cc88ff",stroke:"#000",strokeThickness:2}).setOrigin(0.5));
         _scrollCont.add(scene.add.text(cx,SY0+34,
             CURRENT_LANG==="tr"?"Her hesap kalıcı olarak 1 kez tamamlanır":"Each account completes permanently once",
@@ -4915,9 +4915,9 @@ function showIAPStore(scene){
     pg.fillStyle(0xcc44ff,0.09); pg.fillRoundedRect(6,6,348,54,{tl:12,tr:12,bl:0,br:0});
     pg.lineStyle(1,0x440066,0.3); pg.strokeRoundedRect(10,10,340,620,10);
 
-    const titleStr=CURRENT_LANG==="ru"?"💎 МАГАЗИН ГЕМОВ":CURRENT_LANG==="en"?"💎 GEM STORE — NOThing is free":"💎 ELMAS — NOT bedava";
+    const titleStr=CURRENT_LANG==="ru"?"💎 NF Gems МАГАЗИН":CURRENT_LANG==="en"?"💎 NF Gems STORE — NOThing is free":"💎 NF Elmas — NOT bedava";
     addO(scene.add.text(W/2,28,titleStr,{font:"bold 16px LilitaOne, Arial, sans-serif",color:"#cc44ff"}).setOrigin(0.5).setDepth(12));
-    const subStr=CURRENT_LANG==="ru"?"Покупай гемы · используй для контента":CURRENT_LANG==="en"?"Buy gems · use for exclusive content":"Elmas al · ozel icerikler icin kullan";
+    const subStr=CURRENT_LANG==="ru"?"Покупай NF Gems · используй для контента":CURRENT_LANG==="en"?"Buy NF Gems · use for exclusive content":"NF Elmas al · ozel icerikler icin kullan";
     addO(scene.add.text(W/2,46,subStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#9966cc"}).setOrigin(0.5).setDepth(12));
 
     // Mevcut bakiye — ikon + rakam
@@ -4959,7 +4959,7 @@ function showIAPStore(scene){
         const totalGems=pack.gems+pack.bonus;
         const gemAmtStr=totalGems.toString();
         addO(scene.add.text(CX+74,cy+12,gemAmtStr,{font:"bold 24px LilitaOne, Arial, sans-serif",color:"#cc44ff",stroke:"#000",strokeThickness:3}).setDepth(14));
-        const gemWordStr=CURRENT_LANG==="ru"?"ГЕМОВ":CURRENT_LANG==="en"?"GEMS":"ELMAS";
+        const gemWordStr=CURRENT_LANG==="ru"?"NF Gems":CURRENT_LANG==="en"?"NF Gems":"NF Elmas";
         addO(scene.add.text(CX+74+gemAmtStr.length*14+4,cy+18,gemWordStr,{font:"bold 14px LilitaOne, Arial, sans-serif",color:"#aa66cc",padding:{x:2,y:1}}).setDepth(14));
 
 
@@ -5140,9 +5140,9 @@ const LANG_DATA = {
         crystalRevived:"💎 DIRILDIN!",
         crystalRevivedFull:"💎 DIRILDIN! 5SN YENILMEZ",
         reviveTitle:"** DIRILIS **",
-        reviveCostInfo:"5 ELMAS — NOT bedava tabii",
+        reviveCostInfo:"5 NF Elmas — NOT bedava tabii",
         reviveHpInfo:"HP+3 / 5SN YENILMEZLIK",
-        reviveBtnGem:"✦ DIRIL  (5 💎)",
+        reviveBtnGem:"✦ DIRIL  (5 NF Elmas)",
         reviveEndBtn:"OYUNU BITIR",
         howto_goal:"Piramitler yere degmeden once mermiyle vur ve yok et!",
         howto_move:"← → tuslari veya ekrana dokunarak saga-sola hareket et",
@@ -5154,8 +5154,8 @@ const LANG_DATA = {
         howto_apple:"Dusmanlardan nadiren duser. Topla = +3 Can",
         howto_crystal:"Boss oldur ya da 5 dk hayatta kal → kristal kazan!",
         howto_synergy:"2 uyumlu silah birlikte = gizli guclu sinerji bonusu!",
-        goRevive:"💎 DIRIL",goReviveCost:"(5 Elmas)",goInsufficientGems:"❌ Yetersiz Elmas!",
-        goGemsStatus:"💎 Mevcut:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
+        goRevive:"💎 DIRIL",goReviveCost:"(5 NF Elmas)",goInsufficientGems:"❌ Yetersiz NF Elmas!",
+        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Yetersiz)",goShare:"📤 Skoru Paylas",
         goRevivePrompt:"DIRILMEK ISTER MISIN?",goReviveCrystalCost:"NOT bitirdin daha →",
         goReviveBtn:"✦ DIRIL  (3 💎)",
         leaderboard:"🏆 SKOR TABLOSU",lbTitle:"DUNYA SIRALAMALARI",lbRank:"SIRA",lbPlayer:"OYUNCU",lbScore:"SKOR",lbLoading:"Yukleniyor...",lbEmpty:"NOThing yok burada. Henüz.",lbYou:"(NOT sen, ama evet sen)",lbSubmit:"NOT gizleyecektim",lbError:"NOT bağlandı. Tahmin et neden.",lbGlobal:"GLOBAL",lbLocal:"KISISEL",
@@ -5171,9 +5171,9 @@ const LANG_DATA = {
         rejectionBonus:"+60G — NOT almadin. Akillica.",
         bossSpawned:"BOSS GELIYOR!",eliteKilled:"★ ELIT OLDURULDU ★",titanDown:"DEV YIKILDI — NOT etkilenmedi pek.",eliteHuntBonus:"ELIT AV BONUS!",
         blocked:"BLOK",hpPickup:"+20 CAN",goldBonus10:"+10% ALTIN BONUSU",dmgBuff:"+12% HASAR (10sn)",knockbackActive:"Itme aktif — hasar -15%",
-        revivePrompt:"DIRILMEK ISTER MISIN?",reviveBtn:"✦ DIRIL",reviveNo:"NOT bu sefer",notEnoughGems:"YETERSIZ ELMAS!",revived:"✦ DIRILDIN!",
+        revivePrompt:"DIRILMEK ISTER MISIN?",reviveBtn:"✦ DIRIL",reviveNo:"NOT bu sefer",notEnoughGems:"YETERSIZ NF Elmas!",revived:"✦ DIRILDIN!",
         goScore:"SKOR",goNewRecord:"** NOT eski rekor **",goLevel:"SEVIYE",goTime:"SURE",
-        levelXpPacks:"— LEVEL XP PAKETLERI —",levelXpPacksDesc:"Gem harcayarak dogrudan Level XP kazan!"
+        levelXpPacks:"— LEVEL XP PAKETLERI —",levelXpPacksDesc:"NF Elmas harcayarak dogrudan Level XP kazan!"
     },
     en:{
         start:"START",shop:"SHOP",collection:"COLLECTION",
@@ -5265,9 +5265,9 @@ const LANG_DATA = {
         crystalRevived:"💎 REVIVED!",
         crystalRevivedFull:"💎 REVIVED! 5s INVINCIBLE",
         reviveTitle:"** REVIVE **",
-        reviveCostInfo:"5 GEMS — NOThing is free",
+        reviveCostInfo:"5 NF Gems — NOThing is free",
         reviveHpInfo:"HP+3 / 5s INVINCIBLE",
-        reviveBtnGem:"✦ REVIVE  (5 💎)",
+        reviveBtnGem:"✦ REVIVE  (5 NF Gems)",
         reviveEndBtn:"END GAME",
         howto_goal:"Destroy pyramids before they reach the ground!",
         howto_move:"Press ← → or tap the screen to move left/right",
@@ -5280,15 +5280,15 @@ const LANG_DATA = {
         howto_crystal:"Kill a boss or survive 5 mins → earn a crystal!",
         howto_synergy:"2 compatible weapons together = hidden powerful synergy!",
         goScore:"SCORE",goNewRecord:"** NOT your old record **",goLevel:"LEVEL",goTime:"TIME",
-        goRevive:"💎 REVIVE",goReviveCost:"(5 Gems)",goInsufficientGems:"❌ Not enough gems!",
-        goGemsStatus:"💎 Gems:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
+        goRevive:"💎 REVIVE",goReviveCost:"(5 NF Gems)",goInsufficientGems:"❌ Not enough NF Gems!",
+        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Insufficient)",goShare:"📤 Share Score",
         goRevivePrompt:"WANT TO REVIVE?",goReviveCrystalCost:"NOT giving up yet →",
         goReviveBtn:"✦ REVIVE  (3 💎)",
         leaderboard:"🏆 LEADERBOARD",lbTitle:"WORLD RANKINGS",lbRank:"RANK",lbPlayer:"PLAYER",lbScore:"SCORE",lbLoading:"Loading...",lbEmpty:"NOThing here yet.",lbYou:"(NOT you, but yes you)",lbSubmit:"Submit — NOT hiding it",lbError:"NOT connected. Shocking.",lbGlobal:"GLOBAL",lbLocal:"PERSONAL",
         menuPlay:"PLAY",menuShop:"SHOP",menuSettings:"SETTINGS",menuLeaderboard:"LEADERBOARD",
         playAgain:"PLAY AGAIN",mainMenu:"MAIN MENU",gameOver:"GAME OVER",
-        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"NOThing to lose",notEnoughGems:"Not enough gems!",revived:"✦ REVIVED!",
-        levelXpPacks:"— LEVEL XP PACKS —",levelXpPacksDesc:"Spend Gems to earn Level XP directly!"
+        revivePrompt:"CONTINUE?",reviveBtn:"✦ REVIVE",reviveNo:"NOThing to lose",notEnoughGems:"Not enough NF Gems!",revived:"✦ REVIVED!",
+        levelXpPacks:"— LEVEL XP PACKS —",levelXpPacksDesc:"Spend NF Gems to earn Level XP directly!"
     },
     ru:{
         start:"НАЧАТЬ",shop:"МАГАЗИН",collection:"КОЛЛЕКЦИЯ",
@@ -5390,8 +5390,8 @@ const LANG_DATA = {
         howto_crystal:"Убей босса или продержись 5 минут → кристалл!",
         howto_synergy:"2 совместимых оружия = скрытый мощный бонус!",
         goScore:"СЧЁТ",goNewRecord:"** НОВЫЙ РЕКОРД **",goLevel:"УРОВЕНЬ",goTime:"ВРЕМЯ",
-        goRevive:"💎 ВОСКРЕСИТЬ",goReviveCost:"(5 Гемов)",goInsufficientGems:"❌ Недостаточно гемов!",
-        goGemsStatus:"💎 Гемы:",goGemsInsufficient:"(Недостаточно)",goShare:"📤 Поделиться",
+        goRevive:"💎 ВОСКРЕСИТЬ",goReviveCost:"(5 NF Gems)",goInsufficientGems:"❌ Недостаточно NF Gems!",
+        goGemsStatus:"💎 NF Elmas:",goGemsInsufficient:"(Недостаточно)",goShare:"📤 Поделиться",
         goRevivePrompt:"ХОЧЕШЬ ВОСКРЕСНУТЬ?",goReviveCrystalCost:"Текущий:",
         goReviveBtn:"✦ ВОСКРЕСИТЬ  (3 💎)",
         leaderboard:"🏆 ТАБЛИЦА РЕКОРДОВ",lbTitle:"МИРОВОЙ РЕЙТИНГ",lbRank:"МЕСТО",lbPlayer:"ИГРОК",lbScore:"СЧЁТ",lbLoading:"Загрузка...",lbEmpty:"Очков пока нет!",lbYou:"(Вы)",lbSubmit:"Отправить счёт",lbError:"Ошибка соединения",lbGlobal:"ГЛОБАЛЬНЫЙ",lbLocal:"ЛИЧНЫЙ"
@@ -5670,9 +5670,14 @@ function lbGetMergedScores(){
     if(myRaw){
         try{
             const me = JSON.parse(myRaw);
+            // Her zaman guncel PLAYER_LEVEL kullan — eski kayitli deger yaniltici olabilir
+            me.level = PLAYER_LEVEL || me.level || 1;
             const already = scores.find(s=>s.id===me.id);
             if(!already) scores.push(me);
-            else if(me.score > already.score){ already.score=me.score; already.kills=me.kills; already.level=me.level; }
+            else{
+                already.level = PLAYER_LEVEL || me.level || 1; // sunucu verisindeki level'i da guncelle
+                if(me.score > already.score){ already.score=me.score; already.kills=me.kills; }
+            }
         }catch(e){console.warn("[NT] Hata yutuldu:",e)}
     }
     scores.sort((a,b)=>b.score-a.score);
@@ -6503,13 +6508,14 @@ function renderEventHUD(S){
         return;
     }
 
-    // XP barı y=0-6 → event bar y=6'dan başlar, tam genişlik W=360
-    const W=360, BAR_Y=0, BAR_H=4;
+    // XP barının hemen altı: xpBarBg y=0, yükseklik=6 → event bar y=6'dan başlar
+    const W=360, BAR_Y=0, BAR_H=4; // graphics objesinin y'si 6 olacak (XP barın altı)
 
     if(!S._evHudBar){
         S._evHudBar = S.add.graphics().setDepth(70).setScrollFactor(0);
         S._evHudBg  = S.add.graphics().setDepth(69).setScrollFactor(0);
-        S._evHudBar.y = 6;  // XP barının hemen altı
+        // Başlangıç: XP barının altında gizli, fade-in
+        S._evHudBar.y = 6;
         S._evHudBg.y  = 6;
         S._evHudBar.alpha = 0;
         S._evHudBg.alpha  = 0;
@@ -6538,21 +6544,23 @@ function renderEventHUD(S){
     const barAlpha = progress < 0.1 ? 0.7 + 0.3 * Math.sin(Date.now() * 0.018) : 0.92;
     const fillW = Math.round(W * progress);
 
-    // Arka plan — XP barıyla hizalı (tam W genişlik, x=0)
+    // Arka plan — XP barıyla birebir hizalı (x=0, tam genişlik)
     S._evHudBg.clear();
     S._evHudBg.fillStyle(0x000000, 0.50);
     S._evHudBg.fillRect(0, BAR_Y, W, BAR_H);
 
-    // Doldurma — turuncu bar, XP barıyla aynı genişlik mantığı
+    // Doldurma bar — XP barıyla aynı genişlik (W=360)
     S._evHudBar.clear();
     if(fillW > 0){
         const ew = Math.max(2, fillW);
         S._evHudBar.fillStyle(dynCol, barAlpha);
         S._evHudBar.fillRect(0, BAR_Y, ew, BAR_H);
-        S._evHudBar.fillStyle(0xffffff, 0.28);
+        // Üst parıltı
+        S._evHudBar.fillStyle(0xffffff, 0.30);
         S._evHudBar.fillRect(0, BAR_Y, ew, 1);
+        // Parlak uç
         if(ew > 8){
-            S._evHudBar.fillStyle(0xffffff, 0.72);
+            S._evHudBar.fillStyle(0xffffff, 0.75);
             S._evHudBar.fillRect(ew-4, BAR_Y, 4, BAR_H);
         }
     }
@@ -13023,10 +13031,8 @@ class SceneMainMenu extends Phaser.Scene {
         }
 
         try{
-            if(window._nt_music_enabled !== false){
-                NT_SFX.startMusic();
-                NT_SFX.setMusicState("menu", 1.0);
-            }
+            NT_SFX.startMusic();
+            NT_SFX.setMusicState("menu", 1.0);
             NT_SFX.startWindAmbience();
         }catch(e){ console.warn("[NT] Menu muzik init hatasi:", e); }
 
@@ -13124,7 +13130,7 @@ class SceneMainMenu extends Phaser.Scene {
         }});
 
         // ── MENÜ BULUTLARI — kaldırıldı (bulutlar sadece oyun içinde)
-
+        // Bulutlar SceneGame'de bulunur, ana menüde görünmemeli.
 
         // Panel boyutları — metalik panel (sprite bağımsız)
         const m = NT_Measure(this,"mm_panel",340);
@@ -14057,146 +14063,297 @@ class SceneMainMenu extends Phaser.Scene {
     _showLeaderboard(){
         let _lbClosed = false;
         const {A,close,contentTop,contentBot,TX,VX,CX,PW,depth}
-            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"🏆  SKOR TABLOSU":"🏆  LEADERBOARD",320,20, ()=>{ _lbClosed=true; },"leaderboard");
+            = NT_OpenPopup(this,"mm_panel",330,CURRENT_LANG==="tr"?"🏆  SKOR TABLOSU":"🏆  LEADERBOARD",320,20, ()=>{ _lbClosed=true; try{ _clearRows(); }catch(_){} },"leaderboard");
 
         // ── Personal highscore at top ──
-        // [FIX] Hem plain nt_highscore hem lb_personal_best'ten max al →
-        // leaderboard listesindeki kendi satırıyla eşleşir
-        const _hsPlain = parseInt(localStorage.getItem("nt_highscore")||"0");
+        const _hsPlain  = parseInt(localStorage.getItem("nt_highscore")||"0");
         const _hsSecure = parseInt(secureGet("nt_lb_personal_best","0","0")||"0");
         let _hsEntry = 0;
         try{
             const _me = secureGet("nt_lb_my_entry","","");
-            if(_me){ const _meParsed = JSON.parse(_me); _hsEntry = _meParsed.score||0; }
+            if(_me){ const _meParsed=JSON.parse(_me); _hsEntry=_meParsed.score||0; }
         }catch(_){}
         const hs = Math.max(_hsPlain, _hsSecure, _hsEntry);
         const hsBg = A(this.add.graphics().setDepth(depth+2));
-        hsBg.fillStyle(0x1a1000, 0.85);
-        hsBg.fillRoundedRect(TX, contentTop+2, VX-TX, 28, 8);
-        hsBg.lineStyle(1.5, 0xFFD700, 0.5);
-        hsBg.strokeRoundedRect(TX, contentTop+2, VX-TX, 28, 8);
-        A(this.add.text(TX+8, contentTop+16, CURRENT_LANG==="tr"?"EN iYi SKORUN":"YOUR BEST", {
-            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"11px",
+        hsBg.fillStyle(0x1a1000,0.85);
+        hsBg.fillRoundedRect(TX, contentTop+2, VX-TX, 26, 8);
+        hsBg.lineStyle(1.5,0xFFD700,0.5);
+        hsBg.strokeRoundedRect(TX, contentTop+2, VX-TX, 26, 8);
+        A(this.add.text(TX+8, contentTop+15, CURRENT_LANG==="tr"?"EN İYİ SKORUN":"YOUR BEST", {
+            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"10px",
             color:"#FFD700", stroke:"#000", strokeThickness:2
-        }).setOrigin(0, 0.5).setDepth(depth+3));
-        A(this.add.text(VX-8, contentTop+16, "🏆 "+hs.toLocaleString(), {
-            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"14px",
+        }).setOrigin(0,0.5).setDepth(depth+3));
+        A(this.add.text(VX-8, contentTop+15, "🏆 "+hs.toLocaleString(), {
+            fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"13px",
             color:"#FFD700", stroke:"#000", strokeThickness:3
-        }).setOrigin(1, 0.5).setDepth(depth+3));
+        }).setOrigin(1,0.5).setDepth(depth+3));
 
-        const hY=contentTop+36;
-        A(this.add.text(TX,    hY,"#",     NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
-        A(this.add.text(TX+28, hY,CURRENT_LANG==="tr"?"OYUNCU":"PLAYER",NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
-        A(this.add.text(CX+30, hY,CURRENT_LANG==="tr"?"LV":"LV",  NT_STYLE.stat(11,"#88aacc")).setOrigin(0.5,0).setDepth(depth+3));
-        A(this.add.text(VX,    hY,CURRENT_LANG==="tr"?"SKOR":"SCORE", NT_STYLE.stat(12)).setOrigin(1,0).setDepth(depth+3));
+        // ── DAY / WEEK / MONTH / ALL sekmeleri ────────────────────────
+        const tabY = contentTop + 34;
+        const isTR = CURRENT_LANG==="tr";
+        const tabLabels = isTR ? ["GÜN","HAFTA","AY","TÜMÜ"] : ["DAY","WEEK","MONTH","ALL"];
+        const tabKeys   = ["day","week","month","all"];
+        const tabW      = Math.floor((VX-TX)/4);
+        let _activeFilter = "all";
+
+        // Drawn tab objects — stored so we can redraw on switch
+        const _tabBgs  = [];
+        const _tabTxts = [];
+
+        const _drawTabState = (idx, active) => {
+            const bg  = _tabBgs[idx];
+            const txt = _tabTxts[idx];
+            if(!bg||!txt) return;
+            bg.clear();
+            if(active){
+                bg.fillStyle(0x0d3060, 1);
+                bg.fillRoundedRect(TX+tabW*idx+1, tabY, tabW-2, 20, 5);
+                bg.lineStyle(1.5, 0x44aaff, 1);
+                bg.strokeRoundedRect(TX+tabW*idx+1, tabY, tabW-2, 20, 5);
+                txt.setColor("#55ddff");
+            } else {
+                bg.fillStyle(0x081828, 0.8);
+                bg.fillRoundedRect(TX+tabW*idx+1, tabY, tabW-2, 20, 5);
+                bg.lineStyle(1, 0x223344, 0.7);
+                bg.strokeRoundedRect(TX+tabW*idx+1, tabY, tabW-2, 20, 5);
+                txt.setColor("#445566");
+            }
+        };
+
+        tabKeys.forEach((key, i)=>{
+            const bx = TX + tabW*i;
+            const bg = A(this.add.graphics().setDepth(depth+3));
+            _tabBgs.push(bg);
+            const txt = A(this.add.text(bx+tabW/2, tabY+10, tabLabels[i], {
+                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:"9px",
+                color:"#445566", stroke:"#000", strokeThickness:2
+            }).setOrigin(0.5,0.5).setDepth(depth+4));
+            _tabTxts.push(txt);
+            _drawTabState(i, key==="all");
+
+            // Hit bölgesi
+            const hit = A(this.add.rectangle(bx+tabW/2, tabY+10, tabW-2, 20, 0xffffff, 0)
+                .setInteractive({useHandCursor:true}).setDepth(depth+5));
+            hit.on("pointerdown", ()=>{
+                if(_lbClosed) return;
+                _activeFilter = key;
+                tabKeys.forEach((_,j)=> _drawTabState(j, j===i));
+                _clearRows();
+                _renderRows();
+            });
+        });
+
+        // ── Sütun başlıkları ──────────────────────────────────────────
+        const hY = tabY + 26;
+        A(this.add.text(TX,    hY,"#",                               NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
+        A(this.add.text(TX+28, hY,isTR?"OYUNCU":"PLAYER",           NT_STYLE.stat(12)).setOrigin(0,0).setDepth(depth+3));
+        A(this.add.text(CX+30, hY,"LV",                              NT_STYLE.stat(11,"#aaccee")).setOrigin(0.5,0).setDepth(depth+3));
+        A(this.add.text(VX,    hY,isTR?"SKOR":"SCORE",              NT_STYLE.stat(12)).setOrigin(1,0).setDepth(depth+3));
         const dg=A(this.add.graphics().setDepth(depth+3));
-        dg.lineStyle(1,0x44aaff,0.30); dg.lineBetween(TX,hY+18,VX,hY+18);
+        dg.lineStyle(1,0x44aaff,0.25); dg.lineBetween(TX,hY+16,VX,hY+16);
 
-        const loadTxt=A(this.add.text(CX,hY+55,CURRENT_LANG==="tr"?"⏳  Yukleniyor...":"⏳  Loading...",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3));
+        // ── Satır nesneleri yönetimi ───────────────────────────────────
+        let _rowObjs = [];
+        const _Ar = (obj)=>{ _rowObjs.push(obj); return obj; };
+        const _clearRows = ()=>{
+            _rowObjs.forEach(o=>{ try{if(o&&!o.destroyed)o.destroy();}catch(_){} });
+            _rowObjs=[];
+        };
+
+        // ── Zaman filtresi ─────────────────────────────────────────────
+        const _filterByTime = (scores)=>{
+            if(_activeFilter==="all") return scores;
+            const ms = {day:86400000, week:604800000, month:2592000000};
+            const cut = Date.now() - (ms[_activeFilter]||Infinity);
+            return scores.filter(s=> s.date && s.date >= cut);
+        };
+
+        // ── Level rozeti çizici — hexagon grafik ──────────────────────
+        const _drawLvBadge = (x, y, level)=>{
+            const lv = Math.max(1, level||1);
+            // Level aralığına göre renk paleti
+            let fillClr=0x0a2040, strokeClr=0x3388cc, glowClr=0x55aaff;
+            if(lv>=40){ fillClr=0x3a0000; strokeClr=0xff2200; glowClr=0xff6644; }
+            else if(lv>=30){ fillClr=0x2a0040; strokeClr=0xcc44ff; glowClr=0xee88ff; }
+            else if(lv>=20){ fillClr=0x002a00; strokeClr=0x33ff88; glowClr=0x88ffbb; }
+            else if(lv>=10){ fillClr=0x2a2000; strokeClr=0xffcc00; glowClr=0xffee66; }
+
+            const r=9; // geometri korundu — overflow yok
+            const g=_Ar(this.add.graphics().setDepth(depth+4).setAlpha(0));
+
+            // Dis parlama halkasi (glow) — r disina cikmiyor, ayni merkez
+            g.lineStyle(3, glowClr, 0.35);
+            const ptsGlow=[];
+            for(let a=0;a<6;a++){
+                const ang=(Math.PI/3)*a - Math.PI/6;
+                ptsGlow.push({x:x+Math.cos(ang)*(r+2), y:y+Math.sin(ang)*(r+2)});
+            }
+            g.strokePoints(ptsGlow,true);
+
+            g.fillStyle(fillClr,1);
+            g.lineStyle(2, strokeClr, 1);
+            // Altigen noktalari
+            const pts=[];
+            for(let a=0;a<6;a++){
+                const ang=(Math.PI/3)*a - Math.PI/6;
+                pts.push({x:x+Math.cos(ang)*r, y:y+Math.sin(ang)*r});
+            }
+            g.fillPoints(pts,true);
+            g.strokePoints(pts,true);
+
+            // Ic parlama (kucuk ic altigen)
+            g.lineStyle(1.5, strokeClr, 0.45);
+            const pts2=[];
+            for(let a=0;a<6;a++){
+                const ang=(Math.PI/3)*a - Math.PI/6;
+                pts2.push({x:x+Math.cos(ang)*(r*0.5), y:y+Math.sin(ang)*(r*0.5)});
+            }
+            g.strokePoints(pts2,true);
+
+            // Sayi metni - daha buyuk ve belirgin
+            const fs = lv>=100?"8px":lv>=10?"10px":"12px";
+            _Ar(this.add.text(x, y, String(lv), {
+                fontFamily:"LilitaOne,Arial,sans-serif", fontSize:fs,
+                color:"#ffffff", stroke:"#000000", strokeThickness:3
+            }).setOrigin(0.5,0.5).setDepth(depth+5).setAlpha(0));
+        };
+
+        // ── Satırları çiz ─────────────────────────────────────────────
+        const _renderRows = ()=>{
+            if(_lbClosed) return;
+            const myId = (_TG_USER&&_TG_USER.id)||null;
+            const allScores = lbGetMergedScores();
+            const scores    = _filterByTime(allScores).slice(0,12);
+            const rowStartY = hY+27;
+
+            if(scores.length===0){
+                const emptyMsg = isTR
+                    ? (_activeFilter==="all"?"Henüz skor yok!":"Bu dönemde skor yok!")
+                    : (_activeFilter==="all"?"No scores yet!":"No scores in this period!");
+                _Ar(this.add.text(CX, rowStartY+24, emptyMsg, NT_STYLE.body(13))
+                    .setOrigin(0.5).setDepth(depth+3));
+                return;
+            }
+
+            let ry = rowStartY;
+            scores.forEach((s,i)=>{
+                if(ry+24>contentBot) return;
+                const isMe    = s.id===myId;
+                const rowStyle= ntpGetRowStyle(s,isMe);
+                const nameCol = rowStyle?rowStyle.color:(i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#ddeeff");
+                const rankCol = i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#667788";
+
+                // Özel satır arkaplanı
+                if(rowStyle){
+                    const rhBg=_Ar(this.add.graphics().setDepth(depth+2).setAlpha(0));
+                    rhBg.fillStyle(rowStyle.bgColor,0.65);
+                    rhBg.fillRoundedRect(TX-2,ry-9,VX-TX+4,20,4);
+                    rhBg.lineStyle(1,rowStyle.borderColor,0.3);
+                    rhBg.strokeRoundedRect(TX-2,ry-9,VX-TX+4,20,4);
+                }
+
+                // Sıra numarası
+                _Ar(this.add.text(TX,ry,"#"+(i+1),NT_STYLE.accent(13,rankCol))
+                    .setOrigin(0,0.5).setDepth(depth+3).setAlpha(0));
+
+                // ── Avatar (Telegram profil fotoğrafı) ────────────────
+                const avKey  = 'av_'+s.id;
+                const avSize = 18;
+                const avX    = TX+28+avSize/2;
+                let nameOffX = TX+28;
+
+                if(this.textures.exists(avKey)){
+                    const mskG=_Ar(this.add.graphics().setDepth(depth+4).setAlpha(0));
+                    mskG.fillStyle(0xffffff,1);
+                    mskG.fillCircle(avX,ry,avSize/2);
+                    const msk=mskG.createGeometryMask();
+
+                    _Ar(this.add.image(avX,ry,avKey)
+                        .setDisplaySize(avSize,avSize)
+                        .setDepth(depth+4).setAlpha(0)
+                        .setMask(msk));
+
+                    const avBorder=_Ar(this.add.graphics().setDepth(depth+5).setAlpha(0));
+                    const rClr=parseInt(rankCol.replace('#','0x'),16)||0xffffff;
+                    avBorder.lineStyle(1.5,rClr,0.9);
+                    avBorder.strokeCircle(avX,ry,avSize/2);
+                    nameOffX=TX+28+avSize+4;
+                } else {
+                    // Fotoğraf yoksa baş harf avatarı
+                    const initBg=_Ar(this.add.graphics().setDepth(depth+4).setAlpha(0));
+                    const iClr=parseInt(rankCol.replace('#','0x'),16)||0x446688;
+                    initBg.fillStyle(iClr,0.3);
+                    initBg.fillCircle(avX,ry,avSize/2);
+                    initBg.lineStyle(1,iClr,0.8);
+                    initBg.strokeCircle(avX,ry,avSize/2);
+                    const initLetter=(s.name||"?").charAt(0).toUpperCase();
+                    _Ar(this.add.text(avX,ry,initLetter,{
+                        fontFamily:"LilitaOne,Arial,sans-serif",fontSize:"9px",
+                        color:rankCol,stroke:"#000",strokeThickness:1
+                    }).setOrigin(0.5,0.5).setDepth(depth+5).setAlpha(0));
+                    nameOffX=TX+28+avSize+4;
+                }
+
+                // İsim + rozet
+                const displayName=ntpDecoratedName(s)+(isMe?" ★":"");
+                // İsim taşmaması için truncate (badge soluna kadar sığacak kadar)
+                const _badgeLeft = CX + 30 - 10; // badge merkezi - r(9) - 1px bosluk
+                const _nameMaxW  = _badgeLeft - nameOffX - 4;
+                const _maxChars  = Math.max(4, Math.floor(_nameMaxW / 6.5));
+                const _truncName = displayName.length > _maxChars
+                    ? displayName.slice(0, _maxChars - 1) + "…"
+                    : displayName;
+                _Ar(this.add.text(nameOffX, ry+2, _truncName, NT_STYLE.accent(11,nameCol))
+                    .setOrigin(0,0.5).setDepth(depth+3).setAlpha(0));
+
+                // Level rozeti (hexagon)
+                _drawLvBadge(CX+30, ry, s.level||1);
+
+                // Skor
+                _Ar(this.add.text(VX,ry,s.score.toLocaleString(),NT_STYLE.accent(13,rankCol))
+                    .setOrigin(1,0.5).setDepth(depth+3).setAlpha(0));
+
+                ry+=24;
+            });
+
+            // 2 frame bekle → font glyphleri rasterize edilsin, sonra göster
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{
+                if(_lbClosed){
+                    _clearRows(); return;
+                }
+                _rowObjs.forEach(o=>{
+                    try{if(o&&!o.destroyed&&typeof o.setAlpha==="function")o.setAlpha(1);}catch(_){}
+                });
+            }));
+        };
+
+        // ── Veri yükle ────────────────────────────────────────────────
+        const loadTxt=A(this.add.text(CX,hY+55,isTR?"⏳  Yükleniyor...":"⏳  Loading...",
+            NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3));
+
         lbFetchScores().then(()=>{
             try{if(loadTxt&&!loadTxt.destroyed)loadTxt.destroy();}catch(_){}
             if(_lbClosed) return;
-            const myId=(_TG_USER&&_TG_USER.id)||null;
-            const scores=lbGetMergedScores().slice(0,12);
 
-            // ── Profil fotoğraflarını runtime'da yükle ───────────────
-            const toLoad = scores.filter(s=>
+            // Tüm skorlardan avatar listesi çıkar ve yükle
+            const allScores = lbGetMergedScores();
+            const toLoad = allScores.filter(s=>
                 s.photo_url && !this.textures.exists('av_'+s.id)
             );
 
-            const _renderRows = () => {
-                if(_lbClosed) return;
-                const newTexts=[];
-
-                if(scores.length===0){
-                    newTexts.push(A(this.add.text(CX,hY+55,CURRENT_LANG==="tr"?"Henuz skor yok!":"No scores yet!",NT_STYLE.body(15)).setOrigin(0.5).setDepth(depth+3).setAlpha(0)));
-                } else {
-                    let ry=hY+26;
-                    scores.forEach((s,i)=>{
-                        if(ry+26>contentBot) return;
-                        const isMe=s.id===myId;
-                        const rowStyle = ntpGetRowStyle(s, isMe);
-                        const nameCol = rowStyle ? rowStyle.color : (i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#ddeeff");
-                        const rankCol = i===0?"#ffcc00":i===1?"#cccccc":i===2?"#cc8833":"#667788";
-
-                        // Özel satır arkaplanı — crown/legend/diamond için
-                        if(rowStyle){
-                            const rhBg = A(this.add.graphics().setDepth(depth+2).setAlpha(0));
-                            rhBg.fillStyle(rowStyle.bgColor, 0.70);
-                            rhBg.fillRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
-                            rhBg.lineStyle(1, rowStyle.borderColor, 0.35);
-                            rhBg.strokeRoundedRect(TX-2, ry-10, VX-TX+4, 22, 4);
-                            newTexts.push(rhBg);
-                        }
-
-                        // Sıra numarası
-                        newTexts.push(A(this.add.text(TX, ry,"#"+(i+1), NT_STYLE.accent(13,rankCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
-
-                        // ── Avatar (profil fotoğrafı) ──────────────────────
-                        const avKey = 'av_'+s.id;
-                        const avSize = 18;
-                        const avX = TX+28+avSize/2;
-                        let nameOffsetX = TX+28;
-
-                        if(this.textures.exists(avKey)){
-                            // Yuvarlak maske için graphics
-                            const mskG = this.add.graphics().setDepth(depth+4).setAlpha(0);
-                            mskG.fillStyle(0xffffff,1);
-                            mskG.fillCircle(avX, ry, avSize/2);
-                            const msk = mskG.createGeometryMask();
-
-                            const av = A(this.add.image(avX, ry, avKey)
-                                .setDisplaySize(avSize, avSize)
-                                .setDepth(depth+4).setAlpha(0)
-                                .setMask(msk));
-
-                            // Avatar çerçevesi
-                            const avBorder = A(this.add.graphics().setDepth(depth+5).setAlpha(0));
-                            avBorder.lineStyle(1.5, parseInt(rankCol.replace('#','0x'),16)||0xffffff, 0.85);
-                            avBorder.strokeCircle(avX, ry, avSize/2);
-
-                            newTexts.push(mskG);
-                            newTexts.push(avBorder);
-                            nameOffsetX = TX+28+avSize+4;
-                        }
-
-                        // İsim + badge (varsa avatarın sağında)
-                        const displayName = ntpDecoratedName(s) + (isMe?" ★":"");
-                        newTexts.push(A(this.add.text(nameOffsetX, ry, displayName, NT_STYLE.accent(12, nameCol)).setOrigin(0,0.5).setDepth(depth+3).setAlpha(0)));
-
-                        // Seviye
-                        const lvStr=s.level?"Lv"+s.level:"-";
-                        newTexts.push(A(this.add.text(CX+30, ry, lvStr, NT_STYLE.accent(11,"#88aacc")).setOrigin(0.5,0.5).setDepth(depth+3).setAlpha(0)));
-
-                        // Skor
-                        newTexts.push(A(this.add.text(VX, ry, s.score.toLocaleString(), NT_STYLE.accent(13,rankCol)).setOrigin(1,0.5).setDepth(depth+3).setAlpha(0)));
-
-                        ry+=26;
-                    });
-                }
-                // 2 frame bekle → font glyphleri rasterize edilsin, sonra goster
-                requestAnimationFrame(()=>requestAnimationFrame(()=>{
-                    if(_lbClosed){
-                        newTexts.forEach(t=>{ try{if(t&&!t.destroyed){t.setAlpha(0);t.destroy();}}catch(_){} });
-                        return;
-                    }
-                    newTexts.forEach(t=>{ try{if(t&&!t.destroyed)t.setAlpha(1);}catch(_){} });
-                }));
-            };
-
-            if(toLoad.length > 0){
+            if(toLoad.length>0){
                 try{
                     toLoad.forEach(s=>{ this.load.image('av_'+s.id, s.photo_url); });
-                    this.load.once('complete', _renderRows);
-                    this.load.once('loaderror', _renderRows); // hata olsa bile devam et
+                    this.load.once('complete',  _renderRows);
+                    this.load.once('loaderror', _renderRows);
                     this.load.start();
-                }catch(e){
-                    _renderRows(); // loader hata verirse direkt render
-                }
+                }catch(e){ _renderRows(); }
             } else {
                 _renderRows();
             }
-        }).catch(()=>{ try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){} });
+        }).catch(()=>{
+            try{if(loadTxt&&!loadTxt.destroyed)loadTxt.setText("❌ Connection error");}catch(_){}
+        });
     }
 }
 
@@ -14800,10 +14957,10 @@ class SceneGame extends Phaser.Scene {
             }
         }});
 
-        // ── BULUTLAR — faz rengi değişen, 3 bulut ekranda ─────────────────
-        const _cldTints  = [0xffffff, 0xffffff, 0x2a3d66]; // morning / sunset=beyaz kalır / night
+        // ── BULUTLAR — faz rengi değişen, yavaş süzülen pixel art bulutlar ─
+        const _cldTints  = [0xffffff, 0xffffff, 0x2a3d66]; // morning / sunset (beyaz kalır) / night
         const _cldKeys   = ["cloud1","cloud2","cloud3"];
-        const _cldScales = [0.26, 0.22, 0.30];
+        const _cldScales = [0.26, 0.22, 0.30];             // ekrana sığacak ölçek
         const _activeClds= [];
 
         const _spawnCld=(delay)=>{
@@ -14811,7 +14968,7 @@ class SceneGame extends Phaser.Scene {
                 if(!this.scene||!this.scene.isActive()) return;
                 const ki  = Math.floor(Math.random()*3);
                 const sc  = _cldScales[ki]*(0.65+Math.random()*0.55);
-                const spd = 13+Math.random()*16; // biraz hızlı
+                const spd = 10+Math.random()*14;
                 const cy  = 28+Math.random()*200;
                 const tnt = _cldTints[_gmPhase];
                 const alp = _gmPhase===2 ? 0.15 : 0.50+Math.random()*0.30;
@@ -14819,7 +14976,7 @@ class SceneGame extends Phaser.Scene {
                 const fromRight = Math.random() < 0.5;
                 const startX = fromRight ? W+150 : -150;
                 const dir    = fromRight ? -1 : 1;
-                if(!this.textures.exists(_cldKeys[ki])){ _spawnCld(2000+Math.random()*3000); return; }
+                if(!this.textures.exists(_cldKeys[ki])){ _spawnCld(3000+Math.random()*5000); return; }
                 const cl = this.add.image(startX, cy, _cldKeys[ki])
                     .setScrollFactor(0).setDepth(-8)
                     .setScale(sc).setAlpha(alp).setTint(tnt)
@@ -14829,14 +14986,11 @@ class SceneGame extends Phaser.Scene {
                 const tgtAlpha = alp;
                 cl.setAlpha(0);
                 this.tweens.add({targets:cl, alpha:tgtAlpha, duration:1800, ease:"Sine.easeIn"});
-                // Kısa interval — ekranda 3 bulut tutar
-                _spawnCld(9000+Math.random()*9000);
+                _spawnCld(16000+Math.random()*18000);
             });
         };
-        // 3 bulut farklı zamanlarda başlar — ekranda sürekli 3 bulut
         _spawnCld(0);
-        _spawnCld(3500);
-        _spawnCld(7000);
+        _spawnCld(4000);
 
         // Bulut renk geçişi için _lerpHex yukarıda tanımlı
 
@@ -14864,88 +15018,72 @@ class SceneGame extends Phaser.Scene {
             }
         }});
 
-        // ── KAYAN YILDIZLAR — gece fazında, noktalı iz, kenarlara doğru ──
+        // ── KAYAN YILDIZLAR — gece fazında, kenarlara doğru smooth kayış ──
         const _shStarG = this.add.graphics().setDepth(-9.5).setScrollFactor(0);
         const _shStars = [];
-        const _shStarMaxY = H * 0.38;
-        const _spawnShootingStar=()=>{
+        const _shStarMaxY = H * 0.38; // ekranın üst %38'i — karakterin üstüne inmez
+        const _spawnShootingStar=()=>{ 
             if(_gmPhase !== 2) return;
+            // Sol veya sağ kenara doğru gider (karakterin ortasına değil)
             const toRight = Math.random() < 0.5;
-            const startX  = toRight ? Phaser.Math.Between(0, W*0.25) : Phaser.Math.Between(W*0.75, W);
-            const startY  = Phaser.Math.Between(5, 40);
-            const dir     = toRight ? 1 : -1;
-            // Belirgin eğim: 18°-30°
-            const angle   = (18 + Math.random()*12) * Math.PI/180;
-            const speed   = 260 + Math.random()*120;
+            // Başlangıç: ekranın üst kısmında, karşı taraftan
+            const startX = toRight ? Phaser.Math.Between(0, W*0.3) : Phaser.Math.Between(W*0.7, W);
+            const startY = Phaser.Math.Between(5, 55); // çok üstten başlar
+            // Sığ açı (5°-15°) ile kenara doğru yatay kayış
+            const dir = toRight ? 1 : -1;
+            const angle = (5 + Math.random()*10) * Math.PI/180;
+            const speed = 280 + Math.random()*140;
             _shStars.push({
                 x:startX, y:startY,
                 vx: Math.cos(angle)*speed*dir,
                 vy: Math.sin(angle)*speed,
-                life:0, maxLife:1.5,
-                // Noktalı iz için ayrı nokta listesi
-                dots:[], dotTimer:0
+                life:0, maxLife:1.6,
+                trail:[], alpha:0 // smooth fade-in için
             });
         };
-        this.time.addEvent({delay:2400, loop:true, callback:()=>{
-            if(_gmPhase===2 && Math.random()<0.52) _spawnShootingStar();
+        // Periyodik spawn — gece fazında
+        this.time.addEvent({delay:2400,loop:true,callback:()=>{
+            if(_gmPhase===2 && Math.random()<0.50) _spawnShootingStar();
         }});
 
-        let _shLast = 0;
-        this.time.addEvent({delay:16, loop:true, callback:()=>{
+        // requestAnimationFrame tabanlı güncelleme — kasma yok, delta-time ile
+        let _shLastTime = 0;
+        this.time.addEvent({delay:16, loop:true, callback:()=>{  // ~60fps
             _shStarG.clear();
             const now = Date.now();
-            const dt = Math.min((now - (_shLast||now)) / 1000, 0.05);
-            _shLast = now;
+            const dt = Math.min((now - _shLastTime) / 1000, 0.05); // max 50ms cap
+            _shLastTime = now;
             for(let i=_shStars.length-1;i>=0;i--){
-                const s = _shStars[i];
-                s.life  += dt;
-                s.x     += s.vx * dt;
-                s.y     += s.vy * dt;
-                // Nokta ekle — her 14ms'de bir (yaklaşık her frame)
-                s.dotTimer += dt * 1000;
-                if(s.dotTimer >= 14){
-                    s.dotTimer = 0;
-                    s.dots.push({x:s.x, y:s.y, age:0});
-                }
-                // Yaşlanan noktalar
-                s.dots.forEach(d => d.age += dt);
-                // Eski noktaları temizle (0.55s sonra silinir)
-                s.dots = s.dots.filter(d => d.age < 0.55);
-
+                const s=_shStars[i];
+                s.life += dt;
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                // Smooth alpha: 0→1 in 0.1s, 1 for most of life, 1→0 in last 0.3s
+                const fadeIn  = Math.min(1, s.life / 0.12);
+                const fadeOut = s.life > s.maxLife - 0.30 ? Math.max(0, 1 - (s.life - (s.maxLife-0.30)) / 0.30) : 1;
+                s.alpha = fadeIn * fadeOut;
+                // 24 noktalı iz
+                s.trail.push({x:s.x, y:s.y});
+                if(s.trail.length > 24) s.trail.shift();
+                // Sınır: ekrandan çıktıysa veya maxLife dolduğunda veya y limiti
                 if(s.life >= s.maxLife || s.x < -20 || s.x > W+20 || s.y > _shStarMaxY){
                     _shStars.splice(i,1); continue;
                 }
-                const fadeIn  = Math.min(1, s.life / 0.10);
-                const fadeOut = s.life > s.maxLife - 0.28 ? Math.max(0, 1-(s.life-(s.maxLife-0.28))/0.28) : 1;
-                const baseA   = fadeIn * fadeOut * 0.85;
-
-                // Noktalı iz — büyükten küçüğe azalan daireler
-                const nDots = s.dots.length;
-                s.dots.forEach((d, ti) => {
-                    const pct    = (nDots - ti) / nDots; // 1=yeni, 0=eski
-                    const dotAge = d.age / 0.55;          // 0-1
-                    const a      = baseA * pct * (1 - dotAge * 0.85);
-                    const r      = 0.55 + pct * 1.0;       // 0.55→1.55px
-                    if(a > 0.02){
-                        // Parlak çekirdek
-                        _shStarG.fillStyle(0xffffff, Math.min(1, a));
-                        _shStarG.fillCircle(d.x, d.y, r);
-                        // Hafif mavi hale — büyük noktalarda
-                        if(pct > 0.6){
-                            _shStarG.fillStyle(0xaaddff, a * 0.4);
-                            _shStarG.fillCircle(d.x, d.y, r * 1.8);
-                        }
-                    }
-                });
-
-                // Baş — parlak çekirdek + dış hale
-                if(baseA > 0.05){
-                    _shStarG.fillStyle(0xffffff, baseA);
-                    _shStarG.fillCircle(s.x, s.y, 1.6);
-                    _shStarG.fillStyle(0xddeeff, baseA * 0.5);
-                    _shStarG.fillCircle(s.x, s.y, 2.6);
-                    _shStarG.fillStyle(0x88ccff, baseA * 0.22);
-                    _shStarG.fillCircle(s.x, s.y, 4.0);
+                const baseAlpha = s.alpha * 0.82;
+                // İnce, smooth iz
+                for(let t=1; t<s.trail.length; t++){
+                    const pct = t / s.trail.length;
+                    const a = Math.pow(pct, 1.4) * baseAlpha;
+                    const w = pct * 1.0 + 0.1;
+                    _shStarG.lineStyle(w, 0xffffff, Math.min(1,a));
+                    _shStarG.lineBetween(s.trail[t-1].x, s.trail[t-1].y, s.trail[t].x, s.trail[t].y);
+                }
+                // Baş — parlak nokta
+                if(baseAlpha > 0.05){
+                    _shStarG.fillStyle(0xffffff, baseAlpha);
+                    _shStarG.fillCircle(s.x, s.y, 1.2);
+                    _shStarG.fillStyle(0xddeeff, baseAlpha*0.45);
+                    _shStarG.fillCircle(s.x, s.y, 2.0);
                 }
             }
         }});
@@ -18341,8 +18479,6 @@ function getUpgradePool(){
         const isPartiallyBuilt = (u.level||0) >= 1 && (u.level||0) < (u.max||1);
 
         let weight = 1;
-        // [BALANCE] Heavy cannon nadir çıksın — weight %30'a düşürüldü
-        if(k === "heavy_cannon" && (u.level||0) === 0 && Math.random() > 0.30) continue;
         // Zayif durum: iyilestirici onceligi artar
         if(isWeak && isHealType)          weight = 5;
         else if(isLateGame && isHealType) weight = 2;
@@ -19477,8 +19613,9 @@ function showCrystalRevivePrompt(S){
         // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
         S.cameras.main.fadeIn(350,0,0,0);
         S.cameras.main.shake(150,0.018);
-        // [FIX-REVIVE] Müziği yeniden başlat — sadece açıksa
-        if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
+        // [FIX-REVIVE] Müziği yeniden başlat
+        NT_SFX.startMusic();
+        NT_SFX.setMusicState("gameplay", 0.5);
         NT_SFX.startWindAmbience();
         // [FIX-MOBİL] Mobil butonları göster
         try{ _showMobileBtns(S); }catch(_){}
@@ -20332,7 +20469,7 @@ function gameOver(S){
     _hideMobileBtns(S);
     PLAYER_GOLD=gs.gold; secureSet("nt_gold",PLAYER_GOLD);
     NT_Monetization.trackQuests(gs);
-    lbSubmitScoreWithBadge(gs.score||0, gs.kills||0, gs.level||1);
+    lbSubmitScoreWithBadge(gs.score||0, gs.kills||0, PLAYER_LEVEL||1);
 
     const W=360, H=640, CX=W/2;
     S.cameras.main.shake(200,0.018);
@@ -20825,7 +20962,8 @@ function gameOver(S){
                 S.cameras.main.fadeIn(350,0,0,0);
                 S.cameras.main.flash(400,255,180,50,false);
                 S.cameras.main.shake(180,0.018);
-                if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
+                NT_SFX.startMusic();
+                NT_SFX.setMusicState("gameplay", 0.5);
                 NT_SFX.startWindAmbience();
                 try{ _showMobileBtns(S); }catch(_){}
                 showHitTxt(S,180,220,L("revived"),"#ffcc44",true);
@@ -21111,8 +21249,9 @@ function doRevive(S, panel){
     }catch(_){}
     // [FIX-REVIVE] Kamerayı karanlıktan kurtarmak için fadeIn
     try{ S.cameras.main.fadeIn(350,0,0,0); }catch(_){}
-    // [FIX-REVIVE] Müziği yeniden başlat — sadece açıksa
-    if(window._nt_music_enabled !== false){ NT_SFX.startMusic(); NT_SFX.setMusicState("gameplay", 0.5); }
+    // [FIX-REVIVE] Müziği yeniden başlat — gameOver() stopMusic() yapmıştı
+    NT_SFX.startMusic();
+    NT_SFX.setMusicState("gameplay", 0.5);
     NT_SFX.startWindAmbience();
     // [FIX-MOBİL] Revive sonrası mobil butonları göster
     try{ _showMobileBtns(S); }catch(_){}
@@ -22896,34 +23035,18 @@ function _ensureFontLoaded(callback){
     }
 }
 
-// [AUDIO-FIX v2] AudioContext universal resume — tüm mobil tarayıcılarda çalışır
-// iOS Safari, Android Chrome, Telegram WebView hepsini kapsar
+// [PERF-FIX] AudioContext resume on first user gesture (Chrome autoplay policy)
+// Onceki versiyon tamamen no-op'tu — hicbir sey yapmiyordu.
 (function _fixAudioContext(){
-    let _resumed = false;
-    const resume = ()=>{
-        if(_resumed) return;
+    const resume=()=>{
+        // NT_SFX zaten kendi context'ini yonetiyor; ancak herhangi bir
+        // suspended AudioContext instance'i varsa burada da resume et.
         try{
-            // NT_SFX'in kendi resume metodu
             if(NT_SFX && typeof NT_SFX.resumeAudio === "function") NT_SFX.resumeAudio(0.05);
-            // Tüm global AudioContext instance'larını da tara
-            ["_ctx","_audioCtx","audioCtx"].forEach(k=>{
-                const ctx = window[k] || (NT_SFX && NT_SFX[k]);
-                if(ctx && ctx.state === "suspended"){
-                    ctx.resume().catch(()=>{});
-                }
-            });
-            _resumed = true;
         }catch(_){}
     };
-    // Kullanıcı etkileşimini bekle — birden fazla event türü
-    ["pointerdown","touchstart","keydown","click"].forEach(ev=>{
-        document.addEventListener(ev, resume, {once:false, capture:true, passive:true});
-    });
-    // iOS: her ses çalmadan önce context'i resume et (iOS'ta askıya geri düşer)
-    const _origPlay = NT_SFX && NT_SFX.play;
-    if(NT_SFX && _origPlay){
-        NT_SFX._resumeBeforePlay = ()=>{ try{ if(NT_SFX.resumeAudio) NT_SFX.resumeAudio(0); }catch(_){} };
-    }
+    document.addEventListener("pointerdown", resume, {once:true, capture:true});
+    document.addEventListener("keydown",     resume, {once:true, capture:true});
 })();
 
 function _startPhaserGame(){
@@ -22949,7 +23072,7 @@ function _startPhaserGame(){
         console.warn("[NT] window.Presence bulunamadi — presence sistemi devre disi.");
     }
     // ── MUZIK BASLAT ──────────────────────────────────────────
-    if(window._nt_music_enabled !== false) NT_SFX.startMusic();
+    NT_SFX.startMusic();
     NT_SFX.startWindAmbience();
     const config = {
         type:Phaser.AUTO, width:360, height:640,
