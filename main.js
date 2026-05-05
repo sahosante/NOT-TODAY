@@ -1,7 +1,566 @@
 // ═══════════════════════════════════════════════════════════════
 // NOT FAIR  v9.0  |  by Sahin Beyazgul
 // PART A: Dil Sistemi, Sabitler, Epilepsi Sahnesi, Intro Sahnesi
+//
+// [NF ENGINE FIX entegre edildi — hi-DPI + responsive UI + scroll
+//  + debug overlay + quality system. ` tusu debug overlay'i acar.]
 // ═══════════════════════════════════════════════════════════════
+
+// ─── NF ENGINE FIX FLAGS (istersen burayi degistir) ─────────────
+// hiDPI:        canvas backing store'u DPR'a gore boyutlandirir
+//               !! GUVENLI DEGIL: bu codebase'deki coklu sahne + manuel
+//                  setZoom(1.0) cagrilariyla catisiyor ve canvas'i sol-uste
+//                  sikistiriyor. SIMDILIK KAPALI. Acmak icin tum sahnelerin
+//                  camera viewport'larini uyumlu hale getirmek gerek.
+// autoClamp:    Phaser fontSize < minFont olanlar otomatik buyutulur (AKTIF)
+// minFont:      11–13 arasi tutmak iyi (oyun cok zoom-out hissetmez)
+// debug:        true yaparsan debug overlay basta acik gelir (' tusu toggle)
+window.NF_FLAGS = {
+    hiDPI:        false,   // ← KAPALI: canvas/camera senkron sorunu yasandi
+    autoClamp:    true,
+    minFont:      11,
+    responsiveUI: true,
+    scrollHelper: true,
+    debug:        false,
+    debugKey:     "`",
+    qualityAuto:  true,
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  nf-engine-fix.js  —  Engine-level rendering & UI overhaul for NOT FAIR
+ *  Target:  Phaser 3.55+   (works with 3.60, 3.70, 3.80+)
+ *  Load:    BEFORE main.js in index.html  (plain <script>, no module)
+ *
+ *  Fixes:
+ *    A. Hi-DPI canvas backing store     (replaces dead `render.resolution`)
+ *    B. 4-tier quality system           (low / mid / high / ultra)
+ *    C. Responsive font helper          (NF.font, min-size auto-clamp)
+ *    D. UI scale factor                 (NF.uiScale — live, screen-aware)
+ *    E. Scrollable container helper     (drag + wheel, mask-clipped)
+ *    F. Texture filtering               (already partially in your postBoot)
+ *    G. Debug overlay                   (~ key toggles: DPR, render scale, FPS, etc.)
+ *    H. Quality menu API                (NF.Quality.set / .menu)
+ *
+ *  Everything is OPT-IN. No flags = no behavior change.
+ *  Set window.NF_FLAGS = { hiDPI:true, minFont:14, autoClamp:true, debug:false }
+ *  BEFORE the Phaser game is constructed.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+(function (global) {
+    "use strict";
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  CONFIG / FLAGS
+    // ─────────────────────────────────────────────────────────────────────────
+    const FLAGS = Object.assign({
+        hiDPI:        true,   // enable hi-DPI backing store + camera counter-zoom
+        autoClamp:    true,   // auto-bump tiny Phaser text styles to MIN_FONT_PX
+        minFont:      11,     // floor for any Phaser text fontSize, in *logical* px
+        responsiveUI: true,   // expose NF.uiScale based on viewport
+        scrollHelper: true,   // expose NF.makeScrollable
+        debug:        false,  // start with debug overlay visible
+        debugKey:     "`",    // toggle key (backtick / tilde row)
+        qualityAuto:  true,   // auto-pick tier on first run
+    }, global.NF_FLAGS || {});
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  DEVICE + DPR DETECTION
+    // ─────────────────────────────────────────────────────────────────────────
+    const DEVICE = (function () {
+        const dpr     = Math.max(1, window.devicePixelRatio || 1);
+        const touch   = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+        const cores   = navigator.hardwareConcurrency || 4;
+        const mem     = navigator.deviceMemory || 0;
+        const ua      = navigator.userAgent || "";
+        const isiOS   = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+        const isAndro = /android/i.test(ua);
+        const mobile  = touch || isiOS || isAndro;
+        let tier = "high";
+        if (mobile) {
+            if ((mem && mem <= 2) || cores <= 3) tier = "low";
+            else if ((mem && mem >= 6) || cores >= 8) tier = "mid";
+            else tier = "mid";
+        }
+        return { dpr, touch, mobile, isiOS, isAndro, cores, mem, tier };
+    })();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  QUALITY PRESETS
+    //  - renderScale: extra multiplier on top of dpr cap (0.75 = render 75%)
+    //  - dprCap:      hard ceiling on devicePixelRatio
+    //  - particles:   multiplier the game can read from NF.Quality.get().particles
+    // ─────────────────────────────────────────────────────────────────────────
+    const PRESETS = {
+        low:   { renderScale: 0.75, dprCap: 1.0, antialias: false, roundPixels: true,  particles: 0.40, effects: 0.30 },
+        mid:   { renderScale: 1.00, dprCap: 1.5, antialias: true,  roundPixels: false, particles: 0.70, effects: 0.70 },
+        high:  { renderScale: 1.00, dprCap: 2.0, antialias: true,  roundPixels: false, particles: 1.00, effects: 1.00 },
+        ultra: { renderScale: 1.00, dprCap: 3.0, antialias: true,  roundPixels: false, particles: 1.00, effects: 1.00 },
+    };
+
+    let _tier = (function () {
+        // localStorage override wins, then auto-detect
+        try {
+            const saved = localStorage.getItem("nf_quality");
+            if (saved && PRESETS[saved]) return saved;
+        } catch (_) {}
+        return FLAGS.qualityAuto ? DEVICE.tier : "high";
+    })();
+
+    function _preset() { return PRESETS[_tier] || PRESETS.mid; }
+
+    /** Effective DPR after caps + render-scale.  This is the multiplier we use
+     *  to upsize the canvas backing store relative to the LOGICAL game size. */
+    function effectiveDPR() {
+        const p = _preset();
+        return Math.max(1, Math.min(DEVICE.dpr, p.dprCap)) * p.renderScale;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  HI-DPI INSTALLER
+    //  Approach (Phaser 3.55+ compatible — `render.resolution` is dead):
+    //    1. Keep gameSize at original logical (360×640).
+    //    2. After scale-manager `resize`, OVERRIDE canvas backing store to
+    //         backing.width  = displaySize.width  * effDPR
+    //         backing.height = displaySize.height * effDPR
+    //       (CSS size stays as Phaser already set it.)
+    //    3. Tell the WebGL renderer + every camera about the new pixel area:
+    //         renderer.resize(backing.w, backing.h)
+    //         cam.setViewport(0, 0, backing.w, backing.h)
+    //         cam.setZoom(zoomFactor)
+    //       where zoomFactor compensates so world coords still range 0..gameW.
+    //    4. Patch Camera.prototype.setZoom so existing code that calls
+    //       `cam.setZoom(1.0)` to "reset" still keeps the hi-DPI factor.
+    // ─────────────────────────────────────────────────────────────────────────
+    let _game = null;
+    let _hiDpiInstalled = false;
+    let _zoomPatched = false;
+
+    /** Ratio between physical canvas pixels and logical game units along X. */
+    function _hiDpiZoomFactor() {
+        if (!_game || !_game.canvas || !_game.scale) return 1;
+        const logicalW = _game.scale.gameSize.width || 1;
+        return _game.canvas.width / logicalW;
+    }
+
+    function _patchCameraZoom() {
+        if (_zoomPatched) return;
+        if (!global.Phaser || !Phaser.Cameras || !Phaser.Cameras.Scene2D) return;
+        const proto = Phaser.Cameras.Scene2D.Camera.prototype;
+        const orig  = proto.setZoom;
+        proto.setZoom = function (value) {
+            const v = (value === undefined ? 1 : value);
+            const k = _hiDpiZoomFactor();
+            return orig.call(this, v * k);
+        };
+        // Also wrap the .zoom assignment via setZoomX / setZoomY if present
+        if (proto.setZoomX) {
+            const ox = proto.setZoomX;
+            proto.setZoomX = function (v) { return ox.call(this, (v === undefined ? 1 : v) * _hiDpiZoomFactor()); };
+        }
+        if (proto.setZoomY) {
+            const oy = proto.setZoomY;
+            proto.setZoomY = function (v) { return oy.call(this, (v === undefined ? 1 : v) * _hiDpiZoomFactor()); };
+        }
+        _zoomPatched = true;
+    }
+
+    function _applyToCamera(cam, k) {
+        if (!cam) return;
+        const cw = _game.canvas.width;
+        const ch = _game.canvas.height;
+        try { cam.setViewport(0, 0, cw, ch); } catch (_) {}
+        // Set zoom directly via internal _zoom write — bypasses our patched
+        // setZoom (which would multiply k twice). We set the *effective* zoom.
+        // Fall back to setZoom if internal field isn't accessible.
+        try {
+            // Use the original setZoom we saved on prototype (raw) by going
+            // through setProperty. Easiest: temporarily restore, set, restore.
+            cam.zoom = k;             // Phaser uses a setter; this works in 3.60+
+            if (cam.zoomX !== undefined) cam.zoomX = k;
+            if (cam.zoomY !== undefined) cam.zoomY = k;
+        } catch (_) {}
+    }
+
+    function _applyHiDPI() {
+        if (!_game || !_game.scale || !_game.canvas) return;
+
+        const dispW = _game.scale.displaySize.width;
+        const dispH = _game.scale.displaySize.height;
+        if (dispW <= 0 || dispH <= 0) return;
+
+        const eDPR  = effectiveDPR();
+        const targetW = Math.max(1, Math.floor(dispW * eDPR));
+        const targetH = Math.max(1, Math.floor(dispH * eDPR));
+
+        // No change → skip (avoids context-loss on some GPUs)
+        if (_game.canvas.width === targetW && _game.canvas.height === targetH) return;
+
+        // 1) Backing store
+        _game.canvas.width  = targetW;
+        _game.canvas.height = targetH;
+        // 2) CSS size — re-assert (some browsers reset it when width changes)
+        _game.canvas.style.width  = dispW + "px";
+        _game.canvas.style.height = dispH + "px";
+
+        // 3) Renderer + GL viewport
+        if (_game.renderer) {
+            if (_game.renderer.gl) {
+                try { _game.renderer.gl.viewport(0, 0, targetW, targetH); } catch (_) {}
+            }
+            if (typeof _game.renderer.resize === "function") {
+                try { _game.renderer.resize(targetW, targetH); } catch (_) {}
+            }
+        }
+
+        // 4) Camera viewport + zoom (compensates so logical coords work)
+        const k = targetW / _game.scale.gameSize.width;
+        const scenes = _game.scene && _game.scene.scenes;
+        if (scenes) {
+            for (let i = 0; i < scenes.length; i++) {
+                const s = scenes[i];
+                if (!s || !s.cameras) continue;
+                const list = s.cameras.cameras || [];
+                for (let j = 0; j < list.length; j++) _applyToCamera(list[j], k);
+                _applyToCamera(s.cameras.main, k);
+            }
+        }
+    }
+
+    function installHiDPI(game) {
+        if (_hiDpiInstalled || !FLAGS.hiDPI) return;
+        _game = game;
+
+        _patchCameraZoom();
+
+        // Hook into scale manager + scene starts
+        game.scale.on("resize", _applyHiDPI);
+
+        // First-pass + after every scene boot (so new cameras get the zoom)
+        const onSceneStart = () => setTimeout(_applyHiDPI, 0);
+        game.events.on("ready", onSceneStart);
+        if (game.scene) {
+            game.scene.scenes.forEach(s => {
+                if (!s || !s.events) return;
+                s.events.on("create", _applyHiDPI);
+                s.events.on("wake",   _applyHiDPI);
+                s.events.on("resume", _applyHiDPI);
+            });
+        }
+
+        // Visibility recovery (Telegram WebApp / iOS background)
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) setTimeout(_applyHiDPI, 50);
+        });
+
+        // Initial pass
+        if (game.isBooted) _applyHiDPI();
+        else game.events.once("ready", _applyHiDPI);
+
+        _hiDpiInstalled = true;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  RESPONSIVE FONT + UI SCALE
+    //  - uiScale is the same idea as your prompt's UI_SCALE, but anchored to
+    //    YOUR base resolution (360×640) so scaling stays sane on landscape PCs.
+    //  - We CLAMP both ends so text never explodes on 4K monitors and never
+    //    collapses on 320px-wide androids.
+    // ─────────────────────────────────────────────────────────────────────────
+    const BASE_W = 360, BASE_H = 640;
+
+    function uiScale() {
+        const w = window.innerWidth  || BASE_W;
+        const h = window.innerHeight || BASE_H;
+        // Anchor to BASE — values >1 mean we have more screen than the design
+        const sx = w / BASE_W;
+        const sy = h / BASE_H;
+        // Take min to never overflow, then clamp to a sensible range
+        return Math.max(0.85, Math.min(2.5, Math.min(sx, sy)));
+    }
+
+    /** Responsive font size in *Phaser logical px*.
+     *  base = your old hardcoded value, e.g. font(11) replaces "11px". */
+    function font(base) {
+        const min = FLAGS.minFont;
+        const scaled = base * Math.max(0.95, Math.min(1.6, uiScale()));
+        return Math.round(Math.max(min, scaled));
+    }
+
+    /** Returns an object spreadable into Phaser text style:
+     *      scene.add.text(x, y, "hi", { ...NF.fontStyle(13), color: "#fff" })
+     */
+    function fontStyle(base, family) {
+        return {
+            fontFamily: family || "LilitaOne, Arial, sans-serif",
+            fontSize:   font(base) + "px",
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  AUTO-CLAMP SMALL FONTS
+    //  Monkey-patches Phaser.GameObjects.Text so any "7px" / "8px" / "9px"
+    //  fontSize gets bumped to FLAGS.minFont. Existing code untouched.
+    // ─────────────────────────────────────────────────────────────────────────
+    let _clampInstalled = false;
+    function installFontClamp() {
+        if (_clampInstalled || !FLAGS.autoClamp) return;
+        if (!global.Phaser || !Phaser.GameObjects || !Phaser.GameObjects.Text) return;
+
+        const TextProto = Phaser.GameObjects.Text.prototype;
+        const _origSetStyle = TextProto.setStyle;
+        const _origSetFontSize = TextProto.setFontSize;
+
+        function clampSize(sz) {
+            // sz can be "12px", 12, "bold 12px Arial", etc.
+            if (sz == null) return sz;
+            if (typeof sz === "number") {
+                return Math.max(FLAGS.minFont, sz);
+            }
+            const s = String(sz);
+            // Match the FIRST number followed by px (covers "bold 12px Arial", "12px", "12")
+            const m = s.match(/(\d+(?:\.\d+)?)\s*px/);
+            if (m) {
+                const n = parseFloat(m[1]);
+                if (n < FLAGS.minFont) {
+                    return s.replace(m[0], FLAGS.minFont + "px");
+                }
+                return s;
+            }
+            // bare number-as-string
+            const n2 = parseFloat(s);
+            if (!isNaN(n2)) return String(Math.max(FLAGS.minFont, n2));
+            return s;
+        }
+
+        TextProto.setStyle = function (style, updateText, setDefaults) {
+            if (style && typeof style === "object") {
+                if ("fontSize" in style) style.fontSize = clampSize(style.fontSize);
+                if ("font"     in style) style.font     = clampSize(style.font);
+            }
+            return _origSetStyle.call(this, style, updateText, setDefaults);
+        };
+        TextProto.setFontSize = function (size) {
+            return _origSetFontSize.call(this, clampSize(size));
+        };
+
+        _clampInstalled = true;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  SCROLLABLE CONTAINER HELPER
+    //  Returns { container, setContentHeight, scrollTo, destroy }.
+    //  Drag + wheel + clamp-to-bounds + mask. Use for minigames.
+    // ─────────────────────────────────────────────────────────────────────────
+    function makeScrollable(scene, x, y, w, h, opts) {
+        opts = opts || {};
+        const depth = opts.depth || 0;
+
+        // Mask
+        const maskG = scene.add.graphics().setDepth(depth);
+        maskG.fillStyle(0xffffff, 1).fillRect(x, y, w, h);
+        const mask = maskG.createGeometryMask();
+        maskG.setVisible(false);
+
+        // Container holds content; we move it on Y to scroll
+        const cont = scene.add.container(x, y).setDepth(depth + 1);
+        cont.setMask(mask);
+
+        // Hit zone for input — must be invisible but interactive
+        const hit = scene.add.rectangle(x + w/2, y + h/2, w, h, 0xffffff, 0.001)
+            .setDepth(depth + 2)
+            .setInteractive({ useHandCursor: false });
+
+        let scrollY = 0, contentH = 0;
+        let dragStart = 0, dragStartScroll = 0, dragging = false;
+        const friction = opts.friction || 0.92;
+        let velocity = 0;
+
+        function maxScroll() { return Math.max(0, contentH - h); }
+
+        function setScroll(v) {
+            scrollY = Math.max(0, Math.min(maxScroll(), v));
+            cont.y = y - scrollY;
+        }
+
+        hit.on("pointerdown", (p) => {
+            dragging = false;
+            dragStart = p.y;
+            dragStartScroll = scrollY;
+            velocity = 0;
+        });
+        hit.on("pointermove", (p) => {
+            if (!p.isDown) return;
+            const dy = p.y - dragStart;
+            if (Math.abs(dy) > 5) dragging = true;
+            if (dragging) {
+                velocity = -dy * 0.15;
+                setScroll(dragStartScroll - dy);
+            }
+        });
+        hit.on("pointerup", (p) => {
+            if (!dragging && opts.onTap) {
+                // pass a contentY (where the tap landed inside the scrolled space)
+                opts.onTap(p, p.y - y + scrollY);
+            }
+            dragging = false;
+        });
+
+        const wheelHandler = (pointer, gameObjects, dx, dy) => {
+            // only consume wheel when pointer is inside our viewport
+            if (pointer.x < x || pointer.x > x + w || pointer.y < y || pointer.y > y + h) return;
+            setScroll(scrollY + dy * 0.5);
+        };
+        scene.input.on("wheel", wheelHandler);
+
+        // Inertia (optional — light)
+        const tickerEvent = scene.events.on("update", () => {
+            if (!dragging && Math.abs(velocity) > 0.1) {
+                setScroll(scrollY + velocity);
+                velocity *= friction;
+            }
+        });
+
+        function destroy() {
+            try { scene.input.off("wheel", wheelHandler); } catch(_) {}
+            try { scene.events.off("update", tickerEvent); } catch(_) {}
+            try { hit.destroy();   } catch(_) {}
+            try { cont.destroy();  } catch(_) {}
+            try { maskG.destroy(); } catch(_) {}
+        }
+
+        return {
+            container: cont,
+            hitZone:   hit,
+            setContentHeight: (px) => { contentH = px; setScroll(scrollY); },
+            scrollTo: setScroll,
+            getScroll: () => scrollY,
+            destroy,
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  DEBUG OVERLAY
+    //  DOM-based (not a Phaser object) so it survives scene transitions.
+    //  Toggle with FLAGS.debugKey ( ` by default ).
+    // ─────────────────────────────────────────────────────────────────────────
+    let _dbgEl = null, _dbgRAF = 0, _dbgVisible = false;
+    function _dbgEnsure() {
+        if (_dbgEl) return _dbgEl;
+        const el = document.createElement("div");
+        el.id = "nf-debug-overlay";
+        el.style.cssText = [
+            "position:fixed","top:6px","left:6px","z-index:99999",
+            "padding:6px 8px","background:rgba(0,0,0,0.72)","color:#0f0",
+            "font:11px/1.35 ui-monospace,Menlo,Consolas,monospace",
+            "border:1px solid #0f0","border-radius:4px",
+            "pointer-events:none","white-space:pre","letter-spacing:0.02em",
+            "text-shadow:0 0 2px #000",
+        ].join(";");
+        document.body.appendChild(el);
+        _dbgEl = el;
+        return el;
+    }
+    function _dbgTick() {
+        if (!_dbgVisible) return;
+        const el = _dbgEnsure();
+        const eDPR = effectiveDPR();
+        const cw = _game && _game.canvas ? _game.canvas.width  : 0;
+        const ch = _game && _game.canvas ? _game.canvas.height : 0;
+        const dw = _game && _game.scale  ? _game.scale.displaySize.width  : 0;
+        const dh = _game && _game.scale  ? _game.scale.displaySize.height : 0;
+        const fps = _game && _game.loop  ? _game.loop.actualFps.toFixed(1) : "—";
+        const drawC = (_game && _game.renderer && _game.renderer.drawCount) || 0;
+        const lines = [
+            "▌ NF ENGINE DEBUG",
+            "tier      : " + _tier + "  (auto=" + DEVICE.tier + ")",
+            "DPR       : device=" + DEVICE.dpr.toFixed(2) +
+                        "  cap=" + _preset().dprCap.toFixed(2) +
+                        "  eff=" + eDPR.toFixed(2),
+            "canvas    : " + cw + " × " + ch + " (backing px)",
+            "css size  : " + Math.round(dw) + " × " + Math.round(dh),
+            "viewport  : " + window.innerWidth + " × " + window.innerHeight,
+            "uiScale   : " + uiScale().toFixed(3),
+            "fps       : " + fps + "   draws/frame: " + drawC,
+            "perfMode  : " + (global._perfMode || "—"),
+            "press " + JSON.stringify(FLAGS.debugKey) + " to hide",
+        ];
+        el.textContent = lines.join("\n");
+        _dbgRAF = requestAnimationFrame(_dbgTick);
+    }
+    function dbgShow() {
+        _dbgVisible = true; _dbgEnsure().style.display = "block";
+        cancelAnimationFrame(_dbgRAF); _dbgRAF = requestAnimationFrame(_dbgTick);
+    }
+    function dbgHide() {
+        _dbgVisible = false;
+        if (_dbgEl) _dbgEl.style.display = "none";
+        cancelAnimationFrame(_dbgRAF);
+    }
+    function dbgToggle() { _dbgVisible ? dbgHide() : dbgShow(); }
+
+    window.addEventListener("keydown", (e) => {
+        if (e.key === FLAGS.debugKey) { dbgToggle(); }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  QUALITY API
+    // ─────────────────────────────────────────────────────────────────────────
+    function setTier(t) {
+        if (!PRESETS[t]) return false;
+        _tier = t;
+        try { localStorage.setItem("nf_quality", t); } catch (_) {}
+        // Re-apply hi-DPI with the new render scale
+        if (_hiDpiInstalled) _applyHiDPI();
+        return true;
+    }
+    function getTier() { return _tier; }
+    function getQualityInfo() {
+        return Object.assign({ tier: _tier }, _preset(), { effectiveDPR: effectiveDPR() });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  PUBLIC API
+    // ─────────────────────────────────────────────────────────────────────────
+    const NF = {
+        FLAGS,
+        DEVICE,
+        // hi-DPI
+        installHiDPI,
+        applyHiDPI:  _applyHiDPI,
+        effectiveDPR,
+        // text / UI
+        font,
+        fontStyle,
+        get uiScale() { return uiScale(); },
+        installFontClamp,
+        // scroll
+        makeScrollable,
+        // debug
+        Debug: { show: dbgShow, hide: dbgHide, toggle: dbgToggle },
+        // quality
+        Quality: { set: setTier, get: getTier, info: getQualityInfo, presets: PRESETS },
+        // patch entry point — call from postBoot in your config
+        attach(game) {
+            installHiDPI(game);
+            installFontClamp();
+            if (FLAGS.debug) dbgShow();
+        },
+    };
+
+    // Install font clamp ASAP — Phaser may already be loaded
+    if (global.Phaser) installFontClamp();
+    else {
+        // Try again once Phaser is ready
+        const id = setInterval(() => {
+            if (global.Phaser) { installFontClamp(); clearInterval(id); }
+        }, 50);
+        setTimeout(() => clearInterval(id), 10000);
+    }
+
+    global.NF = NF;
+})(window);
+
+
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -12052,7 +12611,8 @@ function showNotGame(scene){
     // TITLE
     // ════════════════════════════════════════════════════════════
     A(scene.add.text(CX,22,"N · O · T",{fontFamily:_F,fontSize:"30px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+3));
-    A(scene.add.text(CX,50,CURRENT_LANG==="tr"?"4×4 BULMACA vs RAKIP":"4×4 PUZZLE vs OPPONENT",{fontFamily:_F,fontSize:"9px",color:"#3a5a72",stroke:"#000",strokeThickness:0}).setOrigin(0.5).setDepth(D+3));
+    // [NF FIX] Subtitle 9px+koyu → 12px+okunabilir mavi
+    A(scene.add.text(CX,50,CURRENT_LANG==="tr"?"4×4 BULMACA vs RAKIP":"4×4 PUZZLE vs OPPONENT",{fontFamily:_F,fontSize:"12px",color:"#5a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+3));
 
     // ════════════════════════════════════════════════════════════
     // STATS + LIVES ROW  (y=132)
@@ -12094,8 +12654,8 @@ function showNotGame(scene){
         if(statsTxt&&statsTxt.active)statsTxt.setText("W:"+w+" L:"+l+" D:"+d+ex).setColor(gd.streak>1?"#FF8C00":"#4a8aaa");
     }
     _drawStats();
-    // ? button
-    const QX=342,QY=LR;
+    // ? button — [NF FIX] X 342→336 (ekran kenarindan ic boslukla cek)
+    const QX=336,QY=LR;
     const qG=A(scene.add.graphics().setDepth(D+4));
     qG.fillStyle(0x0a1624,1).fillCircle(QX,QY,12);qG.lineStyle(2,0x2a6a9a,1).strokeCircle(QX,QY,12);
     A(scene.add.text(QX,QY,"?",{fontFamily:_F,fontSize:"13px",color:"#55aadd",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+5));
@@ -12162,25 +12722,30 @@ function showNotGame(scene){
     // UPCOMING TURNS  (below grid, y≈468)
     // ════════════════════════════════════════════════════════════
     const ULY=GY0+GW+38; // clear of grid plate bottom
-    A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"— SIRADAKİ HAMLELER —":"— UPCOMING TURNS —",{fontFamily:_F,fontSize:"11px",color:"#4a7aaa",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
-    const UPY=ULY+32;
-    const UP_SZ=[42,32,26,21,17,14],UP_GP=8;
+    A(scene.add.text(CX,ULY,CURRENT_LANG==="tr"?"— SIRADAKİ HAMLELER —":"— UPCOMING TURNS —",{fontFamily:_F,fontSize:"12px",color:"#5a8aaa",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+3));
+    const UPY=ULY+34;
+    // [NF FIX] Eski [42,32,26,21,17,14] cok dengesizdi (son kutu 14px, font sigmaz).
+    // Yeni: daha esit dagilim, en kucuk kutu 22px → font (22*0.55)≈12px ic icine sigar.
+    const UP_SZ=[44,38,32,28,24,22],UP_GP=8;
     const UP_TW=UP_SZ.reduce((a,v)=>a+v,0)+(UP_SZ.length-1)*UP_GP;
     let ux=CX-UP_TW/2;
-    const UP_LABEL_Y = UPY + UP_SZ[0]/2 + 9; // fixed label row — below the tallest box
+    const UP_LABEL_Y = UPY + UP_SZ[0]/2 + 14; // [NF FIX] +9 → +14 daha rahat bosluk
     const upBoxes=[];
     for(let i=0;i<6;i++){
         const sz=UP_SZ[i],bx=Math.round(ux+sz/2);
         const ug=A(scene.add.graphics().setDepth(D+3));
-        const ut=A(scene.add.text(bx,UPY,"",{fontFamily:_F,fontSize:Math.max(10,sz-12)+"px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
-        const uw=A(scene.add.text(bx,UP_LABEL_Y,"",{fontFamily:_F,fontSize:"9px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
+        // [NF FIX] Font orantili: sz*0.55, min 12px (autoClamp 11 zaten korur)
+        const _letFs = Math.max(12, Math.round(sz*0.55))+"px";
+        const ut=A(scene.add.text(bx,UPY,"",{fontFamily:_F,fontSize:_letFs,color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0.5).setDepth(D+4));
+        const uw=A(scene.add.text(bx,UP_LABEL_Y,"",{fontFamily:_F,fontSize:"11px",color:"#FFD700",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+4));
         upBoxes.push({ug,ut,uw,bx,sz});ux+=sz+UP_GP;
     }
     function _drawUpcoming(){
         for(let i=0;i<6;i++){
             const{ug,ut,uw,bx,sz}=upBoxes[i];
             const t2=turn+i,l=getL(t2),isP=t2%2===0,cur=i===0;
-            const op=[1,.56,.33,.18,.09,.04][i],hx=LC_H[l],r=Math.max(4,sz*0.13);
+            // [NF FIX] Opaklik: ilk 3 kutu tam okunakli, sonrakiler daha hafif
+            const op=[1,.78,.55,.38,.25,.18][i],hx=LC_H[l],r=Math.max(4,sz*0.13);
             ug.clear().setAlpha(op);
             if(cur){
                 ug.fillStyle(0x0a1828,1).fillRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
@@ -12190,30 +12755,30 @@ function showNotGame(scene){
                 ug.fillStyle(0x080f18,1).fillRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
                 ug.lineStyle(1,0x131e28,1).strokeRoundedRect(bx-sz/2,UPY-sz/2,sz,sz,r);
             }
-            ut.setAlpha(op).setText(l).setColor(LC[l]).setPosition(bx,UPY).setFontSize(Math.max(10,sz-12)+"px");
-            uw.setAlpha(op).setText(isP?(CURRENT_LANG==="tr"?"SEN":"YOU"):(CURRENT_LANG==="tr"?"RAK":"OPP")).setColor(isP?"#FFD700":"#446677").setPosition(bx,UP_LABEL_Y);
+            ut.setAlpha(op).setText(l).setColor(LC[l]).setPosition(bx,UPY).setFontSize(Math.max(12,Math.round(sz*0.55))+"px");
+            uw.setAlpha(op).setText(isP?(CURRENT_LANG==="tr"?"SEN":"YOU"):(CURRENT_LANG==="tr"?"RAK":"OPP")).setColor(isP?"#FFD700":"#5a7a99").setPosition(bx,UP_LABEL_Y);
         }
     }
     _drawUpcoming();
 
     // ════════════════════════════════════════════════════════════
-    // GOLD HINTS BAR  (y≈532)
+    // GOLD HINTS BAR  (y≈532)  [NF FIX] yukseklik 40→52, font ve hizalama
     // ════════════════════════════════════════════════════════════
-    const GBY=UPY+56;
+    const GBY=UPY+62;
     const gbBg=A(scene.add.graphics().setDepth(D+2));
-    gbBg.fillStyle(0x0d1800,1).fillRoundedRect(GX0,GBY-20,GW,40,8);
-    gbBg.lineStyle(1.5,0x2a4400,1).strokeRoundedRect(GX0,GBY-20,GW,40,8);
-    // Üst satır: EARN etiketi ortada
-    A(scene.add.text(GX0+GW/2,GBY-8,CURRENT_LANG==="tr"?"— KAZAN —":"— EARN —",{fontFamily:_F,fontSize:"10px",color:"#88cc44",stroke:"#000",strokeThickness:2}).setOrigin(0.5,0.5).setDepth(D+3));
-    // Alt satır: 3 grup eşit aralıklı
+    gbBg.fillStyle(0x0d1800,1).fillRoundedRect(GX0,GBY-22,GW,52,8);
+    gbBg.lineStyle(1.5,0x3a5500,1).strokeRoundedRect(GX0,GBY-22,GW,52,8);
+    // Üst satır: EARN etiketi ortada — [NF FIX] 10→12px
+    A(scene.add.text(GX0+GW/2,GBY-8,CURRENT_LANG==="tr"?"— KAZAN —":"— EARN —",{fontFamily:_F,fontSize:"12px",color:"#aaee66",stroke:"#000",strokeThickness:2}).setOrigin(0.5,0.5).setDepth(D+3));
+    // Alt satır: 3 grup eşit aralıklı — [NF FIX] her slot icinde label ve miktar daha rahat
     const _earnItems=[["≤8t","300"],["≤12t","200"],["≤14t","100"]];
     const _earnSlotW = GW/3;
     _earnItems.forEach(([label,amt],idx)=>{
         const cx = GX0 + _earnSlotW*idx + _earnSlotW/2;
-        // label solda, ikon+miktar sağda — her slot kendi içinde hizalı
-        const labelTxt=A(scene.add.text(cx-30,GBY+8,label,{fontFamily:_F,fontSize:"11px",color:"#aabb66",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
-        A(scene.add.image(cx+10,GBY+8,"icon_gold").setDisplaySize(14,14).setDepth(D+3));
-        A(scene.add.text(cx+20,GBY+8,amt,{fontFamily:_F,fontSize:"12px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
+        // [NF FIX] label sol, ikon orta, miktar sag — slot icinde dengeli
+        A(scene.add.text(cx-34,GBY+12,label,{fontFamily:_F,fontSize:"12px",color:"#bbdd77",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
+        A(scene.add.image(cx+6,GBY+12,"icon_gold").setDisplaySize(16,16).setDepth(D+3));
+        A(scene.add.text(cx+18,GBY+12,amt,{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+3));
     });
 
     // ════════════════════════════════════════════════════════════
@@ -12256,28 +12821,31 @@ function showNotGame(scene){
             .lineStyle(1.5,0x0c1e30,1).strokeRoundedRect(GX0-8,GY0-8,GW+16,GW+16,12);
 
         if(gd.lives>0){
-            // Gold card
-            const cH=90,cY=gMid-46;
+            // Gold card — [NF FIX] yukseklik 90→128, font ve kontrast artirildi
+            const cH=128,cY=gMid-30;
             const cG=_SA(scene.add.graphics().setDepth(D+9));
             cG.fillStyle(0x07100a,1).fillRoundedRect(GX0,cY-cH/2,GW,cH,10);
-            cG.lineStyle(1.5,0x151e00,1).strokeRoundedRect(GX0,cY-cH/2,GW,cH,10);
-            cG.fillStyle(0xFFD700,0.04).fillRoundedRect(GX0,cY-cH/2,GW,18,{tl:10,tr:10,bl:0,br:0});
+            cG.lineStyle(1.5,0x2a3a08,1).strokeRoundedRect(GX0,cY-cH/2,GW,cH,10);
+            cG.fillStyle(0xFFD700,0.06).fillRoundedRect(GX0,cY-cH/2,GW,24,{tl:10,tr:10,bl:0,br:0});
 
-            // Card header
-            _SA(scene.add.image(GX0+10,cY-cH/2+9,"icon_gold").setDisplaySize(13,13).setDepth(D+10));
-            _SA(scene.add.text(GX0+22,cY-cH/2+9,CURRENT_LANG==="tr"?"BU MOD ALTIN KAZANDIRIR!":"THIS MODE EARNS YOU GOLD!",{fontFamily:_F,fontSize:"9px",color:"#7a6500"}).setOrigin(0,0.5).setDepth(D+10));
-            // Rows with icon+amount
-            [["≤ 8 turns","300"],["≤ 12 turns","200"],["≤ 14 turns","100"],["Streak bonus","+50"]].forEach(([a,b],ri)=>{
-                const ry=cY-cH/2+22+ri*13;
-                _SA(scene.add.text(GX0+8,ry,a,{fontFamily:_F,fontSize:"10px",color:"#384a28"}).setOrigin(0,0.5).setDepth(D+10));
-                _SA(scene.add.image(GX0+GW-30,ry,"icon_gold").setDisplaySize(12,12).setDepth(D+10));
-                _SA(scene.add.text(GX0+GW-20,ry,b,{fontFamily:_F,fontSize:"10px",color:"#8a7000"}).setOrigin(0,0.5).setDepth(D+10));
+            // Card header — [NF FIX] 9px→13px, koyu→parlak sari
+            _SA(scene.add.image(GX0+14,cY-cH/2+12,"icon_gold").setDisplaySize(16,16).setDepth(D+10));
+            _SA(scene.add.text(GX0+26,cY-cH/2+12,CURRENT_LANG==="tr"?"BU MOD ALTIN KAZANDIRIR!":"THIS MODE EARNS YOU GOLD!",{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+10));
+            // Rows with icon+amount — [NF FIX] 13px aralik → 19px, font 10px → 13px, kontrast acik
+            const _rowsLabels = CURRENT_LANG==="tr"
+                ? [["≤ 8 hamle","300"],["≤ 12 hamle","200"],["≤ 14 hamle","100"],["Seri bonusu","+50"]]
+                : [["≤ 8 turns","300"],["≤ 12 turns","200"],["≤ 14 turns","100"],["Streak bonus","+50"]];
+            _rowsLabels.forEach(([a,b],ri)=>{
+                const ry=cY-cH/2+34+ri*19;
+                _SA(scene.add.text(GX0+14,ry,a,{fontFamily:_F,fontSize:"13px",color:"#aaccaa",stroke:"#000",strokeThickness:1}).setOrigin(0,0.5).setDepth(D+10));
+                _SA(scene.add.image(GX0+GW-44,ry,"icon_gold").setDisplaySize(15,15).setDepth(D+10));
+                _SA(scene.add.text(GX0+GW-32,ry,b,{fontFamily:_F,fontSize:"13px",color:"#FFD700",stroke:"#000",strokeThickness:2}).setOrigin(0,0.5).setDepth(D+10));
             });
-            // Lives info
-            _SA(scene.add.text(CX,cY+cH/2-6,gd.lives+"/"+MAX_LIVES+(CURRENT_LANG==="tr"?" can kaldi  ·  12 saatte sifirlanir":" lives left  ·  resets every 12h"),{fontFamily:_F,fontSize:"8px",color:"#253545"}).setOrigin(0.5).setDepth(D+10));
+            // Lives info — [NF FIX] 8px→12px, koyu→okunabilir mavi
+            _SA(scene.add.text(CX,cY+cH/2-10,gd.lives+"/"+MAX_LIVES+(CURRENT_LANG==="tr"?" can kaldi  ·  12 saatte sifirlanir":" lives left  ·  resets every 12h"),{fontFamily:_F,fontSize:"12px",color:"#6a9abf",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+10));
 
-            // OYNA button
-            const btnY=gMid+44;
+            // OYNA button — [NF FIX] kart buyuduğu icin button daha asagi
+            const btnY=gMid+72;
             const bG=_SA(scene.add.graphics().setDepth(D+9));
             function _bD(h){
                 bG.clear();
@@ -12293,11 +12861,11 @@ function showNotGame(scene){
             bHz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideStart();_startGame();});
 
         }else{
-            // No lives
-            _SA(scene.add.text(CX,gMid-28,CURRENT_LANG==="tr"?"CANIN BITTI":"OUT OF LIVES",{fontFamily:_F,fontSize:"16px",color:"#cc3333",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
-            _SA(scene.add.text(CX,gMid-6,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION IN:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
-            const bCD=_SA(scene.add.text(CX,gMid+22,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"32px",color:"#FFD700",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
-            _SA(scene.add.text(CX,gMid+46,MAX_LIVES+(CURRENT_LANG==="tr"?" can sifirlanacak":" lives will reset"),{fontFamily:_F,fontSize:"9px",color:"#253545"}).setOrigin(0.5).setDepth(D+9));
+            // No lives — [NF FIX] font'lar buyutuldu, kontrast acildi
+            _SA(scene.add.text(CX,gMid-32,CURRENT_LANG==="tr"?"CANIN BITTI":"OUT OF LIVES",{fontFamily:_F,fontSize:"18px",color:"#cc3333",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid-8,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION IN:",{fontFamily:_F,fontSize:"12px",color:"#6a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+9));
+            const bCD=_SA(scene.add.text(CX,gMid+24,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"32px",color:"#FFD700",stroke:"#000",strokeThickness:4}).setOrigin(0.5).setDepth(D+9));
+            _SA(scene.add.text(CX,gMid+52,MAX_LIVES+(CURRENT_LANG==="tr"?" can sifirlanacak":" lives will reset"),{fontFamily:_F,fontSize:"12px",color:"#5a7a99",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+9));
             scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!bCD||!bCD.active)return;bCD.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
         }
     }
@@ -12342,8 +12910,9 @@ function showNotGame(scene){
             hz.on("pointerover",()=>_rD(true));hz.on("pointerout",()=>_rD(false));
             hz.on("pointerdown",()=>{try{NT_SFX.play("menu_click");}catch(_){}_hideRes();_startGame();});
         }else{
-            _RA(scene.add.text(CX,btnY+8,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION:",{fontFamily:_F,fontSize:"10px",color:"#3a5060"}).setOrigin(0.5).setDepth(D+9));
-            const cT2=_RA(scene.add.text(CX,btnY+26,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"22px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
+            // [NF FIX] No lives result — font'lar buyutuldu
+            _RA(scene.add.text(CX,btnY+8,CURRENT_LANG==="tr"?"SONRAKI SEANS:":"NEXT SESSION:",{fontFamily:_F,fontSize:"12px",color:"#6a8aaa",stroke:"#000",strokeThickness:1}).setOrigin(0.5).setDepth(D+9));
+            const cT2=_RA(scene.add.text(CX,btnY+30,_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))),{fontFamily:_F,fontSize:"22px",color:"#FFD700",stroke:"#000",strokeThickness:3}).setOrigin(0.5).setDepth(D+9));
             scene.time.addEvent({delay:1000,loop:true,callback:()=>{if(_closed||!cT2||!cT2.active)return;cT2.setText(_fmtMs(Math.max(0,CD_MS-(Date.now()-gd.lastOut))));}});
         }
     }
@@ -22969,20 +23538,23 @@ function _startPhaserGame(){
             expandParent:false,
         },
         render:{
-            // [PERF] Mobil tier'a göre render kalitesi ayarlanır
-            antialias:      _perfMode !== "low",            // low tier'da kapalı — GPU yükü azalır
-            antialiasGL:    _perfMode !== "low",
-            pixelArt:       false,                          // scale manager ezdikten sonra override
-            roundPixels:    _perfMode === "low",            // low'da piksel snap — blending yok
-            // [PERF] DPR cap: low=1.0, mid=1.5, high=cihaz DPR (max 2.0)
-            resolution:     _perfMode==="low"  ? 1.0 :
-                            _perfMode==="mid"  ? Math.min(window.devicePixelRatio||1, 1.5) :
-                                                 Math.min(window.devicePixelRatio||1, 2.0),
-            powerPreference:"high-performance",
-            batchSize:       _perfMode==="low" ? 512 : 2048, // düşük batch → daha az VRAM kullanımı
+            // [NF FIX] resolution alani Phaser 3.55+ icinde dead-code (sessizce yok sayilir).
+            // hiDPI flag'i kapali oldugu icin canvas backing store'a dokunmuyoruz —
+            // antialias/roundPixels eskisi gibi _perfMode'a gore set edilir.
+            antialias:       _perfMode !== "low",
+            antialiasGL:     _perfMode !== "low",
+            pixelArt:        false,
+            roundPixels:     _perfMode === "low",
+            powerPreference: "high-performance",
+            batchSize:       _perfMode === "low" ? 512 : 2048,
+            desynchronized:  true,                           // [NF FIX] frame latency azaltir
+            failIfMajorPerformanceCaveat: false,
         },
         callbacks:{
             postBoot:(game)=>{
+                // [NF FIX] Hi-DPI + responsive UI + scroll + debug overlay aktif
+                try { if (window.NF && NF.attach) NF.attach(game); } catch(e){ console.warn("[NF FIX] attach hatasi:", e); }
+
                 // [QUALITY] image-rendering: auto — pixelArt:false olsa da scale manager
                 // bazi Phaser surumlerinde canvas CSS'ini ezebilir; her resize'da tekrar uygula
                 const _fixCanvas = () => {
